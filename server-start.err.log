@@ -1,0 +1,25 @@
+Starting the MongoMemoryServer Instance failed, enable debug log for more information. Error:
+ StdoutInstanceError: Instance Failed to start with "DBException in initAndListen". Original Error:
+DBPathInUse: Unable to create/open the lock file: D:\Codex\POS\server\.mongo-data\mongo\mongod.lock (The process cannot access the file because it is being used by another process.). Ensure the user executing mongod is the owner of the lock file and has the appropriate permissions. Also make sure that another mongod instance is not already running on the D:\Codex\POS\server\.mongo-data\mongo directory
+    at MongoInstance.checkErrorInLine (D:\Codex\POS\server\node_modules\mongodb-memory-server-core\lib\util\MongoInstance.js:374:62)
+    at MongoInstance.stdoutHandler (D:\Codex\POS\server\node_modules\mongodb-memory-server-core\lib\util\MongoInstance.js:340:14)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+MongoDB connection failed: Instance Failed to start with "DBException in initAndListen". Original Error:
+DBPathInUse: Unable to create/open the lock file: D:\Codex\POS\server\.mongo-data\mongo\mongod.lock (The process cannot access the file because it is being used by another process.). Ensure the user executing mongod is the owner of the lock file and has the appropriate permissions. Also make sure that another mongod instance is not already running on the D:\Codex\POS\server\.mongo-data\mongo directory
+Starting the MongoMemoryServer Instance failed, enable debug log for more information. Error:
+ StdoutInstanceError: Instance Failed to start with "DBException in initAndListen". Original Error:
+DBPathInUse: Unable to create/open the lock file: D:\Codex\POS\server\.mongo-data\mongo\mongod.lock (The process cannot access the file because it is being used by another process.). Ensure the user executing mongod is the owner of the lock file and has the appropriate permissions. Also make sure that another mongod instance is not already running on the D:\Codex\POS\server\.mongo-data\mongo directory
+    at MongoInstance.checkErrorInLine (D:\Codex\POS\server\node_modules\mongodb-memory-server-core\lib\util\MongoInstance.js:374:62)
+    at MongoInstance.stdoutHandler (D:\Codex\POS\server\node_modules\mongodb-memory-server-core\lib\util\MongoInstance.js:340:14)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+MongoDB connection failed: Instance Failed to start with "DBException in initAndListen". Original Error:
+DBPathInUse: Unable to create/open the lock file: D:\Codex\POS\server\.mongo-data\mongo\mongod.lock (The process cannot access the file because it is being used by another process.). Ensure the user executing mongod is the owner of the lock file and has the appropriate permissions. Also make sure that another mongod instance is not already running on the D:\Codex\POS\server\.mongo-data\mongo directory
+^C^C
