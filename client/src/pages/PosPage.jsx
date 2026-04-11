@@ -21,6 +21,17 @@ const getItemAdjustmentTotal = (item) =>
 const getCartTotal = (cart) =>
   cart.reduce((sum, item) => sum + item.quantity * (Number(item.price) + getItemAdjustmentTotal(item)), 0);
 
+const buildCategoryOptions = (products) => [
+  { key: "All", label: "All" },
+  ...Array.from(
+    new Map(
+      products
+        .filter((product) => product.category)
+        .map((product) => [product.category, { key: product.category, label: product.category }])
+    ).values()
+  )
+];
+
 const PosPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -139,7 +150,7 @@ const PosPage = () => {
     });
   }, [products, editingOrder]);
 
-  const categories = useMemo(() => ["All", ...new Set(productsForSale.map((product) => product.category))], [productsForSale]);
+  const categoryOptions = useMemo(() => buildCategoryOptions(productsForSale), [productsForSale]);
   const totalCartItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
   const filteredProducts = useMemo(
@@ -299,31 +310,37 @@ const PosPage = () => {
                 </div>
                 <div className="rounded-2xl bg-white/90 px-3 py-2.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Category</p>
-                  <p className="mt-1 text-[13px] font-bold text-slate-900">{selectedCategory}</p>
+                  <p className="mt-1 text-[13px] font-bold text-slate-900">{selectedCategory === "All" ? "All" : selectedCategory}</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] xl:items-start">
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search products by name..."
-                className="input xl:max-w-md"
+                className="input"
               />
-              <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
-                {categories.map((category) => (
+              <div className="rounded-[1.4rem] border border-white/80 bg-white/70 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Categories</p>
+                  <p className="text-[11px] font-semibold text-slate-500">{Math.max(categoryOptions.length - 1, 0)} total</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 2xl:grid-cols-4">
+                  {categoryOptions.map((category) => (
                   <button
-                    key={category}
+                    key={category.key}
                     type="button"
-                    onClick={() => setSelectedCategory(category)}
-                    className={`whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition ${
-                      selectedCategory === category ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-amber-100"
+                    onClick={() => setSelectedCategory(category.key)}
+                    className={`rounded-[1rem] px-4 py-2.5 text-[13px] font-semibold transition ${
+                      selectedCategory === category.key ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-amber-100"
                     }`}
                   >
-                    {category}
+                    <span className="block truncate">{category.label}</span>
                   </button>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>

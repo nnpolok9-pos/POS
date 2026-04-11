@@ -109,6 +109,25 @@ const UI_TEXT = {
 };
 
 const translateCategory = (category, language) => CATEGORY_TRANSLATIONS[category]?.[language] || category;
+const buildCategoryOptions = (products) => [
+  { key: "All", labelKm: "ទាំងអស់", labelEn: "All" },
+  ...Array.from(
+    new Map(
+      products
+        .filter((product) => product.category)
+        .map((product) => [
+          product.category,
+          {
+            key: product.category,
+            labelKm: product.khmerCategory || translateCategory(product.category, "km"),
+            labelEn: product.category
+          }
+        ])
+    ).values()
+  )
+];
+const getCategoryLabel = (categoryOption, language) =>
+  language === "km" ? categoryOption.labelKm || categoryOption.labelEn : categoryOption.labelEn || categoryOption.labelKm;
 const getLocalizedProductName = (product, language) => (language === "km" ? product.khmerName || product.name : product.name);
 const getLocalizedProductDescription = (product, language) =>
   language === "km" ? product.khmerDescription || product.description || "" : product.description || "";
@@ -167,7 +186,7 @@ const CustomerOrderPage = () => {
   }, []);
 
   const text = UI_TEXT[language];
-  const categories = useMemo(() => ["All", ...new Set(products.map((product) => product.category))], [products]);
+  const categoryOptions = useMemo(() => buildCategoryOptions(products), [products]);
   const filteredProducts = useMemo(
     () =>
       products.filter((product) => {
@@ -336,19 +355,25 @@ const CustomerOrderPage = () => {
                   placeholder={text.search}
                   className="input xl:max-w-md"
                 />
-                <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
-                  {categories.map((category) => (
+                <div className="rounded-[1.4rem] border border-white/80 bg-white/70 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.categories}</p>
+                    <p className="text-[11px] font-semibold text-slate-500">{Math.max(categoryOptions.length - 1, 0)} {text.items}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 2xl:grid-cols-4">
+                    {categoryOptions.map((category) => (
                     <button
-                      key={category}
+                      key={category.key}
                       type="button"
-                      onClick={() => setSelectedCategory(category)}
-                      className={`whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition ${
-                        selectedCategory === category ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-amber-100"
+                      onClick={() => setSelectedCategory(category.key)}
+                      className={`rounded-[1rem] px-4 py-2.5 text-[13px] font-semibold transition ${
+                        selectedCategory === category.key ? "bg-slate-900 text-white" : "bg-white text-slate-600 hover:bg-amber-100"
                       }`}
                     >
-                      {translateCategory(category, language)}
+                      <span className="block truncate">{getCategoryLabel(category, language)}</span>
                     </button>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -425,18 +450,18 @@ const CustomerOrderPage = () => {
               </div>
 
               <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
-                {categories.map((category) => (
+                {categoryOptions.map((category) => (
                   <button
-                    key={category}
+                    key={category.key}
                     type="button"
-                    onClick={() => setSelectedCategory(category)}
+                    onClick={() => setSelectedCategory(category.key)}
                     className={`whitespace-nowrap rounded-full px-4 py-2.5 text-[12px] font-semibold transition ${
-                      selectedCategory === category
+                      selectedCategory === category.key
                         ? "bg-slate-900 text-white shadow-[0_10px_20px_rgba(15,23,42,0.22)]"
                         : "border border-white/80 bg-white/90 text-slate-600 shadow-sm"
                     }`}
                   >
-                    {translateCategory(category, language)}
+                    {getCategoryLabel(category, language)}
                   </button>
                 ))}
               </div>
