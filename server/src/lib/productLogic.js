@@ -5,6 +5,7 @@ const { getAllProducts, getProductById, saveProduct, saveInventoryMovement, dele
 
 const STOCK_UNITS = ["pieces", "gram", "teaspoon"];
 const COMPOSITE_PRODUCT_TYPES = ["combo", "combo_type"];
+const PRODUCT_TYPES = ["raw", "raw_material", "sauce", "seasoning", "combo", "combo_type"];
 
 const parseExpiryDate = (value) => {
   if (!value) {
@@ -64,26 +65,11 @@ const buildComboItems = (comboItems = []) =>
     .filter((item) => item.product && item.quantity > 0);
 
 const inferProductType = (product) => {
-  if (product?.productType === "combo") {
-    return "combo";
+  if (PRODUCT_TYPES.includes(product?.productType)) {
+    return product.productType;
   }
 
-  if (product?.productType === "combo_type") {
-    return "combo_type";
-  }
-
-  if (product?.productType === "raw_material") {
-    return "raw_material";
-  }
-
-  if (product?.productType === "sauce") {
-    return "sauce";
-  }
-
-  if (product?.productType === "seasoning") {
-    return "seasoning";
-  }
-
+  // Only fall back to combo detection when old records are missing productType.
   if (Array.isArray(product?.comboItems) && product.comboItems.length > 0) {
     return "combo";
   }
