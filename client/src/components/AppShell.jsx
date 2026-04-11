@@ -23,7 +23,7 @@ const AppShell = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const visibleNavItems = navItems.filter((item) => item.roles.includes(user?.role));
-  const shopName = settings?.shopName || "Fast Bites POS";
+  const shopName = settings?.shopName || "ASEN POS";
   const hasLogo = Boolean(settings?.logo);
 
   return (
@@ -31,7 +31,7 @@ const AppShell = () => {
       <div className="mx-auto flex min-h-screen max-w-[1720px] flex-col gap-3 p-3 sm:gap-4 sm:p-4 md:p-5 xl:flex-row">
         <div className="glass-card flex items-center justify-between px-3.5 py-2.5 xl:hidden">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-[#efe3d3] bg-white shadow-sm">
               {hasLogo ? (
                 <img src={imageUrl(settings.logo)} alt={shopName} className="h-full w-full object-contain p-1.5" />
               ) : (
@@ -39,8 +39,8 @@ const AppShell = () => {
               )}
             </div>
             <div>
-            <p className="font-display text-lg font-bold text-slate-900">{shopName}</p>
-            <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
+              <p className="font-display text-lg font-bold text-slate-900">{shopName}</p>
+              <p className="text-xs text-slate-500 capitalize">{user?.role}</p>
             </div>
           </div>
           <button type="button" onClick={() => setMobileNavOpen((current) => !current)} className="btn-secondary h-11 w-11 rounded-2xl p-0">
@@ -52,9 +52,9 @@ const AppShell = () => {
           <div className="overflow-hidden rounded-[1.6rem] border border-[#eadcc4] bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(252,244,228,0.94))] shadow-[0_14px_30px_rgba(160,120,50,0.08)]">
             <div className="bg-[radial-gradient(circle_at_top_left,rgba(245,146,63,0.22),transparent_45%)] p-3">
               <div className="flex justify-center">
-                <div className="flex h-28 w-full items-center justify-center overflow-hidden rounded-[1.6rem] border border-[#efe3d3] bg-white shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+                <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-[1.6rem] border border-[#efe3d3] bg-white px-3 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
                   {hasLogo ? (
-                    <img src={imageUrl(settings.logo)} alt={shopName} className="h-full w-full object-contain p-3" />
+                    <img src={imageUrl(settings.logo)} alt={shopName} className="h-full w-full object-contain" />
                   ) : (
                     <Store size={36} className="text-slate-400" />
                   )}
@@ -67,11 +67,18 @@ const AppShell = () => {
             <div className="border-b border-white/10 px-4 py-2.5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Account</p>
             </div>
-            <div className="px-4 py-3">
-              <p className="text-[13px] text-slate-300">Signed in as</p>
-              <p className="mt-1.5 text-[1.1rem] font-bold leading-tight text-white">{user?.name}</p>
-              <div className="mt-2 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#ffd7a8]">
-                {(user?.role || "").replaceAll("_", " ")}
+            <div className="px-4 py-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-[15px] font-bold text-white">
+                  {(user?.name || "U").charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] uppercase tracking-[0.16em] text-slate-400">Signed In As</p>
+                  <p className="mt-1.5 truncate text-[1.1rem] font-bold leading-tight text-white">{user?.name}</p>
+                  <div className="mt-2 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#ffd7a8]">
+                    {(user?.role || "").replaceAll("_", " ")}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -44,6 +44,7 @@ const PosPage = () => {
 
     return Number((getCartTotal(cart) - Number(editingOrder.total || 0)).toFixed(2));
   }, [cart, editingOrder]);
+  const requiresAdjustmentMethod = Boolean(editingOrder && editingOrder.status !== "queued" && editingDifference !== 0);
 
   useEffect(() => {
     const initPage = async () => {
@@ -369,6 +370,7 @@ const PosPage = () => {
           onAdjustmentMethodChange={setAdjustmentMethod}
           onUpdateAlternatives={updateItemAlternatives}
           allowItemCustomization={allowItemCustomization}
+          checkoutDisabled={requiresAdjustmentMethod && !adjustmentMethod}
         />
       </div>
     </>

@@ -1,0 +1,11 @@
+#!/bin/sh
+
+echo "Running repository verification before push..."
+node scripts/verify-repo.js || exit 1
+
+if [ "$VERIFY_PUSH_LOCAL" = "1" ]; then
+  echo "Running local smoke verification before push..."
+  node scripts/verify-local.js || exit 1
+fi
+
+exit 0

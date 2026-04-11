@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 
 const LoginPage = () => {
-  const [form, setForm] = useState({ email: "admin@fastbites.com", password: "admin123" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -47,7 +47,7 @@ const LoginPage = () => {
 
         <div className="p-8 md:p-10">
           <p className="font-display text-3xl font-extrabold text-slate-900">Sign in</p>
-          <p className="mt-2 text-sm text-slate-500">Use the seeded admin or staff account to get started.</p>
+          <p className="mt-2 text-sm text-slate-500">Sign in with your authorized business account to access the POS.</p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
             <label className="block">
@@ -75,11 +75,6 @@ const LoginPage = () => {
             </button>
           </form>
 
-          <div className="mt-6 rounded-3xl bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-semibold">Demo accounts</p>
-            <p>Admin: admin@fastbites.com / admin123</p>
-            <p>Staff: staff@fastbites.com / staff123</p>
-          </div>
         </div>
       </div>
     </div>

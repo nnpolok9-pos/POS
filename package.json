@@ -3,7 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "concurrently \"npm.cmd run dev --prefix server\" \"npm.cmd run dev --prefix client\""
+    "dev": "concurrently \"npm.cmd run dev --prefix server\" \"npm.cmd run dev --prefix client\"",
+    "verify:repo": "node scripts/verify-repo.js",
+    "verify:local": "node scripts/verify-local.js",
+    "verify:remote": "node scripts/verify-local.js",
+    "setup:push-guard": "node scripts/install-pre-push-hook.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

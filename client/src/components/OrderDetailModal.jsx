@@ -37,6 +37,8 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onSer
     return null;
   }
 
+  const isCustomerQueue = order.source === "customer" && order.status === "queued";
+
   return createPortal(
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4 sm:p-6" onClick={onClose}>
       <div className="flex min-h-full items-start justify-center py-4 sm:items-center" onClick={(event) => event.stopPropagation()}>
@@ -45,7 +47,7 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onSer
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="font-display text-xl font-bold text-slate-900 sm:text-2xl">{order.orderId}</h3>
-                {order.queueNumber ? <p className="mt-1 text-sm font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
+                {order.source === "customer" && order.queueNumber ? <p className="mt-1 text-sm font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
                 <p className="text-sm text-slate-500">
                   {formatDate(order.createdAt)} by {order.staff?.name || "Staff"}
                 </p>
@@ -107,7 +109,7 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onSer
               </button>
               {canEdit && (
                 <button type="button" onClick={onEdit} className="btn-secondary">
-                  Edit Order
+                  {isCustomerQueue ? "Retrieve Order" : "Edit Order"}
                 </button>
               )}
               {canServe && order.status === "food_serving" && (

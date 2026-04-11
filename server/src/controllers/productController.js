@@ -57,9 +57,9 @@ const createProduct = async (req, res) => {
   const forSale = toBoolean(req.body.forSale, true);
   const expiryDate = parseExpiryDate(req.body.expiryDate);
   const seasoningPerOrderConsumption = Math.max(0, Number(req.body.seasoningPerOrderConsumption || 0));
-  const pricing = resolvePricing({ price, regularPrice, promotionalPrice });
+  const pricing = productType === "raw_material" ? resolvePricing({ price: 0, regularPrice: 0, promotionalPrice: 0 }) : resolvePricing({ price, regularPrice, promotionalPrice });
 
-  if (!name || category === undefined || regularPrice === undefined || promotionalPrice === undefined) {
+  if (!name || category === undefined || (productType !== "raw_material" && (regularPrice === undefined || promotionalPrice === undefined))) {
     return res.status(400).json({ message: "Name, regular price, promotional price, and category are required" });
   }
 
@@ -194,11 +194,14 @@ const updateProduct = async (req, res) => {
       : product.seasoningPerOrderConsumption || 0;
   const comboItems =
     req.body.comboItems !== undefined ? buildComboItems(parseComboItemsInput(req.body.comboItems)) : buildComboItems(product.comboItems || []);
-  const pricing = resolvePricing({
-    price: req.body.price ?? product.price,
-    regularPrice: req.body.regularPrice ?? product.regularPrice ?? product.price,
-    promotionalPrice: req.body.promotionalPrice ?? product.promotionalPrice ?? product.price
-  });
+  const pricing =
+    nextProductType === "raw_material"
+      ? resolvePricing({ price: 0, regularPrice: 0, promotionalPrice: 0 })
+      : resolvePricing({
+          price: req.body.price ?? product.price,
+          regularPrice: req.body.regularPrice ?? product.regularPrice ?? product.price,
+          promotionalPrice: req.body.promotionalPrice ?? product.promotionalPrice ?? product.price
+        });
 
   Object.assign(product, {
     name: req.body.name ?? product.name,

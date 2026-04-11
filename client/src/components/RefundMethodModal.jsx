@@ -55,6 +55,9 @@ const RefundMethodModal = ({ open, order, refundMethod, onRefundMethodChange, on
                   </button>
                 ))}
               </div>
+              {refundAmount > 0 && !refundMethod ? (
+                <p className="mt-2 text-xs font-semibold text-rose-600">Select the refund method before confirming the void sale.</p>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-3">

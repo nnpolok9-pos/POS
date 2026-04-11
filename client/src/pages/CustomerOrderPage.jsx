@@ -137,7 +137,7 @@ const CustomerOrderPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [queueOrder, setQueueOrder] = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const [shop, setShop] = useState({ shopName: "Fast Bites POS", address: "", logo: "" });
+  const [shop, setShop] = useState({ shopName: "ASEN POS", address: "", logo: "" });
   const [language, setLanguage] = useState(() => localStorage.getItem("customer-language") || "km");
 
   useEffect(() => {
@@ -152,7 +152,7 @@ const CustomerOrderPage = () => {
 
         setProducts(menu);
         setShop({
-          shopName: settings?.shopName || "Fast Bites POS",
+          shopName: settings?.shopName || "ASEN POS",
           address: settings?.address || "",
           logo: settings?.logo || ""
         });

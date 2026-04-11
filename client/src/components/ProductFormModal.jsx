@@ -19,6 +19,7 @@ const productTypeLabel = (type) =>
 
 const COMPOSITE_PRODUCT_TYPES = ["combo", "combo_type"];
 const isCompositeType = (type) => COMPOSITE_PRODUCT_TYPES.includes(type);
+const isBaseMaterialType = (type) => type === "raw_material";
 
 const initialState = {
   name: "",
@@ -282,8 +283,11 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
   const handleSubmit = (event) => {
     event.preventDefault();
     const formData = new FormData();
+    const shouldHidePricing = isBaseMaterialType(form.productType);
     const payload = {
       ...form,
+      regularPrice: shouldHidePricing ? 0 : form.regularPrice,
+      promotionalPrice: shouldHidePricing ? 0 : form.promotionalPrice,
       stock: isCompositeType(form.productType) ? 0 : form.stock,
       seasoningPerOrderConsumption: form.productType === "seasoning" ? form.seasoningPerOrderConsumption || 0 : 0,
       expiryDate: isCompositeType(form.productType) ? "" : form.expiryDate,
@@ -344,32 +348,36 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
             <span className="mb-2 block text-sm font-semibold text-slate-600">Khmer Product Name</span>
             <input name="khmerName" value={form.khmerName} onChange={handleChange} className="input" placeholder="Optional Khmer name for customer menu" />
           </label>
-          <label>
-            <span className="mb-2 block text-sm font-semibold text-slate-600">Regular Price (KHR)</span>
-            <input
-              name="regularPrice"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.regularPrice}
-              onChange={handleChange}
-              className="input"
-              required
-            />
-          </label>
-          <label>
-            <span className="mb-2 block text-sm font-semibold text-slate-600">Promotional Price (KHR)</span>
-            <input
-              name="promotionalPrice"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.promotionalPrice}
-              onChange={handleChange}
-              className="input"
-              required
-            />
-          </label>
+          {!isBaseMaterialType(form.productType) && (
+            <>
+              <label>
+                <span className="mb-2 block text-sm font-semibold text-slate-600">Regular Price (KHR)</span>
+                <input
+                  name="regularPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.regularPrice}
+                  onChange={handleChange}
+                  className="input"
+                  required
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-semibold text-slate-600">Promotional Price (KHR)</span>
+                <input
+                  name="promotionalPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.promotionalPrice}
+                  onChange={handleChange}
+                  className="input"
+                  required
+                />
+              </label>
+            </>
+          )}
           <label>
             <span className="mb-2 block text-sm font-semibold text-slate-600">Category (English)</span>
             <input

@@ -61,3 +61,17 @@ Version: '10.11.13-MariaDB'  socket: ''  port: 3307  mariadb.org binary distribu
 2026-04-11  8:22:09 0 [Note] Server socket created on IP: '127.0.0.1'.
 2026-04-11  8:22:09 0 [Note] D:\Codex\POS\.mysql-test\mariadb\mariadb-10.11.13-winx64\bin\mariadbd.exe: ready for connections.
 Version: '10.11.13-MariaDB'  socket: ''  port: 3307  mariadb.org binary distribution
+2026-04-11 15:21:33 6 [Warning] Aborted connection 6 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 15:21:33 4 [Warning] Aborted connection 4 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 15:21:33 8 [Warning] Aborted connection 8 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 15:21:33 10 [Warning] Aborted connection 10 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 15:21:33 5 [Warning] Aborted connection 5 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 15:21:33 7 [Warning] Aborted connection 7 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 15:21:33 9 [Warning] Aborted connection 9 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 15:21:34 16 [Warning] Aborted connection 16 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 15:21:34 17 [Warning] Aborted connection 17 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 15:21:34 18 [Warning] Aborted connection 18 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 16:48:51 12 [Warning] Aborted connection 12 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 16:48:51 13 [Warning] Aborted connection 13 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 16:48:51 14 [Warning] Aborted connection 14 to db: 'fast_food_pos' user: 'root' host: 'localhost' (Got an error reading communication packets)
+2026-04-11 16:48:51 0 [Note] console_event_handler: received CTRL_CLOSE_EVENT event, terminating

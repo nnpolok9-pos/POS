@@ -60,7 +60,8 @@ const CartPanel = ({
   showPaymentSection = true,
   latestOrderLabel = "Last Order",
   showLatestPrint = true,
-  labels = {}
+  labels = {},
+  checkoutDisabled = false
 }) => {
   const text = {
     emptyCart: "Add products from the grid to start an order.",
@@ -327,7 +328,7 @@ const CartPanel = ({
         )}
 
         <div className="space-y-2">
-          <button type="button" onClick={onCheckout} disabled={cart.length === 0} className="btn-primary w-full">
+          <button type="button" onClick={onCheckout} disabled={cart.length === 0 || checkoutDisabled} className="btn-primary w-full">
             {checkoutLabel}
           </button>
           {cart.length > 0 && (
@@ -351,12 +352,12 @@ const CartPanel = ({
               {isQueuedLatestOrder ? text.showQueueNumber : text.orderSentToServing}
             </p>
           </div>
-          <div className="flex items-center justify-between gap-3 p-4">
-            <div className="min-w-0">
+          <div className={`flex gap-3 p-4 ${isQueuedLatestOrder ? "flex-col items-center justify-center text-center" : "items-center justify-between"}`}>
+            <div className={`min-w-0 ${isQueuedLatestOrder ? "w-full" : ""}`}>
               {isQueuedLatestOrder && latestOrder.queueNumber ? (
-                <div className="rounded-[1.5rem] bg-white/80 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                <div className="mx-auto flex max-w-[260px] flex-col items-center rounded-[1.5rem] bg-white/80 px-6 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-600">{text.queueNumber}</p>
-                  <p className="mt-1 text-[1.85rem] font-extrabold leading-none text-slate-950">#{latestOrder.queueNumber}</p>
+                  <p className="mt-2 text-[2.4rem] font-extrabold leading-none text-slate-950">#{latestOrder.queueNumber}</p>
                 </div>
               ) : (
                 <div className="rounded-[1.5rem] bg-white/80 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
@@ -366,12 +367,12 @@ const CartPanel = ({
                   </p>
                 </div>
               )}
-              <div className="mt-3 space-y-1 text-[13px] text-emerald-900">
+              <div className={`mt-3 space-y-1 text-[13px] text-emerald-900 ${isQueuedLatestOrder ? "text-center" : ""}`}>
                 <p className="font-semibold text-slate-900">{latestOrder.orderId}</p>
                 <p>{formatDate(latestOrder.createdAt)}</p>
               </div>
             </div>
-            {showLatestPrint && (
+            {showLatestPrint && !isQueuedLatestOrder && (
               <button type="button" onClick={onPrintLatest} className="btn-secondary gap-2">
                 <Printer size={16} />
                 Print

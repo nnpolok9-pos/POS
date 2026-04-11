@@ -43,6 +43,7 @@ const statusFilterStyles = {
 };
 
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
+const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -66,6 +67,11 @@ const OrdersPage = () => {
   const [serveSubmitting, setServeSubmitting] = useState(false);
   const [sauceProducts, setSauceProducts] = useState([]);
 
+  const loadSauces = async () => {
+    const products = await productService.getAdminProducts();
+    setSauceProducts(products.filter((product) => product.productType === "sauce"));
+  };
+
   const loadOrders = async (filters = {}) => {
     setLoading(true);
     try {
@@ -83,16 +89,15 @@ const OrdersPage = () => {
   }, []);
 
   useEffect(() => {
-    const loadSauces = async () => {
+    const bootSauces = async () => {
       try {
-        const products = await productService.getAdminProducts();
-        setSauceProducts(products.filter((product) => product.productType === "sauce"));
+        await loadSauces();
       } catch (error) {
         toast.error(error.response?.data?.message || "Failed to load sauce items");
       }
     };
 
-    loadSauces();
+    bootSauces();
   }, []);
 
   const handleGenerate = async () => {
@@ -150,6 +155,15 @@ const OrdersPage = () => {
       toast.error(error.response?.data?.message || "Failed to serve order");
     } finally {
       setServeSubmitting(false);
+    }
+  };
+
+  const openServeDialog = async (order) => {
+    try {
+      await loadSauces();
+      setServingOrder(order);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to load sauce items");
     }
   };
 
@@ -404,7 +418,7 @@ const OrdersPage = () => {
                   <td className="py-3 pr-4 font-semibold text-slate-700">{index + 1}</td>
                   <td className="py-3 pr-4">
                     <p className="font-semibold text-slate-900">{order.orderId}</p>
-                    {order.queueNumber ? <p className="text-xs font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
+                    {order.source === "customer" && order.queueNumber ? <p className="text-xs font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
                     <p className="text-xs capitalize text-slate-500">{order.paymentMethod || "unpaid queue"}</p>
                     {order.editHistory?.length > 0 && (
                       <button type="button" onClick={() => setHistoryOrder(order)} className="mt-2 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
@@ -445,7 +459,7 @@ const OrdersPage = () => {
                         className="btn-secondary h-10 gap-2 px-3 text-sm"
                         >
                           <Pencil size={16} />
-                          {order.status === "queued" ? "Retrieve" : "Edit"}
+                          {isCustomerQueueOrder(order) ? "Retrieve" : "Edit"}
                         </button>
                       )}
                     <button type="button" onClick={() => printReceipt(order, shopSettings)} className="btn-secondary h-10 gap-2 px-3 text-sm">
@@ -453,7 +467,7 @@ const OrdersPage = () => {
                       Print
                     </button>
                     {canMutateOrders && order.status === "food_serving" && (
-                      <button type="button" onClick={() => setServingOrder(order)} className="btn-secondary h-10 gap-2 px-3 text-sm text-emerald-700">
+                      <button type="button" onClick={() => openServeDialog(order)} className="btn-secondary h-10 gap-2 px-3 text-sm text-emerald-700">
                         <CheckCircle2 size={16} />
                         Served
                       </button>
@@ -479,7 +493,7 @@ const OrdersPage = () => {
         onClose={() => setSelectedOrder(null)}
         onPrint={() => printReceipt(selectedOrder, shopSettings)}
         onEdit={() => navigate(`/pos?editOrder=${selectedOrder.id}`, { state: { returnTo: "/orders" } })}
-        onServe={() => setServingOrder(selectedOrder)}
+        onServe={() => openServeDialog(selectedOrder)}
         onVoid={() => openVoidDialog(selectedOrder)}
         canEdit={selectedOrder ? canEditOrder(selectedOrder) : false}
         canServe={canMutateOrders && selectedOrder?.status === "food_serving"}

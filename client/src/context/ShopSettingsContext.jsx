@@ -5,7 +5,7 @@ import { shopSettingsService } from "../services/shopSettingsService";
 const ShopSettingsContext = createContext(null);
 
 const fallbackSettings = {
-  shopName: "Fast Bites POS",
+  shopName: "ASEN POS",
   address: "",
   logo: ""
 };

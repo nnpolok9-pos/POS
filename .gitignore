@@ -1,7 +1,31 @@
-node_modules
-dist
+# Dependencies
+node_modules/
+
+# Environment and secrets
 .env
-server/.env
-client/.env
-server/src/uploads/products/*
+.env.*
+!.env.example
+
+# Runtime uploads and images
+uploads/
+images/
+product-images/
+server/src/uploads/
 !server/src/uploads/products/.gitkeep
+
+# Logs
+logs/
+*.log
+
+# Temp, cache, and generated output
+tmp/
+cache/
+dist/
+build/
+.mysql-test/
+server/.mongo-data/
+server/node_modules/.cache/
+
+# Dumps and backups
+*.sql
+*.bak
