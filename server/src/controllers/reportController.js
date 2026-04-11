@@ -1,81 +1,23 @@
-const Order = require("../models/Order");
-const Product = require("../models/Product");
+const { getOrders, getAllProducts } = require("../lib/dataStore");
+const { inferProductType, isCompositeProductType, buildCompositeRequirements } = require("../lib/productLogic");
 
 const REPORT_TIMEZONE = process.env.REPORT_TIMEZONE || process.env.TZ || "Asia/Bangkok";
 const COMPLETED_STATUSES = ["completed", "confirmed"];
-const inferProductType = (product) => {
-  if (product?.productType === "combo") {
-    return "combo";
-  }
 
-  if (product?.productType === "combo_type") {
-    return "combo_type";
-  }
-
-  if (product?.productType === "raw_material") {
-    return "raw_material";
-  }
-
-  if (product?.productType === "sauce") {
-    return "sauce";
-  }
-
-  if (product?.productType === "seasoning") {
-    return "seasoning";
-  }
-
-  if (Array.isArray(product?.comboItems) && product.comboItems.length > 0) {
-    return "combo";
-  }
-
-  return "raw";
+const buildDateRange = (from, to) => {
+  const now = new Date();
+  const start = from ? new Date(`${from}T00:00:00.000`) : new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = to ? new Date(`${to}T23:59:59.999`) : new Date();
+  return { start, end };
 };
 
-const COMPOSITE_PRODUCT_TYPES = ["combo", "combo_type"];
-const isCompositeProductType = (productType) => COMPOSITE_PRODUCT_TYPES.includes(productType);
-const isBaseProductType = (product) => !isCompositeProductType(inferProductType(product));
-
-const buildCompositeRequirements = (product, productMap, multiplier = 1, trail = new Set()) => {
-  const normalizedType = inferProductType(product);
-  const productId = String(product?._id || "");
-
-  if (!isCompositeProductType(normalizedType)) {
-    return new Map([[productId, multiplier]]);
-  }
-
-  if (!Array.isArray(product?.comboItems) || product.comboItems.length === 0 || trail.has(productId)) {
-    return null;
-  }
-
-  const nextTrail = new Set(trail);
-  nextTrail.add(productId);
-  const requirements = new Map();
-
-  for (const comboItem of product.comboItems) {
-    const linkedProduct = productMap.get(String(comboItem.product?._id || comboItem.product));
-
-    if (!linkedProduct) {
-      return null;
-    }
-
-    const nestedRequirements = buildCompositeRequirements(
-      linkedProduct,
-      productMap,
-      multiplier * Number(comboItem.quantity || 0),
-      nextTrail
-    );
-
-    if (!nestedRequirements) {
-      return null;
-    }
-
-    nestedRequirements.forEach((quantity, key) => {
-      requirements.set(key, (requirements.get(key) || 0) + quantity);
-    });
-  }
-
-  return requirements;
-};
+const toReportDay = (dateValue) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: REPORT_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date(dateValue));
 
 const calculateProductInventory = (product, productMap) => {
   const lowStockThreshold = Number(product?.lowStockThreshold) || 5;
@@ -90,28 +32,16 @@ const calculateProductInventory = (product, productMap) => {
   }
 
   const requirements = buildCompositeRequirements(product, productMap);
-
   if (!requirements?.size) {
-    return {
-      stock: 0,
-      lowStock: true,
-      isActive: false
-    };
+    return { stock: 0, lowStock: true, isActive: false };
   }
 
   let sellableStock = Infinity;
-
   for (const [requiredProductId, requiredQuantity] of requirements.entries()) {
     const rawProduct = productMap.get(requiredProductId);
-
     if (!rawProduct || requiredQuantity <= 0) {
-      return {
-        stock: 0,
-        lowStock: true,
-        isActive: false
-      };
+      return { stock: 0, lowStock: true, isActive: false };
     }
-
     sellableStock = Math.min(sellableStock, Math.floor((Number(rawProduct.stock) || 0) / requiredQuantity));
   }
 
@@ -123,59 +53,58 @@ const calculateProductInventory = (product, productMap) => {
   };
 };
 
-const buildDateRange = (from, to) => {
-  const now = new Date();
-  const start = from ? new Date(`${from}T00:00:00.000`) : new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = to ? new Date(`${to}T23:59:59.999`) : new Date();
-  return { start, end };
-};
-
-const getSalesReport = async (req, res) => {
+const getSalesReport = async (_req, res) => {
+  const allOrders = await getOrders();
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const completedOrders = allOrders.filter((order) => COMPLETED_STATUSES.includes(order.status));
 
-  const [daily, monthly, topSelling] = await Promise.all([
-    Order.aggregate([
-      { $match: { status: { $in: COMPLETED_STATUSES }, createdAt: { $gte: startOfDay } } },
-      { $group: { _id: null, totalSales: { $sum: "$total" }, orderCount: { $sum: 1 } } }
-    ]),
-    Order.aggregate([
-      { $match: { status: { $in: COMPLETED_STATUSES }, createdAt: { $gte: startOfMonth } } },
-      { $group: { _id: null, totalSales: { $sum: "$total" }, orderCount: { $sum: 1 } } }
-    ]),
-    Order.aggregate([
-      { $match: { status: { $in: COMPLETED_STATUSES } } },
-      { $unwind: "$items" },
-      {
-        $group: {
-          _id: "$items.product",
-          name: { $first: "$items.name" },
-          quantitySold: { $sum: "$items.quantity" },
-          revenue: { $sum: "$items.subtotal" }
-        }
-      },
-      { $sort: { quantitySold: -1 } },
-      { $limit: 5 }
-    ])
-  ]);
+  const dailyOrders = completedOrders.filter((order) => new Date(order.createdAt) >= startOfDay);
+  const monthlyOrders = completedOrders.filter((order) => new Date(order.createdAt) >= startOfMonth);
+
+  const topSellingMap = new Map();
+  completedOrders.forEach((order) => {
+    order.items.forEach((item) => {
+      const key = String(item.product);
+      const existing = topSellingMap.get(key) || {
+        _id: key,
+        name: item.name,
+        quantitySold: 0,
+        revenue: 0
+      };
+      existing.quantitySold += Number(item.quantity || 0);
+      existing.revenue += Number(item.subtotal || 0);
+      topSellingMap.set(key, existing);
+    });
+  });
+
+  const topSelling = [...topSellingMap.values()]
+    .sort((a, b) => b.quantitySold - a.quantitySold || b.revenue - a.revenue)
+    .slice(0, 5);
 
   res.json({
-    daily: daily[0] || { totalSales: 0, orderCount: 0 },
-    monthly: monthly[0] || { totalSales: 0, orderCount: 0 },
+    daily: {
+      totalSales: dailyOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+      orderCount: dailyOrders.length
+    },
+    monthly: {
+      totalSales: monthlyOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+      orderCount: monthlyOrders.length
+    },
     topSelling
   });
 };
 
-const getLowStockProducts = async (req, res) => {
-  const products = await Product.find({}).populate("comboItems.product", "name sku stock productType lowStockThreshold").sort({ category: 1, name: 1 });
-  const productMap = new Map(products.map((product) => [String(product._id), product]));
+const getLowStockProducts = async (_req, res) => {
+  const products = await getAllProducts();
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
 
   const lowStockProducts = products
     .map((product) => {
       const inventory = calculateProductInventory(product, productMap);
       return {
-        ...product.toJSON(),
+        ...product,
         productType: inferProductType(product),
         stock: inventory.stock,
         lowStock: inventory.lowStock,
@@ -188,29 +117,18 @@ const getLowStockProducts = async (req, res) => {
   res.json(lowStockProducts);
 };
 
-const getDashboardSummary = async (req, res) => {
-  const [sales, products] = await Promise.all([
-    Order.aggregate([
-      {
-        $facet: {
-          totalRevenue: [{ $match: { status: { $in: COMPLETED_STATUSES } } }, { $group: { _id: null, value: { $sum: "$total" } } }],
-          totalOrders: [{ $match: { status: { $in: COMPLETED_STATUSES } } }, { $count: "value" }]
-        }
-      }
-    ]),
-    Product.find({}).populate("comboItems.product", "name sku stock productType lowStockThreshold")
-  ]);
-
-  const productMap = new Map(products.map((product) => [String(product._id), product]));
-
+const getDashboardSummary = async (_req, res) => {
+  const [orders, products] = await Promise.all([getOrders(), getAllProducts()]);
+  const completedOrders = orders.filter((order) => COMPLETED_STATUSES.includes(order.status));
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
   const lowStockCount = products.reduce((count, product) => {
     const inventory = calculateProductInventory(product, productMap);
     return count + (inventory.lowStock ? 1 : 0);
   }, 0);
 
   res.json({
-    totalRevenue: sales[0]?.totalRevenue[0]?.value || 0,
-    totalOrders: sales[0]?.totalOrders[0]?.value || 0,
+    totalRevenue: completedOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+    totalOrders: completedOrders.length,
     lowStockCount,
     productCount: products.length
   });
@@ -219,102 +137,75 @@ const getDashboardSummary = async (req, res) => {
 const getSalesRangeReport = async (req, res) => {
   const { from, to } = req.query;
   const { start, end } = buildDateRange(from, to);
+  const orders = (await getOrders()).filter(
+    (order) => COMPLETED_STATUSES.includes(order.status) && new Date(order.createdAt) >= start && new Date(order.createdAt) <= end
+  );
 
-  const rows = await Order.aggregate([
-    {
-      $match: {
-        status: { $in: COMPLETED_STATUSES },
-        createdAt: { $gte: start, $lte: end }
-      }
-    },
-    {
-      $group: {
-        _id: {
-          $dateToString: {
-            format: "%Y-%m-%d",
-            date: "$createdAt",
-            timezone: REPORT_TIMEZONE
-          }
-        },
-        totalSaleAmount: { $sum: "$total" },
-        numberOfOrder: { $sum: 1 },
-        cashAmount: {
-          $sum: {
-            $cond: [{ $eq: ["$paymentMethod", "cash"] }, "$total", 0]
-          }
-        },
-        cardAmount: {
-          $sum: {
-            $cond: [{ $eq: ["$paymentMethod", "card"] }, "$total", 0]
-          }
-        },
-        qrAmount: {
-          $sum: {
-            $cond: [{ $eq: ["$paymentMethod", "qr"] }, "$total", 0]
-          }
-        }
-      }
-    },
-    { $sort: { _id: 1 } }
-  ]);
+  const grouped = new Map();
+  orders.forEach((order) => {
+    const date = toReportDay(order.createdAt);
+    const existing = grouped.get(date) || {
+      totalSaleAmount: 0,
+      numberOfOrder: 0,
+      cash: 0,
+      card: 0,
+      qr: 0
+    };
+    existing.totalSaleAmount += Number(order.total || 0);
+    existing.numberOfOrder += 1;
+    existing[order.paymentMethod || "cash"] += Number(order.total || 0);
+    grouped.set(date, existing);
+  });
 
-  res.json({
-    from: start,
-    to: end,
-    rows: rows.map((row, index) => ({
+  const rows = [...grouped.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, row], index) => ({
       sl: index + 1,
-      date: row._id,
+      date,
       totalSaleAmount: row.totalSaleAmount,
       numberOfOrder: row.numberOfOrder,
       paymentBy: {
-        cash: row.cashAmount,
-        card: row.cardAmount,
-        qr: row.qrAmount
+        cash: row.cash,
+        card: row.card,
+        qr: row.qr
       }
-    }))
-  });
+    }));
+
+  res.json({ from: start, to: end, rows });
 };
 
 const getCashPositionReport = async (req, res) => {
   const { from, to } = req.query;
   const { start, end } = buildDateRange(from, to);
+  const orders = (await getOrders()).filter(
+    (order) => COMPLETED_STATUSES.includes(order.status) && new Date(order.createdAt) >= start && new Date(order.createdAt) <= end
+  );
 
-  const rows = await Order.aggregate([
-    {
-      $match: {
-        status: { $in: COMPLETED_STATUSES },
-        createdAt: { $gte: start, $lte: end }
-      }
-    },
-    {
-      $group: {
-        _id: {
-          $dateToString: {
-            format: "%Y-%m-%d",
-            date: "$createdAt",
-            timezone: REPORT_TIMEZONE
-          }
-        },
-        cashAmount: {
-          $sum: {
-            $cond: [{ $eq: ["$paymentMethod", "cash"] }, "$total", 0]
-          }
-        },
-        cardAmount: {
-          $sum: {
-            $cond: [{ $eq: ["$paymentMethod", "card"] }, "$total", 0]
-          }
-        },
-        qrAmount: {
-          $sum: {
-            $cond: [{ $eq: ["$paymentMethod", "qr"] }, "$total", 0]
-          }
-        },
-        totalAmount: { $sum: "$total" }
-      }
-    },
-    { $sort: { _id: 1 } }
-  ]);
+  const grouped = new Map();
+  orders.forEach((order) => {
+    const date = toReportDay(order.createdAt);
+    const existing = grouped.get(date) || { cashAmount: 0, cardAmount: 0, qrAmount: 0, totalAmount: 0 };
+    existing.totalAmount += Number(order.total || 0);
+    if (order.paymentMethod === "card") {
+      existing.cardAmount += Number(order.total || 0);
+    } else if (order.paymentMethod === "qr") {
+      existing.qrAmount += Number(order.total || 0);
+    } else {
+      existing.cashAmount += Number(order.total || 0);
+    }
+    grouped.set(date, existing);
+  });
+
+  const rows = [...grouped.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, row], index) => ({
+      sl: index + 1,
+      date,
+      cashAmount: row.cashAmount,
+      cardAmount: row.cardAmount,
+      qrAmount: row.qrAmount,
+      totalAmount: row.totalAmount
+    }));
 
   const totals = rows.reduce(
     (acc, row) => {
@@ -327,19 +218,7 @@ const getCashPositionReport = async (req, res) => {
     { cash: 0, card: 0, qr: 0, total: 0 }
   );
 
-  res.json({
-    from: start,
-    to: end,
-    totals,
-    rows: rows.map((row, index) => ({
-      sl: index + 1,
-      date: row._id,
-      cashAmount: row.cashAmount,
-      cardAmount: row.cardAmount,
-      qrAmount: row.qrAmount,
-      totalAmount: row.totalAmount
-    }))
-  });
+  res.json({ from: start, to: end, totals, rows });
 };
 
 const getOrdersByDate = async (req, res) => {
@@ -351,17 +230,11 @@ const getOrdersByDate = async (req, res) => {
 
   const start = new Date(`${date}T00:00:00.000`);
   const end = new Date(`${date}T23:59:59.999`);
+  const orders = (await getOrders())
+    .filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  const orders = await Order.find({
-    createdAt: { $gte: start, $lte: end }
-  })
-    .populate("staff", "name email role")
-    .sort({ createdAt: -1 });
-
-  res.json({
-    date,
-    orders
-  });
+  res.json({ date, orders });
 };
 
 module.exports = {

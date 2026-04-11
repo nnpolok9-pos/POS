@@ -1,6 +1,6 @@
-const Order = require("../models/Order");
-const Product = require("../models/Product");
 const generateOrderId = require("../utils/generateOrderId");
+const { getAllProducts, getOrders: getAllOrders, getOrderById: getStoredOrderById, saveOrder, getUsersByIds } = require("../lib/dataStore");
+const { isCompositeProductType, isBaseProductType, inferProductType, saveProduct } = require("../lib/productLogic");
 
 const buildLocalDayRange = (dateValue, endOfDay = false) => {
   const suffix = endOfDay ? "T23:59:59.999" : "T00:00:00.000";
@@ -11,13 +11,13 @@ const normalizeOrderItems = (items = []) =>
   items.map((item) => ({
     product: item.product,
     name: item.name,
-    price: item.price,
-    quantity: item.quantity,
+    price: Number(item.price || 0),
+    quantity: Number(item.quantity || 0),
     productType: item.productType || "raw",
     components: (item.components || []).map((component) => ({
       product: component.product,
       name: component.name,
-      quantity: component.quantity
+      quantity: Number(component.quantity || 0)
     })),
     selectedAlternatives: (item.selectedAlternatives || []).map((alternative) => ({
       sourceProduct: alternative.sourceProduct,
@@ -26,7 +26,7 @@ const normalizeOrderItems = (items = []) =>
       selectedName: alternative.selectedName,
       priceAdjustment: Number(alternative.priceAdjustment || 0)
     })),
-    subtotal: item.subtotal
+    subtotal: Number(item.subtotal || 0)
   }));
 
 const normalizeSauceItems = (items = []) =>
@@ -34,14 +34,10 @@ const normalizeSauceItems = (items = []) =>
     .map((item) => ({
       product: item.product,
       name: item.name,
-      quantity: Number(item.quantity),
+      quantity: Number(item.quantity || 0),
       stockUnit: item.stockUnit || "pieces"
     }))
     .filter((item) => item.product && item.quantity > 0);
-
-const COMPOSITE_PRODUCT_TYPES = ["combo", "combo_type"];
-const isCompositeProductType = (productType) => COMPOSITE_PRODUCT_TYPES.includes(productType);
-const isBaseProductType = (productType) => !isCompositeProductType(productType);
 
 const normalizeBookingDetails = (bookingDetails = {}) => ({
   leadTravelerName: bookingDetails.leadTravelerName?.trim() || "",
@@ -54,7 +50,6 @@ const normalizeBookingDetails = (bookingDetails = {}) => ({
 });
 
 const buildQueueNumber = (orderId = "") => orderId.split("-").pop() || orderId;
-
 const isFoodServingStatus = (status) => status === "food_serving" || status === "quote_prepared";
 const isCompletedStatus = (status) => status === "completed" || status === "confirmed";
 const isQueuedStatus = (status) => status === "queued";
@@ -118,100 +113,13 @@ const buildRequestedItems = (items) => {
   });
 };
 
-const syncProductAvailability = async (productId) => {
-  const product = await Product.findById(productId);
-  if (!product) {
-    return;
-  }
-
-  product.isActive = product.stock > 0;
-  await product.save();
-};
-
-const buildRawRequirements = (orderItems, sauceItems = []) => {
-  const rawRequirements = new Map();
-
-  orderItems.forEach((item) => {
-    if (isCompositeProductType(item.productType)) {
-      item.components.forEach((component) => {
-        const key = String(component.product);
-        rawRequirements.set(key, (rawRequirements.get(key) || 0) + component.quantity);
-      });
-      return;
-    }
-
-    const key = String(item.product);
-    rawRequirements.set(key, (rawRequirements.get(key) || 0) + item.quantity);
-  });
-
-  sauceItems.forEach((item) => {
-    const key = String(item.product);
-    rawRequirements.set(key, (rawRequirements.get(key) || 0) + Number(item.quantity || 0));
-  });
-
-  return rawRequirements;
-};
-
-const buildSauceItems = async (items = []) => {
-  const mergedSauces = new Map();
-
-  items.forEach((item) => {
-    const quantity = Number(item.quantity || 0);
-    if (item.product && quantity > 0) {
-      mergedSauces.set(String(item.product), (mergedSauces.get(String(item.product)) || 0) + quantity);
-    }
-  });
-
-  if (!mergedSauces.size) {
-    return [];
-  }
-
-  const sauceProducts = await Product.find({ _id: { $in: [...mergedSauces.keys()] } });
-  const sauceMap = new Map(sauceProducts.map((product) => [String(product._id), product]));
-
-  return [...mergedSauces.entries()].map(([productId, quantity]) => {
-    const sauce = sauceMap.get(productId);
-
-    if (!sauce) {
-      throw new Error("One or more sauce items no longer exist");
-    }
-
-    if (sauce.productType !== "sauce") {
-      throw new Error(`${sauce.name} is not a Sauce product type`);
-    }
-
-    return {
-      product: sauce._id,
-      name: sauce.name,
-      quantity,
-      stockUnit: sauce.stockUnit || "pieces"
-    };
-  });
-};
-
-const buildSeasoningItems = async () => {
-  const seasoningProducts = await Product.find({
-    productType: "seasoning",
-    isActive: true
-  });
-
-  return seasoningProducts
-    .map((seasoning) => ({
-      product: seasoning._id,
-      name: seasoning.name,
-      quantity: Number(seasoning.seasoningPerOrderConsumption || 0),
-      stockUnit: seasoning.stockUnit || "gram"
-    }))
-    .filter((seasoning) => seasoning.quantity > 0);
-};
-
 const buildProductComponents = (product, quantity, productMap, selectedAlternativeMap = new Map(), trail = new Set()) => {
-  const productId = String(product._id);
+  const productId = String(product.id || product._id);
 
   if (!isCompositeProductType(product.productType)) {
     return [
       {
-        product: product._id,
+        product: product.id || product._id,
         name: product.name,
         quantity,
         productType: product.productType || "raw"
@@ -232,20 +140,20 @@ const buildProductComponents = (product, quantity, productMap, selectedAlternati
   const componentMap = new Map();
 
   for (const comboItem of product.comboItems) {
-    const sourceProductId = String(comboItem.product?._id || comboItem.product);
+    const sourceProductId = String(comboItem.product?.id || comboItem.product?._id || comboItem.product);
     const replacementProductId = comboItem.changeable ? selectedAlternativeMap.get(sourceProductId) : null;
 
     if (replacementProductId) {
       const allowedAlternativeIds = (comboItem.alternativeProducts || []).map((alternativeProduct) =>
-        String(alternativeProduct.product?._id || alternativeProduct.product || alternativeProduct)
+        String(alternativeProduct.product?.id || alternativeProduct.product?._id || alternativeProduct.product || alternativeProduct.id || alternativeProduct)
       );
-      if (!comboItem.changeable || !allowedAlternativeIds.includes(String(replacementProductId))) {
+
+      if (!allowedAlternativeIds.includes(String(replacementProductId))) {
         throw new Error(`${product.name} contains an invalid replacement selection`);
       }
     }
 
     const linkedProduct = productMap.get(replacementProductId || sourceProductId);
-
     if (!linkedProduct) {
       throw new Error(`${product.name} combo contains an invalid item`);
     }
@@ -274,9 +182,8 @@ const buildProductComponents = (product, quantity, productMap, selectedAlternati
 };
 
 const buildOrderItemsFromProducts = async (requestedItems) => {
-  const itemIds = [...new Set(requestedItems.map((item) => item.productId))];
-  const products = await Product.find({}).populate("comboItems.product");
-  const productMap = new Map(products.map((product) => [String(product._id), product]));
+  const products = await getAllProducts();
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
   const orderItems = [];
   let subtotal = 0;
   const rawRequirements = new Map();
@@ -304,11 +211,18 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
         }
 
         const sourceComboItem = (product.comboItems || []).find(
-          (comboItem) => String(comboItem.product?._id || comboItem.product) === alternative.sourceProductId
+          (comboItem) => String(comboItem.product?.id || comboItem.product?._id || comboItem.product) === alternative.sourceProductId
         );
 
         const alternativeProductConfig = (sourceComboItem?.alternativeProducts || []).find(
-          (alternativeProduct) => String(alternativeProduct.product?._id || alternativeProduct.product || alternativeProduct) === alternative.selectedProductId
+          (alternativeProduct) =>
+            String(
+              alternativeProduct.product?.id ||
+                alternativeProduct.product?._id ||
+                alternativeProduct.product ||
+                alternativeProduct.id ||
+                alternativeProduct
+            ) === alternative.selectedProductId
         );
 
         if (!sourceComboItem || !alternativeProductConfig) {
@@ -319,15 +233,15 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
         linePriceAdjustment += priceAdjustment;
         selectedAlternativeMap.set(alternative.sourceProductId, alternative.selectedProductId);
         selectedAlternativeDetails.push({
-          sourceProduct: sourceProduct._id,
+          sourceProduct: sourceProduct.id || sourceProduct._id,
           sourceName: sourceProduct.name,
-          selectedProduct: selectedProduct._id,
+          selectedProduct: selectedProduct.id || selectedProduct._id,
           selectedName: selectedProduct.name,
           priceAdjustment
         });
       });
 
-      const lineSubtotal = (product.price + linePriceAdjustment) * quantity;
+      const lineSubtotal = (Number(product.price || 0) + linePriceAdjustment) * quantity;
       subtotal += lineSubtotal;
 
       const components = buildProductComponents(product, quantity, productMap, selectedAlternativeMap).map((component) => {
@@ -342,9 +256,9 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
       });
 
       orderItems.push({
-        product: product._id,
+        product: product.id || product._id,
         name: product.name,
-        price: product.price + linePriceAdjustment,
+        price: Number(product.price || 0) + linePriceAdjustment,
         quantity,
         productType: product.productType,
         components,
@@ -354,14 +268,14 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
       continue;
     }
 
-    const lineSubtotal = product.price * quantity;
+    const lineSubtotal = Number(product.price || 0) * quantity;
     subtotal += lineSubtotal;
     orderItems.push({
-      product: product._id,
+      product: product.id || product._id,
       name: product.name,
-      price: product.price,
+      price: Number(product.price || 0),
       quantity,
-      productType: "raw",
+      productType: inferProductType(product),
       components: [],
       selectedAlternatives: [],
       subtotal: lineSubtotal
@@ -369,22 +283,19 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
     rawRequirements.set(productId, (rawRequirements.get(productId) || 0) + quantity);
   }
 
-  const rawIds = [...rawRequirements.keys()];
-  const rawProducts = await Product.find({ _id: { $in: rawIds } });
-  const rawProductMap = new Map(rawProducts.map((product) => [String(product._id), product]));
-
+  const rawProductMap = productMap;
   for (const [rawId, requiredQuantity] of rawRequirements.entries()) {
     const rawProduct = rawProductMap.get(rawId);
 
-    if (!rawProduct || !isBaseProductType(rawProduct.productType)) {
+    if (!rawProduct || !isBaseProductType(rawProduct)) {
       throw new Error("One or more raw items no longer exist");
     }
 
-    if (!rawProduct.isActive || rawProduct.stock === 0) {
+    if (!rawProduct.isActive || Number(rawProduct.stock || 0) === 0) {
       throw new Error(`${rawProduct.name} is out of stock`);
     }
 
-    if (requiredQuantity > rawProduct.stock) {
+    if (requiredQuantity > Number(rawProduct.stock || 0)) {
       throw new Error(`Only ${rawProduct.stock} units left for ${rawProduct.name}`);
     }
   }
@@ -392,11 +303,34 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
   return { orderItems, subtotal, total: subtotal };
 };
 
+const buildRawRequirements = (orderItems, sauceItems = []) => {
+  const rawRequirements = new Map();
+
+  orderItems.forEach((item) => {
+    if (isCompositeProductType(item.productType)) {
+      item.components.forEach((component) => {
+        const key = String(component.product);
+        rawRequirements.set(key, (rawRequirements.get(key) || 0) + Number(component.quantity || 0));
+      });
+      return;
+    }
+
+    const key = String(item.product);
+    rawRequirements.set(key, (rawRequirements.get(key) || 0) + Number(item.quantity || 0));
+  });
+
+  sauceItems.forEach((item) => {
+    const key = String(item.product);
+    rawRequirements.set(key, (rawRequirements.get(key) || 0) + Number(item.quantity || 0));
+  });
+
+  return rawRequirements;
+};
+
 const applyInventoryForItems = async (orderItems, sauceItems = []) => {
   const rawRequirements = buildRawRequirements(orderItems, sauceItems);
-  const itemIds = [...rawRequirements.keys()];
-  const products = await Product.find({ _id: { $in: itemIds } });
-  const productMap = new Map(products.map((product) => [String(product._id), product]));
+  const products = await getAllProducts();
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
   const appliedUpdates = [];
 
   try {
@@ -407,39 +341,26 @@ const applyInventoryForItems = async (orderItems, sauceItems = []) => {
         throw new Error("One or more products no longer exist");
       }
 
-      if (!product.isActive || product.stock === 0) {
+      if (!product.isActive || Number(product.stock || 0) === 0) {
         throw new Error(`${product.name} is out of stock`);
       }
 
-      if (quantity > product.stock) {
+      if (quantity > Number(product.stock || 0)) {
         throw new Error(`Only ${product.stock} units left for ${product.name}`);
       }
 
-      const updateResult = await Product.updateOne(
-        {
-          _id: product._id,
-          isActive: true,
-          stock: { $gte: quantity }
-        },
-        {
-          $inc: { stock: -quantity }
-        }
-      );
-
-      if (updateResult.modifiedCount !== 1) {
-        throw new Error(`${product.name} is no longer available in the requested quantity`);
-      }
-
-      appliedUpdates.push({ productId: product._id, quantity });
-
-      const nextStock = product.stock - quantity;
-      if (nextStock <= 0) {
-        await Product.updateOne({ _id: product._id }, { $set: { isActive: false, stock: 0 } });
-      }
-
+      const previousStock = Number(product.stock || 0);
+      product.stock = previousStock - quantity;
+      product.isActive = product.stock > 0;
+      await saveProduct(product);
+      appliedUpdates.push({ product, previousStock, quantity });
     }
   } catch (error) {
-    await rollbackAppliedUpdates(appliedUpdates);
+    for (const update of appliedUpdates) {
+      update.product.stock = update.previousStock;
+      update.product.isActive = true;
+      await saveProduct(update.product);
+    }
     throw error;
   }
 
@@ -448,33 +369,99 @@ const applyInventoryForItems = async (orderItems, sauceItems = []) => {
 
 const restoreInventoryForOrderItems = async (items, sauceItems = []) => {
   const rawRequirements = buildRawRequirements(items, sauceItems);
+  const products = await getAllProducts();
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
 
   for (const [productId, quantity] of rawRequirements.entries()) {
-    await Product.updateOne(
-      { _id: productId },
-      { $inc: { stock: quantity }, $set: { isActive: true } }
-    );
-    await syncProductAvailability(productId);
+    const product = productMap.get(productId);
+    if (!product) {
+      continue;
+    }
+    product.stock = Number(product.stock || 0) + quantity;
+    product.isActive = true;
+    await saveProduct(product);
   }
 };
 
-const rollbackAppliedUpdates = async (appliedUpdates) => {
-  for (const update of appliedUpdates) {
-    await Product.updateOne(
-      { _id: update.productId },
-      { $inc: { stock: update.quantity }, $set: { isActive: true } }
-    );
-    await syncProductAvailability(update.productId);
+const buildSauceItems = async (items = []) => {
+  const mergedSauces = new Map();
+  items.forEach((item) => {
+    const quantity = Number(item.quantity || 0);
+    if (item.product && quantity > 0) {
+      mergedSauces.set(String(item.product), (mergedSauces.get(String(item.product)) || 0) + quantity);
+    }
+  });
+
+  if (!mergedSauces.size) {
+    return [];
   }
+
+  const products = await getAllProducts();
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
+
+  return [...mergedSauces.entries()].map(([productId, quantity]) => {
+    const sauce = productMap.get(productId);
+    if (!sauce) {
+      throw new Error("One or more sauce items no longer exist");
+    }
+    if (sauce.productType !== "sauce") {
+      throw new Error(`${sauce.name} is not a Sauce product type`);
+    }
+
+    return {
+      product: sauce.id || sauce._id,
+      name: sauce.name,
+      quantity,
+      stockUnit: sauce.stockUnit || "pieces"
+    };
+  });
 };
 
-const populateOrder = (query) =>
-  query
-    .populate("staff", "name email role")
-    .populate("voidedBy", "name email role")
-    .populate("editedBy", "name email role")
-    .populate("servedBy", "name email role")
-    .populate("editHistory.editedBy", "name email role");
+const buildSeasoningItems = async () => {
+  const products = await getAllProducts();
+  return products
+    .filter((product) => product.productType === "seasoning" && product.isActive)
+    .map((seasoning) => ({
+      product: seasoning.id || seasoning._id,
+      name: seasoning.name,
+      quantity: Number(seasoning.seasoningPerOrderConsumption || 0),
+      stockUnit: seasoning.stockUnit || "gram"
+    }))
+    .filter((seasoning) => seasoning.quantity > 0);
+};
+
+const hydrateOrders = async (orders) => {
+  const userIds = new Set();
+
+  orders.forEach((order) => {
+    [order.staff, order.voidedBy, order.editedBy, order.servedBy].forEach((value) => {
+      if (value) {
+        userIds.add(String(value));
+      }
+    });
+
+    (order.editHistory || []).forEach((entry) => {
+      if (entry.editedBy) {
+        userIds.add(String(entry.editedBy));
+      }
+    });
+  });
+
+  const users = await getUsersByIds([...userIds]);
+  const userMap = new Map(users.map((user) => [String(user.id || user._id), { id: user.id, name: user.name, email: user.email, role: user.role }]));
+
+  return orders.map((order) => ({
+    ...order,
+    staff: order.staff ? userMap.get(String(order.staff)) || null : null,
+    voidedBy: order.voidedBy ? userMap.get(String(order.voidedBy)) || null : null,
+    editedBy: order.editedBy ? userMap.get(String(order.editedBy)) || null : null,
+    servedBy: order.servedBy ? userMap.get(String(order.servedBy)) || null : null,
+    editHistory: (order.editHistory || []).map((entry) => ({
+      ...entry,
+      editedBy: entry.editedBy ? userMap.get(String(entry.editedBy)) || null : null
+    }))
+  }));
+};
 
 const createOrder = async (req, res) => {
   const { items, paymentMethod, bookingDetails } = req.body;
@@ -483,28 +470,27 @@ const createOrder = async (req, res) => {
     return res.status(400).json({ message: "Payment method is required" });
   }
 
-  const normalizedBookingDetails = normalizeBookingDetails(bookingDetails);
-
   try {
     const requestedItems = buildRequestedItems(items);
     const { orderItems, subtotal, total } = await buildOrderItemsFromProducts(requestedItems);
     const orderId = generateOrderId();
-
-    const order = await Order.create({
+    const order = await saveOrder({
       orderId,
       queueNumber: buildQueueNumber(orderId),
       items: orderItems,
+      sauceItems: [],
       subtotal,
       total,
       paymentMethod,
-      bookingDetails: normalizedBookingDetails,
-      staff: req.user._id,
+      bookingDetails: normalizeBookingDetails(bookingDetails),
+      staff: req.user.id,
       status: "food_serving",
-      source: "staff"
+      source: "staff",
+      editHistory: []
     });
 
-    const populatedOrder = await populateOrder(Order.findById(order._id));
-    res.status(201).json(populatedOrder);
+    const [hydrated] = await hydrateOrders([await getStoredOrderById(order.id)]);
+    res.status(201).json(hydrated);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -517,21 +503,23 @@ const createPublicOrder = async (req, res) => {
     const requestedItems = buildRequestedItems(items);
     const { orderItems, subtotal, total } = await buildOrderItemsFromProducts(requestedItems);
     const orderId = generateOrderId();
-
-    const order = await Order.create({
+    const order = await saveOrder({
       orderId,
       queueNumber: buildQueueNumber(orderId),
       items: orderItems,
+      sauceItems: [],
       subtotal,
       total,
       paymentMethod: null,
+      bookingDetails: {},
       staff: null,
       status: "queued",
-      source: "customer"
+      source: "customer",
+      editHistory: []
     });
 
     res.status(201).json({
-      id: order._id,
+      id: order.id,
       orderId: order.orderId,
       queueNumber: order.queueNumber,
       status: order.status,
@@ -546,84 +534,74 @@ const createPublicOrder = async (req, res) => {
 };
 
 const getOrders = async (req, res) => {
-  const query =
-    ["master_admin", "admin", "checker"].includes(req.user.role)
-      ? {}
-      : {
-          $or: [{ staff: req.user._id }, { status: "queued", source: "customer" }]
-        };
   const { from, to } = req.query;
+  let orders = await getAllOrders();
 
-  if (from || to) {
-    query.createdAt = {};
-
-    if (from) {
-      const fromDate = buildLocalDayRange(from);
-      if (Number.isNaN(fromDate.getTime())) {
-        return res.status(400).json({ message: "Invalid from date" });
-      }
-      query.createdAt.$gte = fromDate;
-    }
-
-    if (to) {
-      const toDate = buildLocalDayRange(to, true);
-      if (Number.isNaN(toDate.getTime())) {
-        return res.status(400).json({ message: "Invalid to date" });
-      }
-      query.createdAt.$lte = toDate;
-    }
-
-    if (Object.keys(query.createdAt).length === 0) {
-      delete query.createdAt;
-    }
+  if (!["master_admin", "admin", "checker"].includes(req.user.role)) {
+    orders = orders.filter((order) => String(order.staff || "") === String(req.user.id) || (order.status === "queued" && order.source === "customer"));
   }
 
-  const orders = await populateOrder(Order.find(query).sort({ createdAt: -1 }));
-  res.json(orders);
+  if (from) {
+    const fromDate = buildLocalDayRange(from);
+    if (Number.isNaN(fromDate.getTime())) {
+      return res.status(400).json({ message: "Invalid from date" });
+    }
+    orders = orders.filter((order) => new Date(order.createdAt) >= fromDate);
+  }
+
+  if (to) {
+    const toDate = buildLocalDayRange(to, true);
+    if (Number.isNaN(toDate.getTime())) {
+      return res.status(400).json({ message: "Invalid to date" });
+    }
+    orders = orders.filter((order) => new Date(order.createdAt) <= toDate);
+  }
+
+  orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json(await hydrateOrders(orders));
 };
 
 const getEditedOrders = async (req, res) => {
   const { from, to } = req.query;
-  const query = { "editHistory.0": { $exists: true } };
+  let orders = (await getAllOrders()).filter((order) => Array.isArray(order.editHistory) && order.editHistory.length > 0);
 
-  if (from || to) {
-    query.editedAt = {};
-
-    if (from) {
-      const fromDate = buildLocalDayRange(from);
-      if (Number.isNaN(fromDate.getTime())) {
-        return res.status(400).json({ message: "Invalid from date" });
-      }
-      query.editedAt.$gte = fromDate;
+  if (from) {
+    const fromDate = buildLocalDayRange(from);
+    if (Number.isNaN(fromDate.getTime())) {
+      return res.status(400).json({ message: "Invalid from date" });
     }
-
-    if (to) {
-      const toDate = buildLocalDayRange(to, true);
-      if (Number.isNaN(toDate.getTime())) {
-        return res.status(400).json({ message: "Invalid to date" });
-      }
-      query.editedAt.$lte = toDate;
-    }
+    orders = orders.filter((order) => order.editedAt && new Date(order.editedAt) >= fromDate);
   }
 
-  const orders = await populateOrder(Order.find(query).sort({ editedAt: -1, createdAt: -1 }));
-  res.json(orders);
+  if (to) {
+    const toDate = buildLocalDayRange(to, true);
+    if (Number.isNaN(toDate.getTime())) {
+      return res.status(400).json({ message: "Invalid to date" });
+    }
+    orders = orders.filter((order) => order.editedAt && new Date(order.editedAt) <= toDate);
+  }
+
+  orders.sort((a, b) => new Date(b.editedAt || 0) - new Date(a.editedAt || 0) || new Date(b.createdAt) - new Date(a.createdAt));
+  res.json(await hydrateOrders(orders));
 };
 
 const getOrderById = async (req, res) => {
-  const query = ["master_admin", "admin", "checker"].includes(req.user.role)
-    ? { _id: req.params.id }
-    : {
-        _id: req.params.id,
-        $or: [{ staff: req.user._id }, { status: "queued", source: "customer" }]
-      };
-  const order = await populateOrder(Order.findOne(query));
+  const order = await getStoredOrderById(req.params.id);
 
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
   }
 
-  res.json(order);
+  if (
+    !["master_admin", "admin", "checker"].includes(req.user.role) &&
+    String(order.staff || "") !== String(req.user.id) &&
+    !(order.status === "queued" && order.source === "customer")
+  ) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+
+  const [hydrated] = await hydrateOrders([order]);
+  res.json(hydrated);
 };
 
 const updateOrder = async (req, res) => {
@@ -633,10 +611,7 @@ const updateOrder = async (req, res) => {
     return res.status(400).json({ message: "Payment method is required" });
   }
 
-  const normalizedBookingDetails = normalizeBookingDetails(bookingDetails);
-
-  const order = await Order.findById(req.params.id);
-
+  const order = await getStoredOrderById(req.params.id);
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
   }
@@ -721,35 +696,40 @@ const updateOrder = async (req, res) => {
       }
     }
 
-    order.items = nextOrderState.orderItems;
-    order.subtotal = nextOrderState.subtotal;
-    order.total = nextOrderState.total;
-    order.paymentMethod = paymentMethod;
-    order.bookingDetails = normalizedBookingDetails;
-    order.staff = req.user._id;
-    order.status = isQueuedOrder ? "food_serving" : order.status;
-    order.editedAt = new Date();
-    order.editedBy = req.user._id;
-    order.editHistory.push({
-      editedBy: req.user._id,
+    Object.assign(order, {
+      items: nextOrderState.orderItems,
+      subtotal: nextOrderState.subtotal,
+      total: nextOrderState.total,
+      paymentMethod,
+      bookingDetails: normalizeBookingDetails(bookingDetails),
+      staff: req.user.id,
+      status: isQueuedOrder ? "food_serving" : order.status,
       editedAt: new Date(),
-      oldSubtotal: previousSubtotal,
-      newSubtotal: nextOrderState.subtotal,
-      oldTotal: previousTotal,
-      newTotal: nextOrderState.total,
-      adjustmentType,
-      adjustmentAmount,
-      adjustmentMethod,
-      oldPaymentMethod: previousPaymentMethod,
-      newPaymentMethod: paymentMethod,
-      oldItems: previousItems,
-      newItems: nextItems,
-      changes
+      editedBy: req.user.id,
+      editHistory: [
+        ...(order.editHistory || []),
+        {
+          editedBy: req.user.id,
+          editedAt: new Date(),
+          oldSubtotal: previousSubtotal,
+          newSubtotal: nextOrderState.subtotal,
+          oldTotal: previousTotal,
+          newTotal: nextOrderState.total,
+          adjustmentType,
+          adjustmentAmount,
+          adjustmentMethod,
+          oldPaymentMethod: previousPaymentMethod,
+          newPaymentMethod: paymentMethod,
+          oldItems: previousItems,
+          newItems: nextItems,
+          changes
+        }
+      ]
     });
-    await order.save();
 
-    const populatedOrder = await populateOrder(Order.findById(order._id));
-    res.json(populatedOrder);
+    await saveOrder(order);
+    const [hydrated] = await hydrateOrders([await getStoredOrderById(order.id)]);
+    res.json(hydrated);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -757,7 +737,7 @@ const updateOrder = async (req, res) => {
 
 const voidOrder = async (req, res) => {
   const { refundMethod = null } = req.body || {};
-  const order = await Order.findById(req.params.id);
+  const order = await getStoredOrderById(req.params.id);
 
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
@@ -771,6 +751,7 @@ const voidOrder = async (req, res) => {
     return res.status(403).json({ message: "Only admin can void completed orders" });
   }
 
+  const previousStatus = order.status;
   const previousItems = normalizeOrderItems(order.items);
   const previousSubtotal = order.subtotal;
   const previousTotal = order.total;
@@ -791,36 +772,39 @@ const voidOrder = async (req, res) => {
   order.total = 0;
   order.status = "void";
   order.voidedAt = new Date();
-  order.voidedBy = req.user._id;
+  order.voidedBy = req.user.id;
   order.editedAt = new Date();
-  order.editedBy = req.user._id;
-  order.editHistory.push({
-    editedBy: req.user._id,
-    editedAt: new Date(),
-    oldSubtotal: previousSubtotal,
-    newSubtotal: 0,
-    oldTotal: previousTotal,
-    newTotal: 0,
-    adjustmentType: refundAmount > 0 && !isQueuedStatus(order.status) ? "void" : "none",
-    adjustmentAmount: isQueuedStatus(order.status) ? 0 : refundAmount,
-    adjustmentMethod: refundAmount > 0 && !isQueuedStatus(order.status) ? refundMethod : null,
-    oldPaymentMethod: previousPaymentMethod,
-    newPaymentMethod: previousPaymentMethod,
-    oldItems: previousItems,
-    newItems: [],
-    changes: [
-      isQueuedStatus(order.status) ? "Customer queue order canceled" : "Order voided",
-      ...(refundAmount > 0 && !isQueuedStatus(order.status) ? [`Refunded ${refundAmount.toFixed(2)} via ${refundMethod}`] : ["No refund amount"])
-    ]
-  });
-  await order.save();
+  order.editedBy = req.user.id;
+  order.editHistory = [
+    ...(order.editHistory || []),
+    {
+      editedBy: req.user.id,
+      editedAt: new Date(),
+      oldSubtotal: previousSubtotal,
+      newSubtotal: 0,
+      oldTotal: previousTotal,
+      newTotal: 0,
+      adjustmentType: refundAmount > 0 && !isQueuedStatus(previousStatus) ? "void" : "none",
+      adjustmentAmount: isQueuedStatus(previousStatus) ? 0 : refundAmount,
+      adjustmentMethod: refundAmount > 0 && !isQueuedStatus(previousStatus) ? refundMethod : null,
+      oldPaymentMethod: previousPaymentMethod,
+      newPaymentMethod: previousPaymentMethod,
+      oldItems: previousItems,
+      newItems: [],
+      changes: [
+        isQueuedStatus(previousStatus) ? "Customer queue order canceled" : "Order voided",
+        ...(refundAmount > 0 && !isQueuedStatus(previousStatus) ? [`Refunded ${refundAmount.toFixed(2)} via ${refundMethod}`] : ["No refund amount"])
+      ]
+    }
+  ];
 
-  const populatedOrder = await populateOrder(Order.findById(order._id));
-  res.json(populatedOrder);
+  await saveOrder(order);
+  const [hydrated] = await hydrateOrders([await getStoredOrderById(order.id)]);
+  res.json(hydrated);
 };
 
 const serveOrder = async (req, res) => {
-  const order = await Order.findById(req.params.id);
+  const order = await getStoredOrderById(req.params.id);
 
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
@@ -843,11 +827,11 @@ const serveOrder = async (req, res) => {
     order.status = "completed";
     order.sauceItems = servedAuxiliaryItems;
     order.servedAt = new Date();
-    order.servedBy = req.user._id;
-    await order.save();
+    order.servedBy = req.user.id;
+    await saveOrder(order);
 
-    const populatedOrder = await populateOrder(Order.findById(order._id));
-    res.json(populatedOrder);
+    const [hydrated] = await hydrateOrders([await getStoredOrderById(order.id)]);
+    res.json(hydrated);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

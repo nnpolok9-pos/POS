@@ -1,26 +1,36 @@
-const User = require("../models/User");
-const Product = require("../models/Product");
-const ShopSettings = require("../models/ShopSettings");
+const bcrypt = require("bcryptjs");
 const { users, products } = require("./data");
+const { getUsersByRoles, getAllProducts, saveUser, saveProduct, getDefaultShopSettings, saveShopSettings } = require("../lib/dataStore");
+const { syncAvailability } = require("../lib/productLogic");
 
 const bootstrapDemoData = async () => {
-  const [userCount, productCount] = await Promise.all([User.countDocuments(), Product.countDocuments()]);
+  const [existingUsers, existingProducts, settings] = await Promise.all([
+    getUsersByRoles(["master_admin", "admin", "checker", "staff"]),
+    getAllProducts(),
+    getDefaultShopSettings()
+  ]);
 
-  if (userCount === 0) {
+  if (existingUsers.length === 0) {
     for (const user of users) {
-      await User.create(user);
+      await saveUser({
+        name: user.name,
+        email: user.email.toLowerCase(),
+        password: await bcrypt.hash(user.password, 10),
+        role: user.role,
+        isActive: true
+      });
     }
   }
 
-  if (productCount === 0) {
-    await Product.insertMany(products);
+  if (existingProducts.length === 0) {
+    for (const product of products) {
+      await saveProduct(syncAvailability(product));
+    }
   }
 
-  const settings = await ShopSettings.findOne({ key: "default" });
   if (!settings) {
-    await ShopSettings.create({
-      key: "default",
-    shopName: process.env.SHOP_NAME || "Skyline Journeys POS",
+    await saveShopSettings({
+      shopName: process.env.SHOP_NAME || "Fast Bites POS",
       address: process.env.SHOP_ADDRESS || "",
       logo: ""
     });

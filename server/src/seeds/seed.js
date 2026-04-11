@@ -1,18 +1,35 @@
 require("dotenv").config();
+const bcrypt = require("bcryptjs");
 const { connectDB, disconnectDB } = require("../config/db");
-const User = require("../models/User");
-const Product = require("../models/Product");
 const { users, products } = require("./data");
+const { clearCoreData, saveUser, saveProduct, saveShopSettings } = require("../lib/dataStore");
+const { syncAvailability } = require("../lib/productLogic");
 
 const seed = async () => {
   try {
     await connectDB();
-    await User.deleteMany();
-    await Product.deleteMany();
+    await clearCoreData();
+
     for (const user of users) {
-      await User.create(user);
+      await saveUser({
+        name: user.name,
+        email: user.email.toLowerCase(),
+        password: await bcrypt.hash(user.password, 10),
+        role: user.role,
+        isActive: true
+      });
     }
-    await Product.insertMany(products);
+
+    for (const product of products) {
+      await saveProduct(syncAvailability(product));
+    }
+
+    await saveShopSettings({
+      shopName: process.env.SHOP_NAME || "Fast Bites POS",
+      address: process.env.SHOP_ADDRESS || "",
+      logo: ""
+    });
+
     console.log("Seed data inserted successfully");
     await disconnectDB();
     process.exit(0);

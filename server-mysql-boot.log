@@ -1,0 +1,28 @@
+
+> fast-food-pos-server@1.0.0 dev
+> nodemon src/server.js
+
+[33m[nodemon] 3.1.14[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node src/server.js`[39m
+MySQL connected
+Server running on port 5000
+[0mGET /api/health [32m200[0m 1.888 ms - 15[0m
+[0mPOST /api/auth/login [32m200[0m 65.093 ms - 317[0m
+[0mPOST /api/auth/login [32m200[0m 153.938 ms - 317[0m
+[0mPOST /api/auth/login [32m200[0m 221.027 ms - 317[0m
+[0mGET /api/products [32m200[0m 4.024 ms - 3698[0m
+[0mGET /api/products [32m200[0m 2.025 ms - 3698[0m
+[0mPOST /api/auth/login [32m200[0m 66.199 ms - 317[0m
+[0mPOST /api/auth/login [32m200[0m 72.170 ms - 317[0m
+[0mGET /api/products [32m200[0m 1.668 ms - 3698[0m
+[0mGET /api/orders [32m200[0m 3.575 ms - 2[0m
+[0mPOST /api/orders [32m201[0m 21.989 ms - 938[0m
+[0mGET /api/health [32m200[0m 0.163 ms - 15[0m
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m
+[32m[nodemon] restarting child process[39m
+[32m[nodemon] starting `node src/server.js`[39m
+MySQL connected
+Server running on port 5000

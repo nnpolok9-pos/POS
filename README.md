@@ -13,7 +13,7 @@ Production-ready POS web app for a fast food shop with:
 
 - Frontend: React + Vite + Tailwind CSS
 - Backend: Node.js + Express
-- Database: MongoDB + Mongoose
+- Database: MySQL
 - Uploads: Multer local storage in `server/src/uploads/products`
 - Auth: JWT
 
@@ -24,8 +24,8 @@ server/
   src/
     config/
     controllers/
+    lib/
     middleware/
-    models/
     routes/
     seeds/
     uploads/
@@ -51,6 +51,8 @@ npm run seed
 npm run dev
 ```
 
+Backend now boots against MySQL using the `DB_*` variables in `server/.env`.
+
 ### 2. Frontend
 
 ```bash
@@ -71,7 +73,11 @@ npm run dev
 
 ```env
 PORT=5000
-MONGO_URI=mongodb://127.0.0.1:27017/fast-food-pos
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=fast_food_pos
+DB_USER=root
+DB_PASSWORD=
 JWT_SECRET=change-this-secret
 JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:5173
@@ -88,18 +94,21 @@ VITE_SHOP_NAME=Fast Bites POS
 
 ## Seeded Demo Accounts
 
+- Master Admin: `master@fastbites.com` / `master123`
 - Admin: `admin@fastbites.com` / `admin123`
+- Checker: `checker@fastbites.com` / `checker123`
 - Staff: `staff@fastbites.com` / `staff123`
 
 ## Sample Products
 
-Seed data is defined in [server/src/seeds/seed.js](/D:/Codex/POS/server/src/seeds/seed.js) and includes:
+Seed data is defined in [data.js](/D:/Codex/POS/server/src/seeds/data.js) and includes:
 
 - Classic Burger
-- Cheese Fries
-- Cola
-- Chicken Wrap
-- Vanilla Shake
+- Cheese Burger
+- Chicken Burger
+- Nugget
+- Tinders
+- Pepsi Can
 
 ## API Endpoints
 
@@ -132,5 +141,6 @@ Seed data is defined in [server/src/seeds/seed.js](/D:/Codex/POS/server/src/seed
 - Products with stock `<= 5` are flagged as low stock in backend data and UI.
 - Products with stock `0` become inactive automatically and cannot be sold.
 - Images are uploaded with Multer and stored locally.
+- The backend uses MySQL and auto-creates the core tables on startup if they do not exist.
 - POS product data is cached in `localStorage` for a simple offline fallback.
 - Receipt printing uses the browser print flow after checkout.

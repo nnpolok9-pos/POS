@@ -1,82 +1,7 @@
-const InventoryMovement = require("../models/InventoryMovement");
-const Order = require("../models/Order");
-const Product = require("../models/Product");
+const { getInventoryMovements, getAllProducts, getOrders, getUsersByIds } = require("../lib/dataStore");
+const { inferProductType, isCompositeProductType, isBaseProductType, buildCompositeRequirements } = require("../lib/productLogic");
 
 const COMPLETED_STATUSES = ["completed", "confirmed"];
-
-const inferProductType = (product) => {
-  if (product?.productType === "combo") {
-    return "combo";
-  }
-
-  if (product?.productType === "combo_type") {
-    return "combo_type";
-  }
-
-  if (product?.productType === "raw_material") {
-    return "raw_material";
-  }
-
-  if (product?.productType === "sauce") {
-    return "sauce";
-  }
-
-  if (product?.productType === "seasoning") {
-    return "seasoning";
-  }
-
-  if (Array.isArray(product?.comboItems) && product.comboItems.length > 0) {
-    return "combo";
-  }
-
-  return "raw";
-};
-
-const COMPOSITE_PRODUCT_TYPES = ["combo", "combo_type"];
-const isCompositeProductType = (productType) => COMPOSITE_PRODUCT_TYPES.includes(productType);
-const isBaseProductType = (product) => !isCompositeProductType(inferProductType(product));
-
-const buildCompositeRequirements = (product, productMap, multiplier = 1, trail = new Set()) => {
-  const normalizedType = inferProductType(product);
-  const productId = String(product?._id || "");
-
-  if (!isCompositeProductType(normalizedType)) {
-    return new Map([[productId, multiplier]]);
-  }
-
-  if (!product?.comboItems?.length || trail.has(productId)) {
-    return null;
-  }
-
-  const nextTrail = new Set(trail);
-  nextTrail.add(productId);
-  const requirements = new Map();
-
-  for (const comboItem of product.comboItems) {
-    const linkedProduct = productMap.get(String(comboItem.product?._id || comboItem.product));
-
-    if (!linkedProduct) {
-      return null;
-    }
-
-    const nestedRequirements = buildCompositeRequirements(
-      linkedProduct,
-      productMap,
-      multiplier * Number(comboItem.quantity || 0),
-      nextTrail
-    );
-
-    if (!nestedRequirements) {
-      return null;
-    }
-
-    nestedRequirements.forEach((quantity, key) => {
-      requirements.set(key, (requirements.get(key) || 0) + quantity);
-    });
-  }
-
-  return requirements;
-};
 
 const buildDateRange = (from, to) => {
   const start = from ? new Date(`${from}T00:00:00.000`) : null;
@@ -100,80 +25,65 @@ const getDaysUntilExpiry = (expiryDate) => {
 const getInventoryReport = async (req, res) => {
   const { from, to } = req.query;
   const { start, end } = buildDateRange(from, to);
-  const receivedMatch = { movementType: "received" };
-  const deductedMatch = { movementType: "deducted" };
-  const orderMatch = { status: { $in: COMPLETED_STATUSES } };
-  const movementHistoryMatch = {};
-
-  if (start || end) {
-    receivedMatch.createdAt = {};
-    deductedMatch.createdAt = {};
-    orderMatch.servedAt = {};
-    movementHistoryMatch.createdAt = {};
-
-    if (start) {
-      receivedMatch.createdAt.$gte = start;
-      deductedMatch.createdAt.$gte = start;
-      orderMatch.servedAt.$gte = start;
-      movementHistoryMatch.createdAt.$gte = start;
-    }
-
-    if (end) {
-      receivedMatch.createdAt.$lte = end;
-      deductedMatch.createdAt.$lte = end;
-      orderMatch.servedAt.$lte = end;
-      movementHistoryMatch.createdAt.$lte = end;
-    }
-  }
-
   const [products, receivedRows, deductedRows, movementHistory, completedOrders] = await Promise.all([
-    Product.find({}).populate("comboItems.product", "name sku stock productType").sort({ category: 1, name: 1 }),
-    InventoryMovement.aggregate([
-      { $match: receivedMatch },
-      {
-        $group: {
-          _id: "$product",
-          receivedQuantity: { $sum: "$quantity" },
-          lastReceivedAt: { $max: "$createdAt" }
-        }
-      }
-    ]),
-    InventoryMovement.aggregate([
-      { $match: deductedMatch },
-      {
-        $group: {
-          _id: "$product",
-          deductedQuantity: { $sum: "$quantity" },
-          lastDeductedAt: { $max: "$createdAt" }
-        }
-      }
-    ]),
-    InventoryMovement.find(movementHistoryMatch)
-      .populate("performedBy", "name email role")
-      .sort({ createdAt: -1 })
-      .limit(100),
-    Order.find({ ...orderMatch }).select("items sauceItems")
+    getAllProducts(),
+    getInventoryMovements({ movementType: "received", from: start, to: end }),
+    getInventoryMovements({ movementType: "deducted", from: start, to: end }),
+    getInventoryMovements({ from: start, to: end, limit: 100 }),
+    getOrders()
   ]);
 
-  const receivedMap = new Map(receivedRows.map((row) => [String(row._id), row]));
-  const deductedMap = new Map(deductedRows.map((row) => [String(row._id), row]));
+  const filteredOrders = completedOrders.filter((order) => {
+    if (!COMPLETED_STATUSES.includes(order.status)) {
+      return false;
+    }
+
+    if (start && (!order.servedAt || new Date(order.servedAt) < start)) {
+      return false;
+    }
+
+    if (end && (!order.servedAt || new Date(order.servedAt) > end)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const receivedMap = new Map();
+  receivedRows.forEach((row) => {
+    const key = String(row.product);
+    const existing = receivedMap.get(key) || { receivedQuantity: 0, lastReceivedAt: null };
+    existing.receivedQuantity += row.quantity;
+    existing.lastReceivedAt = !existing.lastReceivedAt || new Date(row.createdAt) > new Date(existing.lastReceivedAt) ? row.createdAt : existing.lastReceivedAt;
+    receivedMap.set(key, existing);
+  });
+
+  const deductedMap = new Map();
+  deductedRows.forEach((row) => {
+    const key = String(row.product);
+    const existing = deductedMap.get(key) || { deductedQuantity: 0, lastDeductedAt: null };
+    existing.deductedQuantity += row.quantity;
+    existing.lastDeductedAt = !existing.lastDeductedAt || new Date(row.createdAt) > new Date(existing.lastDeductedAt) ? row.createdAt : existing.lastDeductedAt;
+    deductedMap.set(key, existing);
+  });
+
   const soldMap = new Map();
   const comboSoldMap = new Map();
-  const productMap = new Map(products.map((product) => [String(product._id), product]));
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
 
-  completedOrders.forEach((order) => {
+  filteredOrders.forEach((order) => {
     order.items.forEach((item) => {
       if (isCompositeProductType(item.productType)) {
         comboSoldMap.set(String(item.product), (comboSoldMap.get(String(item.product)) || 0) + item.quantity);
         item.components.forEach((component) => {
           const key = String(component.product);
-          soldMap.set(key, (soldMap.get(key) || 0) + component.quantity);
+          soldMap.set(key, (soldMap.get(key) || 0) + Number(component.quantity || 0));
         });
         return;
       }
 
       const key = String(item.product);
-      soldMap.set(key, (soldMap.get(key) || 0) + item.quantity);
+      soldMap.set(key, (soldMap.get(key) || 0) + Number(item.quantity || 0));
     });
 
     (order.sauceItems || []).forEach((sauceItem) => {
@@ -183,15 +93,14 @@ const getInventoryReport = async (req, res) => {
   });
 
   const baseProducts = products.filter((product) => isBaseProductType(product));
-  const baseProductMap = new Map(baseProducts.map((product) => [String(product._id), product]));
+  const baseProductMap = new Map(baseProducts.map((product) => [String(product.id || product._id), product]));
 
   const rawRows = baseProducts.map((product, index) => {
-    const received = receivedMap.get(String(product._id));
-    const sold = soldMap.get(String(product._id));
-
+    const key = String(product.id || product._id);
+    const received = receivedMap.get(key);
     return {
       sl: index + 1,
-      productId: product._id,
+      productId: product.id || product._id,
       productName: product.name,
       sku: product.sku,
       category: product.category,
@@ -199,11 +108,11 @@ const getInventoryReport = async (req, res) => {
       stockUnit: product.stockUnit || "pieces",
       expiryDate: product.expiryDate || null,
       receivedQuantity: received?.receivedQuantity || 0,
-      deductedQuantity: deductedMap.get(String(product._id))?.deductedQuantity || 0,
-      soldQuantity: sold || 0,
-      currentStock: product.stock,
+      deductedQuantity: deductedMap.get(key)?.deductedQuantity || 0,
+      soldQuantity: soldMap.get(key) || 0,
+      currentStock: Number(product.stock || 0),
       lastReceivedAt: received?.lastReceivedAt || null,
-      lowStock: product.stock <= (product.lowStockThreshold || 5)
+      lowStock: Number(product.stock || 0) <= Number(product.lowStockThreshold || 5)
     };
   });
 
@@ -216,7 +125,7 @@ const getInventoryReport = async (req, res) => {
 
       const components = [...(requirementMap?.entries() || [])].map(([requiredProductId, requiredQuantity]) => {
         const baseProduct = baseProductMap.get(String(requiredProductId));
-        const baseStock = baseProduct?.stock || 0;
+        const baseStock = Number(baseProduct?.stock || 0);
         const possibleCombos = requiredQuantity > 0 ? Math.floor(baseStock / requiredQuantity) : 0;
 
         if (!baseProduct || requiredQuantity <= 0) {
@@ -227,7 +136,7 @@ const getInventoryReport = async (req, res) => {
         }
 
         return {
-          productId: baseProduct?._id || requiredProductId,
+          productId: baseProduct?.id || baseProduct?._id || requiredProductId,
           productName: baseProduct?.name || "Unknown base item",
           sku: baseProduct?.sku || "",
           requiredQuantity,
@@ -237,17 +146,16 @@ const getInventoryReport = async (req, res) => {
       });
 
       const availableStock = Number.isFinite(availableToSell) ? Math.max(availableToSell, 0) : 0;
-
       return {
         sl: index + 1,
-        productId: product._id,
+        productId: product.id || product._id,
         productName: product.name,
         sku: product.sku,
         category: product.category,
         productType: inferProductType(product),
         stockUnit: product.stockUnit || "pieces",
         availableToSell: availableStock,
-        soldQuantity: comboSoldMap.get(String(product._id)) || 0,
+        soldQuantity: comboSoldMap.get(String(product.id || product._id)) || 0,
         componentCount: components.length,
         components,
         lowAvailability: availableStock > 0 && availableStock <= 5,
@@ -264,13 +172,13 @@ const getInventoryReport = async (req, res) => {
 
     return {
       sl: index + 1,
-      productId: product._id,
+      productId: product.id || product._id,
       productName: product.name,
       sku: product.sku,
       category: product.category,
       productType: inferProductType(product),
       stockUnit: product.stockUnit || "pieces",
-      currentStock: product.stock,
+      currentStock: Number(product.stock || 0),
       expiryDate: product.expiryDate || null,
       daysUntilExpiry,
       hasExpiryDate,
@@ -298,14 +206,7 @@ const getInventoryReport = async (req, res) => {
       }
       return acc;
     },
-    {
-      totalReceived: 0,
-      totalDeducted: 0,
-      totalSold: 0,
-      currentStock: 0,
-      lowStockCount: 0,
-      productCount: rawRows.length
-    }
+    { totalReceived: 0, totalDeducted: 0, totalSold: 0, currentStock: 0, lowStockCount: 0, productCount: rawRows.length }
   );
 
   const comboSummary = comboRows.reduce(
@@ -321,42 +222,24 @@ const getInventoryReport = async (req, res) => {
       }
       return acc;
     },
-    {
-      comboCount: 0,
-      totalAvailable: 0,
-      totalSold: 0,
-      lowAvailabilityCount: 0,
-      activeComboCount: 0
-    }
+    { comboCount: 0, totalAvailable: 0, totalSold: 0, lowAvailabilityCount: 0, activeComboCount: 0 }
   );
 
   const expirySummary = expiryRows.reduce(
     (acc, row) => {
-      if (row.hasExpiryDate) {
-        acc.trackedCount += 1;
-      } else {
-        acc.missingExpiryCount += 1;
-      }
-
-      if (row.isExpired) {
-        acc.expiredCount += 1;
-      } else if (row.isExpiringSoon) {
-        acc.expiringSoonCount += 1;
-      } else if (row.isFresh) {
-        acc.freshCount += 1;
-      }
-
+      if (row.hasExpiryDate) acc.trackedCount += 1;
+      else acc.missingExpiryCount += 1;
+      if (row.isExpired) acc.expiredCount += 1;
+      else if (row.isExpiringSoon) acc.expiringSoonCount += 1;
+      else if (row.isFresh) acc.freshCount += 1;
       return acc;
     },
-    {
-      trackedCount: 0,
-      expiringSoonCount: 0,
-      expiredCount: 0,
-      freshCount: 0,
-      missingExpiryCount: 0,
-      itemCount: expiryRows.length
-    }
+    { trackedCount: 0, expiringSoonCount: 0, expiredCount: 0, freshCount: 0, missingExpiryCount: 0, itemCount: expiryRows.length }
   );
+
+  const performerIds = [...new Set(movementHistory.map((movement) => movement.performedBy).filter(Boolean))];
+  const performers = await getUsersByIds(performerIds);
+  const performerMap = new Map(performers.map((user) => [String(user.id || user._id), { id: user.id, name: user.name, email: user.email, role: user.role }]));
 
   res.json({
     from: start,
@@ -370,7 +253,7 @@ const getInventoryReport = async (req, res) => {
     expiryRows,
     expirySummary,
     movementHistory: movementHistory.map((movement) => ({
-      id: String(movement._id),
+      id: String(movement.id || movement._id),
       productId: String(movement.product),
       productName: movement.productName,
       sku: movement.sku,
@@ -381,12 +264,10 @@ const getInventoryReport = async (req, res) => {
       previousStock: movement.previousStock,
       newStock: movement.newStock,
       reason: movement.reason || "",
-      performedBy: movement.performedBy,
+      performedBy: movement.performedBy ? performerMap.get(String(movement.performedBy)) || null : null,
       createdAt: movement.createdAt
     }))
   });
 };
 
-module.exports = {
-  getInventoryReport
-};
+module.exports = { getInventoryReport };

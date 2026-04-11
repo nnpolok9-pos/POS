@@ -1,4 +1,12 @@
-const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const { toSafeUser } = require("./authController");
+const {
+  saveUser,
+  getUsersByRoles,
+  getUserById,
+  getUserByEmail,
+  findUserByEmailExcludingId
+} = require("../lib/dataStore");
 
 const getManageableRoles = (actorRole) => {
   if (actorRole === "master_admin") {
@@ -25,14 +33,10 @@ const getVisibleRoles = (actorRole) => {
 };
 
 const getUsers = async (req, res) => {
-  const visibleRoles = getVisibleRoles(req.user.role);
-  const users = await User.find({ role: { $in: visibleRoles } }).select("-password").sort({ createdAt: -1 });
+  const users = await getUsersByRoles(getVisibleRoles(req.user.role));
   res.json(
     users.map((user) => ({
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
+      ...toSafeUser(user),
       isActive: user.isActive,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
@@ -52,55 +56,67 @@ const createUser = async (req, res) => {
     return res.status(403).json({ message: "You cannot create a user with that role" });
   }
 
-  const existing = await User.findOne({ email: email.toLowerCase() });
+  const normalizedEmail = String(email).toLowerCase();
+  const existing = await getUserByEmail(normalizedEmail);
+
   if (existing) {
     return res.status(400).json({ message: "Email is already in use" });
   }
 
-  const user = await User.create({
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await saveUser({
     name,
-    email: email.toLowerCase(),
-    password,
-    role
+    email: normalizedEmail,
+    password: passwordHash,
+    role,
+    isActive: true
   });
 
-  res.status(201).json(user.toSafeObject());
+  res.status(201).json(toSafeUser(user));
 };
 
 const updateUser = async (req, res) => {
   const visibleRoles = getVisibleRoles(req.user.role);
   const manageableRoles = getManageableRoles(req.user.role);
-  const user = await User.findById(req.params.id);
+  const user = await getUserById(req.params.id);
 
   if (!user || !visibleRoles.includes(user.role)) {
     return res.status(404).json({ message: "User not found" });
   }
 
-  if (req.body.email && req.body.email.toLowerCase() !== user.email) {
-    const existing = await User.findOne({ email: req.body.email.toLowerCase(), _id: { $ne: user._id } });
+  let email = user.email;
+  if (req.body.email && String(req.body.email).toLowerCase() !== user.email) {
+    const normalizedEmail = String(req.body.email).toLowerCase();
+    const existing = await findUserByEmailExcludingId(normalizedEmail, user.id);
     if (existing) {
       return res.status(400).json({ message: "Email is already in use" });
     }
-    user.email = req.body.email.toLowerCase();
+    email = normalizedEmail;
   }
 
-  user.name = req.body.name ?? user.name;
+  let role = user.role;
   if (req.body.role && req.body.role !== user.role) {
     if (!manageableRoles.includes(req.body.role)) {
       return res.status(403).json({ message: "You cannot assign that role" });
     }
-    user.role = req.body.role;
-  }
-  if (typeof req.body.isActive !== "undefined") {
-    user.isActive = req.body.isActive === true || req.body.isActive === "true";
+    role = req.body.role;
   }
 
-  if (req.body.password) {
-    user.password = req.body.password;
-  }
+  const isActive =
+    typeof req.body.isActive !== "undefined" ? req.body.isActive === true || req.body.isActive === "true" : user.isActive;
 
-  await user.save();
-  res.json(user.toSafeObject());
+  const passwordHash = req.body.password ? await bcrypt.hash(req.body.password, 10) : user.password;
+
+  const updated = await saveUser({
+    id: user.id,
+    name: req.body.name ?? user.name,
+    email,
+    password: passwordHash,
+    role,
+    isActive
+  });
+
+  res.json(toSafeUser(updated));
 };
 
 module.exports = { getUsers, createUser, updateUser };

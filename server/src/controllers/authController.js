@@ -1,5 +1,13 @@
-const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const { getUserByEmail } = require("../lib/dataStore");
 const generateToken = require("../utils/generateToken");
+
+const toSafeUser = (user) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  role: user.role
+});
 
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -8,9 +16,9 @@ const login = async (req, res) => {
     return res.status(400).json({ message: "Email and password are required" });
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() });
+  const user = await getUserByEmail(String(email).toLowerCase());
 
-  if (!user || !(await user.comparePassword(password))) {
+  if (!user || !(await bcrypt.compare(password, user.password))) {
     return res.status(401).json({ message: "Invalid credentials" });
   }
 
@@ -19,8 +27,8 @@ const login = async (req, res) => {
   }
 
   return res.json({
-    token: generateToken(user._id),
-    user: user.toSafeObject()
+    token: generateToken(user.id),
+    user: toSafeUser(user)
   });
 };
 
@@ -28,4 +36,4 @@ const me = async (req, res) => {
   res.json(req.user);
 };
 
-module.exports = { login, me };
+module.exports = { login, me, toSafeUser };
