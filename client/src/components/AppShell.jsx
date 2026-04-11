@@ -1,5 +1,5 @@
 import { Archive, BarChart3, FilePenLine, LayoutDashboard, LogOut, Menu, PackageSearch, ReceiptText, ShoppingCart, Store, Users, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useShopSettings } from "../context/ShopSettingsContext";
@@ -21,10 +21,32 @@ const AppShell = () => {
   const { logout, user } = useAuth();
   const { settings } = useShopSettings();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   const visibleNavItems = navItems.filter((item) => item.roles.includes(user?.role));
   const shopName = settings?.shopName || "ASEN POS";
   const hasLogo = Boolean(settings?.logo);
+  const logoSrc = useMemo(() => {
+    if (!hasLogo || logoFailed) {
+      return "";
+    }
+
+    return imageUrl(settings.logo);
+  }, [hasLogo, logoFailed, settings?.logo]);
+  const shopInitials = useMemo(
+    () =>
+      shopName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part.charAt(0).toUpperCase())
+        .join("") || "AP",
+    [shopName]
+  );
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [settings?.logo]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(245,146,63,0.35),_transparent_32%),linear-gradient(180deg,#fff7ed_0%,#fffbeb_100%)]">
@@ -32,10 +54,10 @@ const AppShell = () => {
         <div className="glass-card flex items-center justify-between px-3.5 py-2.5 xl:hidden">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-[#efe3d3] bg-white shadow-sm">
-              {hasLogo ? (
-                <img src={imageUrl(settings.logo)} alt={shopName} className="h-full w-full object-contain p-1.5" />
+              {logoSrc ? (
+                <img src={logoSrc} alt={shopName} className="h-full w-full object-contain p-1.5" onError={() => setLogoFailed(true)} />
               ) : (
-                <Store size={20} className="text-slate-400" />
+                <span className="text-sm font-bold tracking-[0.12em] text-slate-700">{shopInitials}</span>
               )}
             </div>
             <div>
@@ -53,10 +75,15 @@ const AppShell = () => {
             <div className="bg-[radial-gradient(circle_at_top_left,rgba(245,146,63,0.22),transparent_45%)] p-3">
               <div className="flex justify-center">
                 <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-[1.6rem] border border-[#efe3d3] bg-white px-3 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
-                  {hasLogo ? (
-                    <img src={imageUrl(settings.logo)} alt={shopName} className="h-full w-full object-contain" />
+                  {logoSrc ? (
+                    <img src={logoSrc} alt={shopName} className="h-full w-full object-contain" onError={() => setLogoFailed(true)} />
                   ) : (
-                    <Store size={36} className="text-slate-400" />
+                    <div className="flex flex-col items-center justify-center text-center">
+                      <div className="flex h-20 w-20 items-center justify-center rounded-[1.7rem] bg-[linear-gradient(135deg,#fff7ed,#ffedd5)] text-2xl font-extrabold tracking-[0.14em] text-slate-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)]">
+                        {shopInitials}
+                      </div>
+                      <p className="mt-3 text-sm font-semibold text-slate-500">Logo unavailable</p>
+                    </div>
                   )}
                 </div>
               </div>

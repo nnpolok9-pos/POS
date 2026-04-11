@@ -64,5 +64,15 @@ export const imageUrl = (path) => {
     return "https://placehold.co/300x220/f59e0b/ffffff?text=No+Image";
   }
 
-  return `${import.meta.env.VITE_SERVER_URL || "http://localhost:5000"}${path}`;
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  const baseUrl = import.meta.env.VITE_SERVER_URL;
+
+  if (!baseUrl) {
+    return path;
+  }
+
+  return `${baseUrl}${path}`;
 };
