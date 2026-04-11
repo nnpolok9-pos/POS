@@ -98,7 +98,7 @@ const createProduct = async (req, res) => {
     seasoningPerOrderConsumption: productType === "seasoning" ? seasoningPerOrderConsumption : 0,
     expiryDate: isCompositeProductType(productType) ? null : expiryDate,
     productType,
-    comboItems,
+    comboItems: isCompositeProductType(productType) ? comboItems : [],
     forSale,
     sku: sku || generateSku(name, category),
     image: buildImagePath(req.file),
