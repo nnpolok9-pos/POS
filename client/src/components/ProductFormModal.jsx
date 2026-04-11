@@ -231,7 +231,12 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
     setForm((current) => ({
       ...current,
       [name]: value,
-      ...(name === "productType" && !isCompositeType(value) ? { comboItems: [] } : {})
+      ...(name === "productType"
+        ? {
+            ...(!isCompositeType(value) ? { comboItems: [] } : {}),
+            ...(isCompositeType(value) ? { stockUnit: "pieces" } : {})
+          }
+        : {})
     }));
   };
 
@@ -289,6 +294,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
       regularPrice: shouldHidePricing ? 0 : form.regularPrice,
       promotionalPrice: shouldHidePricing ? 0 : form.promotionalPrice,
       stock: isCompositeType(form.productType) ? 0 : form.stock,
+      stockUnit: isCompositeType(form.productType) ? "pieces" : form.stockUnit,
       seasoningPerOrderConsumption: form.productType === "seasoning" ? form.seasoningPerOrderConsumption || 0 : 0,
       expiryDate: isCompositeType(form.productType) ? "" : form.expiryDate,
       comboItems: isCompositeType(form.productType)
@@ -423,14 +429,16 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               placeholder="Optional Khmer description for customer menu."
             />
           </label>
-          <label>
-            <span className="mb-2 block text-sm font-semibold text-slate-600">Parameter</span>
-            <select name="stockUnit" value={form.stockUnit} onChange={handleChange} className="input">
-              <option value="pieces">Piece</option>
-              <option value="gram">Gram</option>
-              <option value="teaspoon">Tea Spoon</option>
-            </select>
-          </label>
+          {!isCompositeType(form.productType) ? (
+            <label>
+              <span className="mb-2 block text-sm font-semibold text-slate-600">Parameter</span>
+              <select name="stockUnit" value={form.stockUnit} onChange={handleChange} className="input">
+                <option value="pieces">Piece</option>
+                <option value="gram">Gram</option>
+                <option value="teaspoon">Tea Spoon</option>
+              </select>
+            </label>
+          ) : null}
           <label>
             <span className="mb-2 block text-sm font-semibold text-slate-600">Product Type</span>
             <select name="productType" value={form.productType} onChange={handleChange} className="input">

@@ -7,6 +7,7 @@ import ProductDeductModal from "../components/ProductDeductModal";
 import ProductStockModal from "../components/ProductStockModal";
 import { useAuth } from "../context/AuthContext";
 import StatusBadge from "../components/StatusBadge";
+import { inventoryService } from "../services/inventoryService";
 import { productService } from "../services/productService";
 import { reportService } from "../services/reportService";
 import { currency, formatDate, imageUrl } from "../utils/format";
@@ -29,42 +30,35 @@ const stockUnitLabel = (unit) =>
 const categoryLabel = (category) => (/^raw$/i.test(category || "") ? "Base" : category);
 const isCompositeType = (type) => ["combo", "combo_type"].includes(type);
 
-const buildCompositeRequirements = (product, productMap, multiplier = 1, trail = new Set()) => {
-  if (!product) {
-    return null;
+const mapInventoryBreakdownMaterials = (row) => {
+  if (!row) {
+    return [];
   }
 
-  if (!isCompositeType(product.productType)) {
-    return new Map([[product.id, multiplier]]);
-  }
+  const targetUnits = Number(row.availableToSell || 0) + 1;
+  const components = row.components || [];
+  const limitingValue = components.length ? Math.min(...components.map((component) => Number(component.possibleCombos || 0))) : 0;
 
-  if (!Array.isArray(product.comboItems) || product.comboItems.length === 0 || trail.has(product.id)) {
-    return null;
-  }
+  return components
+    .map((component) => {
+      const requiredQuantity = Number(component.requiredQuantity || 0);
+      const currentStock = Number(component.rawStock || 0);
+      const possibleUnits = Number(component.possibleCombos || 0);
 
-  const nextTrail = new Set(trail);
-  nextTrail.add(product.id);
-  const requirements = new Map();
-
-  for (const comboItem of product.comboItems) {
-    const linkedProduct = productMap.get(comboItem.product);
-    const nestedRequirements = buildCompositeRequirements(
-      linkedProduct,
-      productMap,
-      multiplier * Number(comboItem.quantity || 0),
-      nextTrail
-    );
-
-    if (!nestedRequirements) {
-      return null;
-    }
-
-    nestedRequirements.forEach((quantity, key) => {
-      requirements.set(key, (requirements.get(key) || 0) + quantity);
-    });
-  }
-
-  return requirements;
+      return {
+        id: component.productId || `${component.productName}-${requiredQuantity}`,
+        name: component.productName,
+        sku: component.sku || "",
+        productType: component.productType || "raw_material",
+        stockUnit: component.stockUnit || "pieces",
+        requiredQuantity,
+        currentStock,
+        possibleUnits,
+        shortageForNextUnit: Math.max(targetUnits * requiredQuantity - currentStock, 0),
+        isLimiting: possibleUnits === limitingValue
+      };
+    })
+    .sort((left, right) => left.possibleUnits - right.possibleUnits || right.shortageForNextUnit - left.shortageForNextUnit);
 };
 
 const ProductListPage = () => {
@@ -80,6 +74,7 @@ const ProductListPage = () => {
   const [deductModalOpen, setDeductModalOpen] = useState(false);
   const [breakdownModalOpen, setBreakdownModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProductBreakdown, setSelectedProductBreakdown] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [stockSubmitting, setStockSubmitting] = useState(false);
   const [deductSubmitting, setDeductSubmitting] = useState(false);
@@ -113,42 +108,6 @@ const ProductListPage = () => {
 
   const rawProducts = useMemo(() => products, [products]);
   const productTypes = useMemo(() => ["All", "raw", "raw_material", "sauce", "seasoning", "combo", "combo_type"], []);
-
-  const combinedProductBreakdown = useMemo(() => {
-    if (!selectedProduct || !isCompositeType(selectedProduct.productType)) {
-      return [];
-    }
-
-    const productMap = new Map(products.map((product) => [product.id, product]));
-
-    const requirements = buildCompositeRequirements(selectedProduct, productMap);
-
-    return [...(requirements?.entries() || [])]
-      .map(([productId, requiredQuantity]) => {
-        const baseProduct = productMap.get(productId);
-        const currentStock = Number(baseProduct?.stock || 0);
-        const possibleUnits = requiredQuantity > 0 ? Math.floor(currentStock / requiredQuantity) : 0;
-        const targetUnits = selectedProduct.stock + 1;
-        const shortageForNextUnit = Math.max(targetUnits * requiredQuantity - currentStock, 0);
-
-        return {
-          id: productId,
-          name: baseProduct?.name || "Unknown item",
-          sku: baseProduct?.sku || "",
-          productType: baseProduct?.productType || "raw",
-          stockUnit: baseProduct?.stockUnit || "pieces",
-          requiredQuantity,
-          currentStock,
-          possibleUnits,
-          shortageForNextUnit
-        };
-      })
-      .sort((left, right) => left.possibleUnits - right.possibleUnits || left.shortageForNextUnit - right.shortageForNextUnit)
-      .map((item, _, list) => ({
-        ...item,
-        isLimiting: item.possibleUnits === (list[0]?.possibleUnits ?? item.possibleUnits)
-      }));
-  }, [products, selectedProduct]);
 
   const filteredProducts = useMemo(
     () =>
@@ -254,6 +213,27 @@ const ProductListPage = () => {
       toast.error(error.response?.data?.message || "Failed to deduct stock");
     } finally {
       setDeductSubmitting(false);
+    }
+  };
+
+  const openBreakdownModal = async (product) => {
+    try {
+      const report = await inventoryService.getReport({});
+      const matchedRow = (report.comboRows || []).find((row) => String(row.productId) === String(product.id));
+
+      if (!matchedRow) {
+        toast.error("Unable to load the latest material breakdown for this product");
+        return;
+      }
+
+      setSelectedProduct({
+        ...product,
+        stock: matchedRow.availableToSell
+      });
+      setSelectedProductBreakdown(mapInventoryBreakdownMaterials(matchedRow));
+      setBreakdownModalOpen(true);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to load combined inventory breakdown");
     }
   };
 
@@ -441,10 +421,7 @@ const ProductListPage = () => {
                       {isCompositeType(product.productType) ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedProduct(product);
-                            setBreakdownModalOpen(true);
-                          }}
+                          onClick={() => openBreakdownModal(product)}
                           className="btn-secondary gap-2"
                         >
                           <Info size={16} />
@@ -527,9 +504,10 @@ const ProductListPage = () => {
       <CombinedProductBreakdownModal
         open={breakdownModalOpen}
         product={selectedProduct}
-        materials={combinedProductBreakdown}
+        materials={selectedProductBreakdown}
         onClose={() => {
           setBreakdownModalOpen(false);
+          setSelectedProductBreakdown([]);
           setSelectedProduct(null);
         }}
       />

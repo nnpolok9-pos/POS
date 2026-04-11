@@ -14,6 +14,7 @@ import UsersPage from "./pages/UsersPage";
 import EditedListPage from "./pages/EditedListPage";
 import ShopProfilePage from "./pages/ShopProfilePage";
 import CustomerOrderPage from "./pages/CustomerOrderPage";
+import MenuCardPage from "./pages/MenuCardPage";
 
 const ProtectedRoute = ({ roles, children }) => {
   const { isAuthenticated, user, loading } = useAuth();
@@ -42,6 +43,7 @@ function App() {
   return (
     <Routes>
       <Route path="/menu" element={<CustomerOrderPage />} />
+      <Route path="/menu-card" element={<MenuCardPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/"

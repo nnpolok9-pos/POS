@@ -139,6 +139,8 @@ const getInventoryReport = async (req, res) => {
           productId: baseProduct?.id || baseProduct?._id || requiredProductId,
           productName: baseProduct?.name || "Unknown base item",
           sku: baseProduct?.sku || "",
+          productType: inferProductType(baseProduct || { productType: "raw_material" }),
+          stockUnit: baseProduct?.stockUnit || "pieces",
           requiredQuantity,
           rawStock: baseStock,
           possibleCombos
