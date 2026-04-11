@@ -315,40 +315,39 @@ const PosPage = () => {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(280px,320px)_minmax(0,1fr)] xl:items-start">
+            <div className="mt-4 space-y-3">
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search products by name..."
-                className="input"
+                className="input xl:max-w-[320px]"
               />
-              <div className="rounded-[1.5rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,248,238,0.92))] p-3.5 shadow-[0_14px_30px_rgba(160,120,50,0.08)]">
-                <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="rounded-[1.35rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,248,238,0.92))] p-3 shadow-[0_12px_24px_rgba(160,120,50,0.07)]">
+                <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Categories</p>
-                    <p className="mt-1 text-[13px] text-slate-500">Choose a category to narrow the product grid quickly.</p>
                   </div>
-                  <div className="rounded-full border border-[#eadcc4] bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
+                  <div className="rounded-full border border-[#eadcc4] bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
                     {Math.max(categoryOptions.length - 1, 0)} Categories
                   </div>
                 </div>
-                <div className="max-h-[176px] overflow-y-auto pr-1">
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 2xl:grid-cols-4">
+                <div className="max-h-[148px] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                   {categoryOptions.map((category) => (
                     <button
                       key={category.key}
                       type="button"
                       onClick={() => setSelectedCategory(category.key)}
-                      className={`group rounded-[1.15rem] border px-4 py-3 text-left text-[13px] font-semibold transition ${
+                      className={`group rounded-[0.95rem] border px-3 py-2.5 text-left text-[13px] font-semibold transition ${
                         selectedCategory === category.key
                           ? "border-slate-900 bg-slate-900 text-white shadow-[0_14px_24px_rgba(15,23,42,0.22)]"
                           : "border-slate-200 bg-white text-slate-600 hover:border-[#f3c38d] hover:bg-[#fff3e2] hover:text-slate-900"
                       }`}
                     >
-                      <span className="flex items-center justify-between gap-3">
-                        <span className="block truncate">{category.label}</span>
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="block min-w-0 flex-1 whitespace-normal break-words text-left leading-snug">{category.label}</span>
                         <span
-                          className={`h-2.5 w-2.5 rounded-full transition ${
+                          className={`h-2 w-2 shrink-0 rounded-full transition ${
                             selectedCategory === category.key ? "bg-white" : "bg-slate-200 group-hover:bg-brand-300"
                           }`}
                         />
