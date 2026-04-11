@@ -21,14 +21,32 @@ const getItemAdjustmentTotal = (item) =>
 const getCartTotal = (cart) =>
   cart.reduce((sum, item) => sum + item.quantity * (Number(item.price) + getItemAdjustmentTotal(item)), 0);
 
+const moveDrinksCategoryToEnd = (categories) => {
+  const nonDrinks = [];
+  const drinks = [];
+
+  categories.forEach((category) => {
+    if ((category.key || "").toLowerCase() === "drinks") {
+      drinks.push(category);
+      return;
+    }
+
+    nonDrinks.push(category);
+  });
+
+  return [...nonDrinks, ...drinks];
+};
+
 const buildCategoryOptions = (products) => [
   { key: "All", label: "All" },
-  ...Array.from(
-    new Map(
-      products
-        .filter((product) => product.category)
-        .map((product) => [product.category, { key: product.category, label: product.category }])
-    ).values()
+  ...moveDrinksCategoryToEnd(
+    Array.from(
+      new Map(
+        products
+          .filter((product) => product.category)
+          .map((product) => [product.category, { key: product.category, label: product.category }])
+      ).values()
+    )
   )
 ];
 
@@ -293,35 +311,34 @@ const PosPage = () => {
     <>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
         <section className="glass-card flex flex-col p-4 md:p-5 xl:max-h-[calc(100vh-2rem)]">
-          <div className="rounded-[30px] bg-gradient-to-r from-amber-100 via-white to-orange-50 p-3.5 shadow-soft">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div>
-                <h1 className="font-display text-2xl font-bold text-slate-900">POS Terminal</h1>
-                <p className="mt-1 text-[13px] text-slate-500">Quick add, easy review, and fewer mistakes while taking orders.</p>
+          <div className="rounded-[30px] bg-gradient-to-r from-amber-100 via-white to-orange-50 p-3 shadow-soft">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-2 xl:min-w-0 xl:flex-1 xl:flex-row xl:items-center xl:gap-3">
+                <h1 className="font-display text-xl font-bold text-slate-900 xl:shrink-0">POS Terminal</h1>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search products by name..."
+                  className="input xl:max-w-[360px]"
+                />
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:w-auto">
-                <div className="rounded-2xl bg-white/90 px-3 py-2.5">
+              <div className="grid grid-cols-3 gap-2 sm:w-auto xl:shrink-0">
+                <div className="rounded-2xl bg-white/90 px-3 py-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Visible</p>
-                  <p className="mt-1 text-lg font-bold text-slate-900">{visibleProductCount}</p>
+                  <p className="mt-0.5 text-base font-bold text-slate-900">{visibleProductCount}</p>
                 </div>
-                <div className="rounded-2xl bg-white/90 px-3 py-2.5">
+                <div className="rounded-2xl bg-white/90 px-3 py-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Cart</p>
-                  <p className="mt-1 text-lg font-bold text-slate-900">{totalCartItems}</p>
+                  <p className="mt-0.5 text-base font-bold text-slate-900">{totalCartItems}</p>
                 </div>
-                <div className="rounded-2xl bg-white/90 px-3 py-2.5">
+                <div className="rounded-2xl bg-white/90 px-3 py-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Category</p>
-                  <p className="mt-1 text-[13px] font-bold text-slate-900">{selectedCategory === "All" ? "All" : selectedCategory}</p>
+                  <p className="mt-0.5 text-[13px] font-bold text-slate-900">{selectedCategory === "All" ? "All" : selectedCategory}</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 space-y-3">
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search products by name..."
-                className="input xl:max-w-[320px]"
-              />
+            <div className="mt-3">
               <div className="rounded-[1.35rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,248,238,0.92))] p-3 shadow-[0_12px_24px_rgba(160,120,50,0.07)]">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>

@@ -109,21 +109,39 @@ const UI_TEXT = {
 };
 
 const translateCategory = (category, language) => CATEGORY_TRANSLATIONS[category]?.[language] || category;
+const moveDrinksCategoryToEnd = (categories) => {
+  const nonDrinks = [];
+  const drinks = [];
+
+  categories.forEach((category) => {
+    if ((category.key || "").toLowerCase() === "drinks") {
+      drinks.push(category);
+      return;
+    }
+
+    nonDrinks.push(category);
+  });
+
+  return [...nonDrinks, ...drinks];
+};
+
 const buildCategoryOptions = (products) => [
   { key: "All", labelKm: "ទាំងអស់", labelEn: "All" },
-  ...Array.from(
-    new Map(
-      products
-        .filter((product) => product.category)
-        .map((product) => [
-          product.category,
-          {
-            key: product.category,
-            labelKm: product.khmerCategory || translateCategory(product.category, "km"),
-            labelEn: product.category
-          }
-        ])
-    ).values()
+  ...moveDrinksCategoryToEnd(
+    Array.from(
+      new Map(
+        products
+          .filter((product) => product.category)
+          .map((product) => [
+            product.category,
+            {
+              key: product.category,
+              labelKm: product.khmerCategory || translateCategory(product.category, "km"),
+              labelEn: product.category
+            }
+          ])
+      ).values()
+    )
   )
 ];
 const getCategoryLabel = (categoryOption, language) =>
@@ -133,6 +151,7 @@ const getLocalizedProductDescription = (product, language) =>
   language === "km" ? product.khmerDescription || product.description || "" : product.description || "";
 const getLocalizedCategory = (product, language) =>
   language === "km" ? product.khmerCategory || translateCategory(product.category, language) : product.category;
+const MENU_PAGE_TITLE = "ASEN FOOD MENU";
 
 const getCartTotal = (cart) =>
   cart.reduce((sum, item) => {
@@ -162,6 +181,10 @@ const CustomerOrderPage = () => {
   useEffect(() => {
     localStorage.setItem("customer-language", language);
   }, [language]);
+
+  useEffect(() => {
+    document.title = MENU_PAGE_TITLE;
+  }, []);
 
   useEffect(() => {
     const loadPage = async () => {
@@ -329,15 +352,22 @@ const CustomerOrderPage = () => {
 
         <div className="hidden gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_430px]">
           <section className="glass-card flex flex-col p-4 md:p-5 xl:max-h-[calc(100vh-3rem)]">
-            <div className="rounded-[1.8rem] border border-[#f2ead8] bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.96),_rgba(252,246,235,0.96))] p-4 shadow-[0_14px_34px_rgba(160,120,50,0.10)]">
+            <div className="rounded-[1.8rem] border border-[#f2ead8] bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.96),_rgba(252,246,235,0.96))] p-3.5 shadow-[0_14px_34px_rgba(160,120,50,0.10)]">
               <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-3xl border border-[#efe3d3] bg-white">
                     {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-contain p-2" /> : null}
                   </div>
-                  <div>
-                    <h1 className="font-display text-xl font-bold text-slate-900 sm:text-2xl">{shop.shopName}</h1>
-                    <p className="mt-1 text-[13px] text-slate-500">{text.intro}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:gap-3">
+                      <h1 className="font-display text-xl font-bold text-slate-900 sm:text-2xl xl:shrink-0">{MENU_PAGE_TITLE}</h1>
+                      <input
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder={text.search}
+                        className="input xl:max-w-[340px]"
+                      />
+                    </div>
                   </div>
                 </div>
                 {queueOrder ? (
@@ -348,13 +378,7 @@ const CustomerOrderPage = () => {
                 ) : null}
               </div>
 
-              <div className="mt-4 space-y-3">
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={text.search}
-                  className="input xl:max-w-[320px]"
-                />
+              <div className="mt-3">
                 <div className="rounded-[1.35rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,248,238,0.92))] p-3 shadow-[0_12px_24px_rgba(160,120,50,0.07)]">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
@@ -433,21 +457,19 @@ const CustomerOrderPage = () => {
 
         <section className="xl:hidden">
           <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(160deg,rgba(255,255,255,0.98)_0%,rgba(255,245,230,0.96)_60%,rgba(255,237,213,0.94)_100%)] shadow-[0_18px_50px_rgba(160,120,50,0.14)]">
-            <div className="relative px-4 pb-4 pt-5 sm:px-5">
+            <div className="relative px-4 pb-4 pt-4 sm:px-5">
               <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top_left,_rgba(245,146,63,0.24),_transparent_58%)]" />
-              <div className="relative flex items-start justify-between gap-3">
+              <div className="relative flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-brand-500">{text.orderOnline}</p>
-                  <p className="mt-2 max-w-[240px] text-[13px] leading-5 text-slate-600">
-                    {text.intro}
-                  </p>
+                  <p className="mt-1 text-[15px] font-bold text-slate-900">{MENU_PAGE_TITLE}</p>
                 </div>
                 <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[1.7rem] border border-white/80 bg-white shadow-[0_14px_24px_rgba(160,120,50,0.12)]">
                   {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-cover" /> : null}
                 </div>
               </div>
 
-              <div className="relative mt-5">
+              <div className="relative mt-3">
                 <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   value={search}
@@ -457,7 +479,7 @@ const CustomerOrderPage = () => {
                 />
               </div>
 
-              <div className="mt-5 flex items-center justify-between gap-3">
+              <div className="mt-4 flex items-center justify-between gap-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.categories}</p>
                 <div className="rounded-full border border-white/80 bg-white/90 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
                   {Math.max(categoryOptions.length - 1, 0)} {language === "km" ? "ប្រភេទ" : "Categories"}
