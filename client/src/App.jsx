@@ -18,6 +18,7 @@ import ShopProfilePage from "./pages/ShopProfilePage";
 import CustomerOrderPage from "./pages/CustomerOrderPage";
 import MenuCardPage from "./pages/MenuCardPage";
 import ProfilePage from "./pages/ProfilePage";
+import MenuCardPosterPage from "./pages/MenuCardPosterPage";
 
 const ProtectedRoute = ({ roles, children }) => {
   const { isAuthenticated, user, loading } = useAuth();
@@ -47,6 +48,7 @@ function App() {
     <Routes>
       <Route path="/menu" element={<CustomerOrderPage />} />
       <Route path="/menu-card" element={<MenuCardPage />} />
+      <Route path="/menu-card-poster" element={<MenuCardPosterPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/"
