@@ -29,7 +29,7 @@ const getInventoryReport = async (req, res) => {
     getAllProducts(),
     getInventoryMovements({ movementType: "received", from: start, to: end }),
     getInventoryMovements({ movementType: "deducted", from: start, to: end }),
-    getInventoryMovements({ from: start, to: end, limit: 100 }),
+    getInventoryMovements({ from: start, to: end }),
     getOrders()
   ]);
 

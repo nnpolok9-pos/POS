@@ -160,8 +160,18 @@ const updateProductStock = async (req, res) => {
     return res.status(400).json({ message: "Received quantity must be greater than zero" });
   }
 
+  const nextExpiryDate =
+    req.body.expiryDate !== undefined && req.body.expiryDate !== "" ? parseExpiryDate(req.body.expiryDate) : null;
+
+  if (req.body.expiryDate !== undefined && req.body.expiryDate !== "" && !nextExpiryDate) {
+    return res.status(400).json({ message: "Invalid expiry date" });
+  }
+
   const previousStock = product.stock;
   product.stock = previousStock + receivedQuantity;
+  if (nextExpiryDate) {
+    product.expiryDate = nextExpiryDate;
+  }
   syncAvailability(product);
   const savedProduct = await saveProduct(product);
   await recordInventoryMovement({
@@ -169,7 +179,8 @@ const updateProductStock = async (req, res) => {
     previousStock,
     newStock: savedProduct.stock,
     performedBy: req.user?.id,
-    movementType: "received"
+    movementType: "received",
+    reason: nextExpiryDate ? `Stock added | Expiry date: ${req.body.expiryDate}` : "Stock added"
   });
 
   const [serialized] = await serializeProducts([savedProduct]);

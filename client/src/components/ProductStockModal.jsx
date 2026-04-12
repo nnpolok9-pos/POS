@@ -1,11 +1,14 @@
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import ReportDatePicker from "./ReportDatePicker";
 
 const ProductStockModal = ({ open, product, onClose, onSubmit, submitting }) => {
   const [receivedQuantity, setReceivedQuantity] = useState(1);
+  const [expiryDate, setExpiryDate] = useState("");
 
   useEffect(() => {
     setReceivedQuantity(1);
+    setExpiryDate("");
   }, [product]);
 
   if (!open || !product) {
@@ -14,7 +17,7 @@ const ProductStockModal = ({ open, product, onClose, onSubmit, submitting }) => 
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    onSubmit(receivedQuantity);
+    onSubmit({ receivedQuantity, expiryDate });
   };
 
   const bumpStock = (amount) => {
@@ -61,6 +64,9 @@ const ProductStockModal = ({ open, product, onClose, onSubmit, submitting }) => 
               </button>
             ))}
           </div>
+
+          <ReportDatePicker label="Expiry Date" value={expiryDate} onChange={setExpiryDate} />
+          <p className="-mt-2 text-xs text-slate-500">Optional. If selected, this will update the product expiry date for the newly added stock.</p>
 
           <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             New stock after add: <span className="font-bold">{product.stock + receivedQuantity}</span>

@@ -62,7 +62,23 @@ const MenuCardPage = () => {
           logo: settings?.logo || ""
         });
       } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to load menu card");
+        const cachedMenu = productService.getCachedPublicMenu();
+        const cachedAdminProducts = productService
+          .getCachedProducts()
+          .filter((product) => product.isActive !== false && product.forSale !== false);
+        const fallbackMenu = cachedMenu.length > 0 ? cachedMenu : cachedAdminProducts;
+        const cachedSettings = shopSettingsService.getCachedPublic();
+
+        if (fallbackMenu.length > 0 || cachedSettings) {
+          setProducts(fallbackMenu || []);
+          setShop({
+            shopName: cachedSettings?.shopName || "ASEN POS",
+            logo: cachedSettings?.logo || ""
+          });
+          toast.error(error.response?.data?.message || "Failed to load menu card. Showing cached menu.");
+        } else {
+          toast.error(error.response?.data?.message || "Failed to load menu card");
+        }
       } finally {
         setLoading(false);
       }

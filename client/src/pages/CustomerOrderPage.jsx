@@ -199,14 +199,31 @@ const CustomerOrderPage = () => {
           logo: settings?.logo || ""
         });
       } catch (error) {
-        toast.error(error.response?.data?.message || UI_TEXT[language].loadError);
+        const cachedMenu = productService.getCachedPublicMenu();
+        const cachedAdminProducts = productService
+          .getCachedProducts()
+          .filter((product) => product.isActive !== false && product.forSale !== false);
+        const fallbackMenu = cachedMenu.length > 0 ? cachedMenu : cachedAdminProducts;
+        const cachedSettings = shopSettingsService.getCachedPublic();
+
+        if (fallbackMenu.length > 0 || cachedSettings) {
+          setProducts(fallbackMenu);
+          setShop({
+            shopName: cachedSettings?.shopName || "ASEN POS",
+            address: cachedSettings?.address || "",
+            logo: cachedSettings?.logo || ""
+          });
+          toast.error(error.response?.data?.message || `${UI_TEXT[language].loadError}. Showing cached menu.`);
+        } else {
+          toast.error(error.response?.data?.message || UI_TEXT[language].loadError);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadPage();
-  }, []);
+  }, [language]);
 
   const text = UI_TEXT[language];
   const categoryOptions = useMemo(() => buildCategoryOptions(products), [products]);

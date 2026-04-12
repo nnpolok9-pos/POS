@@ -1,15 +1,237 @@
+const fs = require("fs");
+const path = require("path");
 const mysql = require("mysql2/promise");
+const Database = require("better-sqlite3");
 const { randomUUID } = require("crypto");
 
 let pool;
+let sqliteDb;
+
+const DB_CLIENT = (process.env.DB_CLIENT || "mysql").toLowerCase();
+const IS_SQLITE = DB_CLIENT === "sqlite";
 
 const DEFAULTS = {
   host: process.env.DB_HOST || "127.0.0.1",
   port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "fast_food_pos"
+  database: process.env.DB_NAME || "fast_food_pos",
+  sqlitePath: process.env.DB_SQLITE_PATH || path.join(process.cwd(), "data", "local-pos.sqlite")
 };
+
+const mysqlSchemaStatements = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(191) NOT NULL,
+    email VARCHAR(191) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role ENUM('master_admin','admin','checker','staff') NOT NULL DEFAULT 'staff',
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS shop_settings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    settings_key VARCHAR(64) NOT NULL UNIQUE,
+    shop_name VARCHAR(191) NOT NULL,
+    address TEXT NOT NULL,
+    logo TEXT NOT NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS products (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(191) NOT NULL,
+    khmer_name VARCHAR(191) NOT NULL DEFAULT '',
+    price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    regular_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    promotional_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    category VARCHAR(191) NOT NULL,
+    khmer_category VARCHAR(191) NOT NULL DEFAULT '',
+    description TEXT NOT NULL,
+    khmer_description TEXT NOT NULL,
+    image TEXT NOT NULL,
+    stock DECIMAL(12,3) NOT NULL DEFAULT 0,
+    stock_unit ENUM('pieces','gram','teaspoon') NOT NULL DEFAULT 'pieces',
+    seasoning_per_order_consumption DECIMAL(12,3) NOT NULL DEFAULT 0,
+    expiry_date DATETIME NULL,
+    product_type ENUM('raw','raw_material','sauce','seasoning','combo','combo_type') NOT NULL DEFAULT 'raw',
+    combo_items JSON NOT NULL,
+    for_sale TINYINT(1) NOT NULL DEFAULT 1,
+    sku VARCHAR(191) NOT NULL UNIQUE,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    low_stock_threshold INT NOT NULL DEFAULT 5,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS inventory_movements (
+    id VARCHAR(36) PRIMARY KEY,
+    product_id VARCHAR(36) NOT NULL,
+    product_name VARCHAR(191) NOT NULL,
+    sku VARCHAR(191) NOT NULL,
+    category VARCHAR(191) NOT NULL,
+    stock_unit ENUM('pieces','gram','teaspoon') NOT NULL DEFAULT 'pieces',
+    movement_type ENUM('received','deducted') NOT NULL,
+    quantity DECIMAL(12,3) NOT NULL,
+    previous_stock DECIMAL(12,3) NOT NULL,
+    new_stock DECIMAL(12,3) NOT NULL,
+    performed_by VARCHAR(36) NULL,
+    reason TEXT NOT NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX idx_inventory_product_id (product_id),
+    INDEX idx_inventory_performed_by (performed_by)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS orders (
+    id VARCHAR(36) PRIMARY KEY,
+    order_id VARCHAR(191) NOT NULL UNIQUE,
+    items JSON NOT NULL,
+    sauce_items JSON NOT NULL,
+    total DECIMAL(12,2) NOT NULL DEFAULT 0,
+    subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
+    payment_method ENUM('cash','card','qr') NULL,
+    booking_details JSON NOT NULL,
+    status ENUM('queued','food_serving','completed','void','quote_prepared','confirmed') NOT NULL DEFAULT 'food_serving',
+    queue_number VARCHAR(64) NOT NULL DEFAULT '',
+    source ENUM('staff','customer') NOT NULL DEFAULT 'staff',
+    original_subtotal DECIMAL(12,2) NULL,
+    original_total DECIMAL(12,2) NULL,
+    staff_id VARCHAR(36) NULL,
+    voided_at DATETIME(3) NULL,
+    voided_by VARCHAR(36) NULL,
+    edited_at DATETIME(3) NULL,
+    edited_by VARCHAR(36) NULL,
+    edit_history JSON NOT NULL,
+    served_at DATETIME(3) NULL,
+    served_by VARCHAR(36) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    INDEX idx_orders_staff_id (staff_id),
+    INDEX idx_orders_status (status),
+    INDEX idx_orders_created_at (created_at),
+    INDEX idx_orders_served_at (served_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+];
+
+const sqliteSchemaStatements = [
+  `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'staff',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS shop_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    settings_key TEXT NOT NULL UNIQUE,
+    shop_name TEXT NOT NULL,
+    address TEXT NOT NULL,
+    logo TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS products (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    khmer_name TEXT NOT NULL DEFAULT '',
+    price REAL NOT NULL DEFAULT 0,
+    regular_price REAL NOT NULL DEFAULT 0,
+    promotional_price REAL NOT NULL DEFAULT 0,
+    category TEXT NOT NULL,
+    khmer_category TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    khmer_description TEXT NOT NULL DEFAULT '',
+    image TEXT NOT NULL DEFAULT '',
+    stock REAL NOT NULL DEFAULT 0,
+    stock_unit TEXT NOT NULL DEFAULT 'pieces',
+    seasoning_per_order_consumption REAL NOT NULL DEFAULT 0,
+    expiry_date TEXT NULL,
+    product_type TEXT NOT NULL DEFAULT 'raw',
+    combo_items TEXT NOT NULL DEFAULT '[]',
+    for_sale INTEGER NOT NULL DEFAULT 1,
+    sku TEXT NOT NULL UNIQUE,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    low_stock_threshold INTEGER NOT NULL DEFAULT 5,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS inventory_movements (
+    id TEXT PRIMARY KEY,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    sku TEXT NOT NULL,
+    category TEXT NOT NULL,
+    stock_unit TEXT NOT NULL DEFAULT 'pieces',
+    movement_type TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    previous_stock REAL NOT NULL,
+    new_stock REAL NOT NULL,
+    performed_by TEXT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_inventory_product_id ON inventory_movements (product_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_inventory_performed_by ON inventory_movements (performed_by)`,
+  `CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL UNIQUE,
+    items TEXT NOT NULL DEFAULT '[]',
+    sauce_items TEXT NOT NULL DEFAULT '[]',
+    total REAL NOT NULL DEFAULT 0,
+    subtotal REAL NOT NULL DEFAULT 0,
+    payment_method TEXT NULL,
+    booking_details TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'food_serving',
+    queue_number TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'staff',
+    original_subtotal REAL NULL,
+    original_total REAL NULL,
+    staff_id TEXT NULL,
+    voided_at TEXT NULL,
+    voided_by TEXT NULL,
+    edited_at TEXT NULL,
+    edited_by TEXT NULL,
+    edit_history TEXT NOT NULL DEFAULT '[]',
+    served_at TEXT NULL,
+    served_by TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_orders_staff_id ON orders (staff_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)`,
+  `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_orders_served_at ON orders (served_at)`,
+  `CREATE TRIGGER IF NOT EXISTS trg_users_updated_at
+    AFTER UPDATE ON users
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+    BEGIN
+      UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END`,
+  `CREATE TRIGGER IF NOT EXISTS trg_shop_settings_updated_at
+    AFTER UPDATE ON shop_settings
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+    BEGIN
+      UPDATE shop_settings SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END`,
+  `CREATE TRIGGER IF NOT EXISTS trg_products_updated_at
+    AFTER UPDATE ON products
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+    BEGIN
+      UPDATE products SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END`,
+  `CREATE TRIGGER IF NOT EXISTS trg_orders_updated_at
+    AFTER UPDATE ON orders
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+    BEGIN
+      UPDATE orders SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END`
+];
 
 const createBasePool = (withDatabase = true) =>
   mysql.createPool({
@@ -25,124 +247,62 @@ const createBasePool = (withDatabase = true) =>
     timezone: "Z"
   });
 
-const runSchemaStatements = async (connection) => {
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS users (
-      id VARCHAR(36) PRIMARY KEY,
-      name VARCHAR(191) NOT NULL,
-      email VARCHAR(191) NOT NULL UNIQUE,
-      password_hash VARCHAR(255) NOT NULL,
-      role ENUM('master_admin','admin','checker','staff') NOT NULL DEFAULT 'staff',
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
-      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-    `CREATE TABLE IF NOT EXISTS shop_settings (
-      id INT PRIMARY KEY AUTO_INCREMENT,
-      settings_key VARCHAR(64) NOT NULL UNIQUE,
-      shop_name VARCHAR(191) NOT NULL,
-      address TEXT NOT NULL,
-      logo TEXT NOT NULL,
-      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-    `CREATE TABLE IF NOT EXISTS products (
-      id VARCHAR(36) PRIMARY KEY,
-      name VARCHAR(191) NOT NULL,
-      khmer_name VARCHAR(191) NOT NULL DEFAULT '',
-      price DECIMAL(12,2) NOT NULL DEFAULT 0,
-      regular_price DECIMAL(12,2) NOT NULL DEFAULT 0,
-      promotional_price DECIMAL(12,2) NOT NULL DEFAULT 0,
-      category VARCHAR(191) NOT NULL,
-      khmer_category VARCHAR(191) NOT NULL DEFAULT '',
-      description TEXT NOT NULL,
-      khmer_description TEXT NOT NULL,
-      image TEXT NOT NULL,
-      stock DECIMAL(12,3) NOT NULL DEFAULT 0,
-      stock_unit ENUM('pieces','gram','teaspoon') NOT NULL DEFAULT 'pieces',
-      seasoning_per_order_consumption DECIMAL(12,3) NOT NULL DEFAULT 0,
-      expiry_date DATETIME NULL,
-      product_type ENUM('raw','raw_material','sauce','seasoning','combo','combo_type') NOT NULL DEFAULT 'raw',
-      combo_items JSON NOT NULL,
-      for_sale TINYINT(1) NOT NULL DEFAULT 1,
-      sku VARCHAR(191) NOT NULL UNIQUE,
-      is_active TINYINT(1) NOT NULL DEFAULT 1,
-      low_stock_threshold INT NOT NULL DEFAULT 5,
-      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-    `CREATE TABLE IF NOT EXISTS inventory_movements (
-      id VARCHAR(36) PRIMARY KEY,
-      product_id VARCHAR(36) NOT NULL,
-      product_name VARCHAR(191) NOT NULL,
-      sku VARCHAR(191) NOT NULL,
-      category VARCHAR(191) NOT NULL,
-      stock_unit ENUM('pieces','gram','teaspoon') NOT NULL DEFAULT 'pieces',
-      movement_type ENUM('received','deducted') NOT NULL,
-      quantity DECIMAL(12,3) NOT NULL,
-      previous_stock DECIMAL(12,3) NOT NULL,
-      new_stock DECIMAL(12,3) NOT NULL,
-      performed_by VARCHAR(36) NULL,
-      reason TEXT NOT NULL,
-      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      INDEX idx_inventory_product_id (product_id),
-      INDEX idx_inventory_performed_by (performed_by)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-    `CREATE TABLE IF NOT EXISTS orders (
-      id VARCHAR(36) PRIMARY KEY,
-      order_id VARCHAR(191) NOT NULL UNIQUE,
-      items JSON NOT NULL,
-      sauce_items JSON NOT NULL,
-      total DECIMAL(12,2) NOT NULL DEFAULT 0,
-      subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
-      payment_method ENUM('cash','card','qr') NULL,
-      booking_details JSON NOT NULL,
-      status ENUM('queued','food_serving','completed','void','quote_prepared','confirmed') NOT NULL DEFAULT 'food_serving',
-      queue_number VARCHAR(64) NOT NULL DEFAULT '',
-      source ENUM('staff','customer') NOT NULL DEFAULT 'staff',
-      original_subtotal DECIMAL(12,2) NULL,
-      original_total DECIMAL(12,2) NULL,
-      staff_id VARCHAR(36) NULL,
-      voided_at DATETIME(3) NULL,
-      voided_by VARCHAR(36) NULL,
-      edited_at DATETIME(3) NULL,
-      edited_by VARCHAR(36) NULL,
-      edit_history JSON NOT NULL,
-      served_at DATETIME(3) NULL,
-      served_by VARCHAR(36) NULL,
-      created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-      updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-      INDEX idx_orders_staff_id (staff_id),
-      INDEX idx_orders_status (status),
-      INDEX idx_orders_created_at (created_at),
-      INDEX idx_orders_served_at (served_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
-  ];
-
-  for (const statement of statements) {
+const runMysqlSchemaStatements = async (connection) => {
+  for (const statement of mysqlSchemaStatements) {
     await connection.query(statement);
   }
 };
 
-const ensureDatabase = async () => {
+const ensureMysqlDatabase = async () => {
   const basePool = createBasePool(false);
   try {
-    await basePool.query(
-      `CREATE DATABASE IF NOT EXISTS \`${DEFAULTS.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
-    );
+    await basePool.query(`CREATE DATABASE IF NOT EXISTS \`${DEFAULTS.database}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
   } finally {
     await basePool.end();
   }
 };
 
-const connectDB = async () => {
-  await ensureDatabase();
+const runSqliteStatements = (db, statements) => {
+  statements.forEach((statement) => {
+    db.prepare(statement).run();
+  });
+};
 
+const ensureSqliteDatabase = () => {
+  const sqliteDir = path.dirname(DEFAULTS.sqlitePath);
+  if (!fs.existsSync(sqliteDir)) {
+    fs.mkdirSync(sqliteDir, { recursive: true });
+  }
+};
+
+const executeSqlite = (executor, sql, params = {}) => {
+  const statement = executor.prepare(sql);
+
+  if (statement.reader) {
+    return statement.all(params);
+  }
+
+  statement.run(params);
+  return [];
+};
+
+const connectDB = async () => {
+  if (IS_SQLITE) {
+    ensureSqliteDatabase();
+    sqliteDb = new Database(DEFAULTS.sqlitePath);
+    sqliteDb.pragma("journal_mode = WAL");
+    sqliteDb.pragma("foreign_keys = ON");
+    runSqliteStatements(sqliteDb, sqliteSchemaStatements);
+    console.log(`SQLite connected: ${DEFAULTS.sqlitePath}`);
+    return;
+  }
+
+  await ensureMysqlDatabase();
   pool = createBasePool(true);
   const connection = await pool.getConnection();
 
   try {
-    await runSchemaStatements(connection);
+    await runMysqlSchemaStatements(connection);
     console.log("MySQL connected");
   } finally {
     connection.release();
@@ -150,6 +310,14 @@ const connectDB = async () => {
 };
 
 const disconnectDB = async () => {
+  if (IS_SQLITE) {
+    if (sqliteDb) {
+      sqliteDb.close();
+      sqliteDb = null;
+    }
+    return;
+  }
+
   if (pool) {
     await pool.end();
     pool = null;
@@ -157,6 +325,13 @@ const disconnectDB = async () => {
 };
 
 const getPool = () => {
+  if (IS_SQLITE) {
+    if (!sqliteDb) {
+      throw new Error("SQLite database is not initialized");
+    }
+    return sqliteDb;
+  }
+
   if (!pool) {
     throw new Error("Database pool is not initialized");
   }
@@ -165,11 +340,21 @@ const getPool = () => {
 };
 
 const query = async (sql, params = {}) => {
+  if (IS_SQLITE) {
+    return executeSqlite(getPool(), sql, params);
+  }
+
   const [rows] = await getPool().execute(sql, params);
   return rows;
 };
 
 const withTransaction = async (handler) => {
+  if (IS_SQLITE) {
+    const db = getPool();
+    const transaction = db.transaction(() => handler(db));
+    return transaction();
+  }
+
   const connection = await getPool().getConnection();
 
   try {
@@ -186,6 +371,10 @@ const withTransaction = async (handler) => {
 };
 
 const queryTx = async (connection, sql, params = {}) => {
+  if (IS_SQLITE) {
+    return executeSqlite(connection, sql, params);
+  }
+
   const [rows] = await connection.execute(sql, params);
   return rows;
 };

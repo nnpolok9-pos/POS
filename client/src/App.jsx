@@ -7,6 +7,7 @@ import OrdersPage from "./pages/OrdersPage";
 import PosPage from "./pages/PosPage";
 import ProductListPage from "./pages/ProductListPage";
 import InventoryPage from "./pages/InventoryPage";
+import StocksPage from "./pages/StocksPage";
 import ReportsPage from "./pages/ReportsPage";
 import SalesReportPage from "./pages/SalesReportPage";
 import SalesTransactionPage from "./pages/SalesTransactionPage";
@@ -67,6 +68,14 @@ function App() {
           element={
             <ProtectedRoute roles={["master_admin", "admin", "checker", "staff"]}>
               <OrdersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="stocks"
+          element={
+            <ProtectedRoute roles={["master_admin", "admin", "checker", "staff"]}>
+              <StocksPage />
             </ProtectedRoute>
           }
         />

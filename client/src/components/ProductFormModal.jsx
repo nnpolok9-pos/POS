@@ -33,7 +33,6 @@ const initialState = {
   stock: "",
   stockUnit: "pieces",
   seasoningPerOrderConsumption: "",
-  expiryDate: "",
   sku: "",
   productType: "raw",
   forSale: "true",
@@ -201,7 +200,6 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
             stock: isCompositeType(product.productType) ? 0 : product.stock,
             stockUnit: product.stockUnit || "pieces",
             seasoningPerOrderConsumption: product.seasoningPerOrderConsumption ?? "",
-            expiryDate: product.expiryDate ? String(product.expiryDate).slice(0, 10) : "",
             sku: product.sku || "",
             productType: product.productType || "raw",
             forSale: String(product.forSale ?? true),
@@ -296,7 +294,6 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
       stock: isCompositeType(form.productType) ? 0 : form.stock,
       stockUnit: isCompositeType(form.productType) ? "pieces" : form.stockUnit,
       seasoningPerOrderConsumption: form.productType === "seasoning" ? form.seasoningPerOrderConsumption || 0 : 0,
-      expiryDate: isCompositeType(form.productType) ? "" : form.expiryDate,
       comboItems: isCompositeType(form.productType)
         ? form.comboItems
             .filter((item) => item.product && Number(item.quantity) > 0)
@@ -468,12 +465,8 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
                 <span className="mb-2 block text-sm font-semibold text-slate-600">Stock</span>
                 <input name="stock" type="number" min="0" value={form.stock} onChange={handleChange} className="input" required />
               </label>
-              <label>
-                <span className="mb-2 block text-sm font-semibold text-slate-600">Expiry Date</span>
-                <input name="expiryDate" type="date" value={form.expiryDate} onChange={handleChange} className="input" />
-              </label>
               {form.productType === "seasoning" && (
-                <label className="md:col-span-2">
+                <label className="md:col-span-1">
                   <span className="mb-2 block text-sm font-semibold text-slate-600">Per Order Consumption</span>
                   <input
                     name="seasoningPerOrderConsumption"

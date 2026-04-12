@@ -1,5 +1,7 @@
 import api from "./api";
 
+const PUBLIC_MENU_CACHE_KEY = "public-menu-cache";
+
 export const productService = {
   getProducts: async (params) => {
     const { data } = await api.get("/products", { params });
@@ -8,10 +10,15 @@ export const productService = {
   },
   getPublicMenu: async (params) => {
     const { data } = await api.get("/products/public/menu", { params });
+    localStorage.setItem(PUBLIC_MENU_CACHE_KEY, JSON.stringify(data));
     return data;
   },
   getCachedProducts: () => {
     const cached = localStorage.getItem("pos-products-cache");
+    return cached ? JSON.parse(cached) : [];
+  },
+  getCachedPublicMenu: () => {
+    const cached = localStorage.getItem(PUBLIC_MENU_CACHE_KEY);
     return cached ? JSON.parse(cached) : [];
   },
   getAdminProducts: async () => {
@@ -30,8 +37,9 @@ export const productService = {
     });
     return data;
   },
-  updateStock: async (id, receivedQuantity) => {
-    const { data } = await api.patch(`/products/${id}/stock`, { receivedQuantity });
+  updateStock: async (id, payload) => {
+    const body = typeof payload === "object" ? payload : { receivedQuantity: payload };
+    const { data } = await api.patch(`/products/${id}/stock`, body);
     return data;
   },
   deductStock: async (id, deductionQuantity, reason) => {

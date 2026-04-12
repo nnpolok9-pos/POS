@@ -176,7 +176,7 @@ const ProductListPage = () => {
     }
   };
 
-  const handleStockUpdate = async (receivedQuantity) => {
+  const handleStockUpdate = async ({ receivedQuantity, expiryDate }) => {
     if (!selectedProduct) {
       return;
     }
@@ -184,7 +184,7 @@ const ProductListPage = () => {
     setStockSubmitting(true);
 
     try {
-      await productService.updateStock(selectedProduct.id, receivedQuantity);
+      await productService.updateStock(selectedProduct.id, { receivedQuantity, expiryDate });
       toast.success("Stock received");
       setStockModalOpen(false);
       setSelectedProduct(null);
