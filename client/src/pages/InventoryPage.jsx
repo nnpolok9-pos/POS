@@ -5,7 +5,7 @@ import CombinedProductBreakdownModal from "../components/CombinedProductBreakdow
 import ReportDatePicker from "../components/ReportDatePicker";
 import { inventoryService } from "../services/inventoryService";
 import { getLocalDateInputValue } from "../utils/date";
-import { formatDate } from "../utils/format";
+import { formatDate, imageUrl } from "../utils/format";
 
 const stockUnitLabel = (unit) =>
   ({
@@ -32,6 +32,16 @@ const heroBadgeClass =
 const statCardClass = "rounded-[1.35rem] p-3 shadow-sm";
 const tabButtonClass = "rounded-full border px-4 py-2 text-sm font-semibold transition";
 const isCompositeTab = (tab) => ["combined", "combo_type"].includes(tab);
+
+const ProductCell = ({ image, name, sku }) => (
+  <div className="flex items-center gap-3">
+    <img src={imageUrl(image)} alt={name} className="h-14 w-14 rounded-2xl object-cover" />
+    <div className="min-w-0">
+      <p className="font-semibold text-slate-900">{name}</p>
+      <p className="text-xs text-slate-500">{sku || "-"}</p>
+    </div>
+  </div>
+);
 
 const InventoryPage = () => {
   const [from, setFrom] = useState(todayString());
@@ -428,8 +438,7 @@ const InventoryPage = () => {
                     <tr key={row.productId || index} className="border-b border-slate-100">
                       <td className="py-3 pr-4 font-semibold text-slate-700">{index + 1}</td>
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-slate-900">{row.productName}</p>
-                        <p className="text-xs text-slate-500">{row.sku || "-"}</p>
+                        <ProductCell image={row.image} name={row.productName} sku={row.sku} />
                       </td>
                       <td className="py-3 pr-4 text-slate-600">{productTypeLabel(row.productType)}</td>
                       <td className="py-3 pr-4 text-slate-600">{categoryLabel(row.category)}</td>
@@ -472,8 +481,7 @@ const InventoryPage = () => {
                     <tr key={row.productId || index} className="border-b border-slate-100 align-top">
                       <td className="py-3 pr-4 font-semibold text-slate-700">{index + 1}</td>
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-slate-900">{row.productName}</p>
-                        <p className="text-xs text-slate-500">{row.sku || "-"}</p>
+                        <ProductCell image={row.image} name={row.productName} sku={row.sku} />
                       </td>
                       <td className="py-3 pr-4 text-slate-600">{productTypeLabel(row.productType)}</td>
                       <td className="py-3 pr-4 text-slate-600">{categoryLabel(row.category)}</td>
@@ -536,8 +544,7 @@ const InventoryPage = () => {
                     <tr key={row.productId || index} className="border-b border-slate-100">
                       <td className="py-3 pr-4 font-semibold text-slate-700">{index + 1}</td>
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-slate-900">{row.productName}</p>
-                        <p className="text-xs text-slate-500">{row.sku || "-"}</p>
+                        <ProductCell image={row.image} name={row.productName} sku={row.sku} />
                       </td>
                       <td className="py-3 pr-4 text-slate-600">{productTypeLabel(row.productType)}</td>
                       <td className="py-3 pr-4 text-slate-600">{categoryLabel(row.category)}</td>
@@ -605,8 +612,7 @@ const InventoryPage = () => {
                     <tr key={movement.id} className="border-b border-slate-100 align-top">
                       <td className="py-3 pr-4 text-slate-600">{formatDate(movement.createdAt)}</td>
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-slate-900">{movement.productName}</p>
-                        <p className="text-xs text-slate-500">{movement.sku || "-"}</p>
+                        <ProductCell image={movement.image} name={movement.productName} sku={movement.sku} />
                       </td>
                       <td className="py-3 pr-4">
                         <span

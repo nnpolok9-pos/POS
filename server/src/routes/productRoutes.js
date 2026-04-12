@@ -3,6 +3,7 @@ const {
   createProduct,
   getProducts,
   getAdminProducts,
+  verifyForceStockPin,
   updateProductStock,
   forceUpdateProductStock,
   deductProductStock,
@@ -17,6 +18,7 @@ const router = express.Router();
 router.get("/public/menu", getProducts);
 router.get("/", protect, getProducts);
 router.get("/admin/all", protect, authorize("master_admin", "admin", "checker", "staff"), getAdminProducts);
+router.post("/stock/force/verify-pin", protect, authorize("master_admin", "admin"), verifyForceStockPin);
 router.post("/", protect, authorize("master_admin", "admin"), upload.single("image"), createProduct);
 router.patch("/:id/stock", protect, authorize("master_admin", "admin", "staff"), updateProductStock);
 router.patch("/:id/stock/force", protect, authorize("master_admin", "admin"), forceUpdateProductStock);

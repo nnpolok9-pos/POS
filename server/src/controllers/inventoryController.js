@@ -102,6 +102,7 @@ const getInventoryReport = async (req, res) => {
       sl: index + 1,
       productId: product.id || product._id,
       productName: product.name,
+      image: product.image || "",
       sku: product.sku,
       category: product.category,
       productType: inferProductType(product),
@@ -152,6 +153,7 @@ const getInventoryReport = async (req, res) => {
         sl: index + 1,
         productId: product.id || product._id,
         productName: product.name,
+        image: product.image || "",
         sku: product.sku,
         category: product.category,
         productType: inferProductType(product),
@@ -176,6 +178,7 @@ const getInventoryReport = async (req, res) => {
       sl: index + 1,
       productId: product.id || product._id,
       productName: product.name,
+      image: product.image || "",
       sku: product.sku,
       category: product.category,
       productType: inferProductType(product),
@@ -242,6 +245,7 @@ const getInventoryReport = async (req, res) => {
   const performerIds = [...new Set(movementHistory.map((movement) => movement.performedBy).filter(Boolean))];
   const performers = await getUsersByIds(performerIds);
   const performerMap = new Map(performers.map((user) => [String(user.id || user._id), { id: user.id, name: user.name, email: user.email, role: user.role }]));
+  const productDetailsMap = new Map(products.map((product) => [String(product.id || product._id), product]));
 
   res.json({
     from: start,
@@ -258,6 +262,7 @@ const getInventoryReport = async (req, res) => {
       id: String(movement.id || movement._id),
       productId: String(movement.product),
       productName: movement.productName,
+      image: productDetailsMap.get(String(movement.product))?.image || "",
       sku: movement.sku,
       category: movement.category,
       stockUnit: movement.stockUnit || "pieces",

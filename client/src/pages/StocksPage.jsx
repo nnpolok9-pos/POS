@@ -1,6 +1,7 @@
 import { Archive, Boxes, Clock3, PackagePlus, TrendingDown, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
+import ForceStockPinModal from "../components/ForceStockPinModal";
 import ProductDeductModal from "../components/ProductDeductModal";
 import ProductForceStockModal from "../components/ProductForceStockModal";
 import ProductStockModal from "../components/ProductStockModal";
@@ -9,7 +10,7 @@ import { useAuth } from "../context/AuthContext";
 import { inventoryService } from "../services/inventoryService";
 import { productService } from "../services/productService";
 import { getLocalDateInputValue } from "../utils/date";
-import { formatDate } from "../utils/format";
+import { formatDate, imageUrl } from "../utils/format";
 
 const stockUnitLabel = (unit) =>
   ({
@@ -52,6 +53,16 @@ const getDaysUntilExpiry = (expiryDate) => {
   return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
+const ProductCell = ({ image, name, sku }) => (
+  <div className="flex items-center gap-3">
+    <img src={imageUrl(image)} alt={name} className="h-14 w-14 rounded-2xl object-cover" />
+    <div className="min-w-0">
+      <p className="font-semibold text-slate-900">{name}</p>
+      <p className="text-xs text-slate-500">{sku || "-"}</p>
+    </div>
+  </div>
+);
+
 const StocksPage = () => {
   const { user } = useAuth();
   const canAddStock = ["master_admin", "admin", "staff"].includes(user?.role);
@@ -71,9 +82,12 @@ const StocksPage = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [deductModalOpen, setDeductModalOpen] = useState(false);
+  const [forcePinModalOpen, setForcePinModalOpen] = useState(false);
   const [forceModalOpen, setForceModalOpen] = useState(false);
+  const [forcePin, setForcePin] = useState("");
   const [stockSubmitting, setStockSubmitting] = useState(false);
   const [deductSubmitting, setDeductSubmitting] = useState(false);
+  const [pinSubmitting, setPinSubmitting] = useState(false);
   const [forceSubmitting, setForceSubmitting] = useState(false);
 
   const loadReport = async (params = {}) => {
@@ -239,15 +253,34 @@ const StocksPage = () => {
 
     setForceSubmitting(true);
     try {
-      await productService.forceUpdateStock(selectedProduct.productId, stockQuantity, reason);
+      await productService.forceUpdateStock(selectedProduct.productId, {
+        stockQuantity,
+        reason,
+        pin: forcePin
+      });
       toast.success("Stock force updated");
       setForceModalOpen(false);
       setSelectedProduct(null);
+      setForcePin("");
       await refreshReport();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to force update stock");
     } finally {
       setForceSubmitting(false);
+    }
+  };
+
+  const handleVerifyForcePin = async (pin) => {
+    setPinSubmitting(true);
+    try {
+      await productService.verifyForceStockPin(pin);
+      setForcePin(pin);
+      setForcePinModalOpen(false);
+      setForceModalOpen(true);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Invalid force update PIN");
+    } finally {
+      setPinSubmitting(false);
     }
   };
 
@@ -454,8 +487,7 @@ const StocksPage = () => {
                     <tr key={row.productId || index} className="border-b border-slate-100 align-top">
                       <td className="py-3 pr-4 font-semibold text-slate-700">{index + 1}</td>
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-slate-900">{row.productName}</p>
-                        <p className="text-xs text-slate-500">{row.sku || "-"}</p>
+                        <ProductCell image={row.image} name={row.productName} sku={row.sku} />
                       </td>
                       <td className="py-3 pr-4 text-slate-600">{productTypeLabel(row.productType)}</td>
                       <td className="py-3 pr-4 text-slate-600">{categoryLabel(row.category)}</td>
@@ -518,7 +550,8 @@ const StocksPage = () => {
                               type="button"
                               onClick={() => {
                                 setSelectedProduct(row);
-                                setForceModalOpen(true);
+                                setForcePin("");
+                                setForcePinModalOpen(true);
                               }}
                               className="btn-secondary gap-2 text-amber-700"
                             >
@@ -559,8 +592,7 @@ const StocksPage = () => {
                     <tr key={row.id} className="border-b border-slate-100 align-top">
                       <td className="py-3 pr-4 text-slate-600">{formatDate(row.createdAt)}</td>
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-slate-900">{row.productName}</p>
-                        <p className="text-xs text-slate-500">{row.sku || "-"}</p>
+                        <ProductCell image={row.image} name={row.productName} sku={row.sku} />
                       </td>
                       <td className="py-3 pr-4">
                         <span
@@ -608,8 +640,7 @@ const StocksPage = () => {
                     <tr key={row.productId || index} className="border-b border-slate-100 align-top">
                       <td className="py-3 pr-4 font-semibold text-slate-700">{index + 1}</td>
                       <td className="py-3 pr-4">
-                        <p className="font-semibold text-slate-900">{row.productName}</p>
-                        <p className="text-xs text-slate-500">{row.sku || "-"}</p>
+                        <ProductCell image={row.image} name={row.productName} sku={row.sku} />
                       </td>
                       <td className="py-3 pr-4 text-slate-600">{productTypeLabel(row.productType)}</td>
                       <td className="py-3 pr-4 font-semibold text-slate-900">
@@ -700,9 +731,30 @@ const StocksPage = () => {
         onClose={() => {
           setForceModalOpen(false);
           setSelectedProduct(null);
+          setForcePin("");
         }}
         onSubmit={handleForceStockUpdate}
         submitting={forceSubmitting}
+      />
+
+      <ForceStockPinModal
+        open={forcePinModalOpen}
+        product={
+          selectedProduct
+            ? {
+                id: selectedProduct.productId,
+                name: selectedProduct.productName,
+                stock: Number(selectedProduct.currentStock || 0)
+              }
+            : null
+        }
+        onClose={() => {
+          setForcePinModalOpen(false);
+          setSelectedProduct(null);
+          setForcePin("");
+        }}
+        onSubmit={handleVerifyForcePin}
+        submitting={pinSubmitting}
       />
     </div>
   );

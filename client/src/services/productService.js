@@ -46,8 +46,13 @@ export const productService = {
     const { data } = await api.patch(`/products/${id}/stock/deduct`, { deductionQuantity, reason });
     return data;
   },
-  forceUpdateStock: async (id, stockQuantity, reason) => {
-    const { data } = await api.patch(`/products/${id}/stock/force`, { stockQuantity, reason });
+  verifyForceStockPin: async (pin) => {
+    const { data } = await api.post("/products/stock/force/verify-pin", { pin });
+    return data;
+  },
+  forceUpdateStock: async (id, payload) => {
+    const body = typeof payload === "object" ? payload : { stockQuantity: payload };
+    const { data } = await api.patch(`/products/${id}/stock/force`, body);
     return data;
   },
   deleteProduct: async (id) => {

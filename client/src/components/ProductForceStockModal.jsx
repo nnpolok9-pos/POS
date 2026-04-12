@@ -54,15 +54,15 @@ const ProductForceStockModal = ({ open, product, onClose, onSubmit, submitting }
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-600">Reason for force update</span>
+            <span className="mb-2 block text-sm font-semibold text-slate-600">Note for force update</span>
             <textarea
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               rows={4}
-              placeholder="Example: opening stock correction, manual count adjustment, system reconciliation"
+              placeholder="Optional note: opening stock correction, manual count adjustment, system reconciliation"
               className="input min-h-[110px] resize-none"
-              required
             />
+            <span className="mt-2 block text-xs text-slate-500">This note is optional. The stock will still update without it.</span>
           </label>
 
           <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">

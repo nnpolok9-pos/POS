@@ -19,6 +19,8 @@ const {
 } = require("../lib/productLogic");
 const { getAllProductsAdmin } = require("../lib/dataStore");
 
+const getForceStockPin = () => String(process.env.FORCE_STOCK_PIN || "4422").trim();
+
 const toBoolean = (value, fallback = true) => {
   if (typeof value === "boolean") {
     return value;
@@ -144,6 +146,16 @@ const getAdminProducts = async (_req, res) => {
   res.json(serialized);
 };
 
+const verifyForceStockPin = async (req, res) => {
+  const pin = String(req.body.pin || "").trim();
+
+  if (!pin || pin !== getForceStockPin()) {
+    return res.status(403).json({ message: "Invalid PIN for force stock update" });
+  }
+
+  res.json({ success: true });
+};
+
 const updateProductStock = async (req, res) => {
   const product = await getProductById(req.params.id);
 
@@ -200,13 +212,14 @@ const forceUpdateProductStock = async (req, res) => {
 
   const stockQuantity = Number(req.body.stockQuantity);
   const reason = String(req.body.reason || "").trim();
+  const pin = String(req.body.pin || "").trim();
 
   if (Number.isNaN(stockQuantity) || stockQuantity < 0) {
     return res.status(400).json({ message: "Stock quantity must be zero or greater" });
   }
 
-  if (!reason) {
-    return res.status(400).json({ message: "Reason is required for force stock update" });
+  if (!pin || pin !== getForceStockPin()) {
+    return res.status(403).json({ message: "Invalid PIN for force stock update" });
   }
 
   const previousStock = Number(product.stock || 0);
@@ -221,7 +234,7 @@ const forceUpdateProductStock = async (req, res) => {
       newStock: stockQuantity,
       performedBy: req.user?.id,
       movementType: stockQuantity >= previousStock ? "received" : "deducted",
-      reason: `Force stock update | ${reason}`
+      reason: reason ? `Force stock update | ${reason}` : "Force stock update"
     });
   }
 
@@ -377,6 +390,7 @@ module.exports = {
   createProduct,
   getProducts,
   getAdminProducts,
+  verifyForceStockPin,
   updateProductStock,
   forceUpdateProductStock,
   deductProductStock,
