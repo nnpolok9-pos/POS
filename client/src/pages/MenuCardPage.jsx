@@ -43,7 +43,7 @@ const getDisplayConfig = (count) => {
   if (count <= 8) {
     return {
       columns: 4,
-      imageSize: "h-[14vh] min-h-[104px]",
+      imageSize: "h-full min-h-[180px]",
       nameClass: "text-[1.55vw] leading-[1.15]",
       secondaryClass: "text-[0.88vw]",
       priceClass: "text-[1.45vw]",
@@ -55,7 +55,7 @@ const getDisplayConfig = (count) => {
   if (count <= 12) {
     return {
       columns: 4,
-      imageSize: "h-[12.5vh] min-h-[92px]",
+      imageSize: "h-full min-h-[158px]",
       nameClass: "text-[1.28vw] leading-[1.12]",
       secondaryClass: "text-[0.8vw]",
       priceClass: "text-[1.2vw]",
@@ -67,7 +67,7 @@ const getDisplayConfig = (count) => {
   if (count <= 18) {
     return {
       columns: 5,
-      imageSize: "h-[10.4vh] min-h-[74px]",
+      imageSize: "h-full min-h-[138px]",
       nameClass: "text-[1.02vw] leading-[1.1]",
       secondaryClass: "text-[0.72vw]",
       priceClass: "text-[1vw]",
@@ -79,7 +79,7 @@ const getDisplayConfig = (count) => {
   if (count <= 24) {
     return {
       columns: 6,
-      imageSize: "h-[9.3vh] min-h-[68px]",
+      imageSize: "h-full min-h-[124px]",
       nameClass: "text-[0.9vw] leading-[1.08]",
       secondaryClass: "text-[0.65vw]",
       priceClass: "text-[0.92vw]",
@@ -90,7 +90,7 @@ const getDisplayConfig = (count) => {
 
   return {
     columns: 7,
-    imageSize: "h-[8.1vh] min-h-[60px]",
+    imageSize: "h-full min-h-[112px]",
     nameClass: "text-[0.8vw] leading-[1.05]",
     secondaryClass: "text-[0.58vw]",
     priceClass: "text-[0.84vw]",
@@ -190,52 +190,43 @@ const MenuCardPage = () => {
                 return (
                   <article
                     key={product.id}
-                    className={`flex h-full min-h-0 flex-col rounded-[1.2vw] border border-[#f3eadb] bg-[linear-gradient(180deg,#ffffff_0%,#fffaf1_100%)] ${displayConfig.cardPadding} shadow-[0_10px_22px_rgba(160,120,50,0.07)]`}
+                    className={`relative flex h-full min-h-0 overflow-hidden rounded-[1.2vw] border border-[#f3eadb] bg-[linear-gradient(180deg,#ffffff_0%,#fffaf1_100%)] ${displayConfig.cardPadding} shadow-[0_10px_22px_rgba(160,120,50,0.07)]`}
                   >
-                    <div className="mb-[0.4vw] flex items-start justify-between gap-[0.45vw]">
-                      <span className="rounded-full bg-[#fff4e1] px-[0.5vw] py-[0.18vw] text-[0.56vw] font-semibold uppercase tracking-[0.12em] text-slate-600">
+                    <div className="pointer-events-none absolute left-[0.45vw] right-[0.45vw] top-[0.45vw] z-10 flex items-start justify-between gap-[0.45vw]">
+                      <span className="rounded-full bg-[#fff4e1]/95 px-[0.5vw] py-[0.18vw] text-[0.56vw] font-semibold uppercase tracking-[0.12em] text-slate-600 shadow-sm">
                         {product.category || "Menu"}
                       </span>
                       {product.lowStock ? (
-                        <span className="rounded-full bg-amber-100 px-[0.46vw] py-[0.18vw] text-[0.54vw] font-semibold text-amber-700">
+                        <span className="rounded-full bg-amber-100/95 px-[0.46vw] py-[0.18vw] text-[0.54vw] font-semibold text-amber-700 shadow-sm">
                           Low
                         </span>
                       ) : null}
                     </div>
 
-                    <div className={`overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,#fff9ef_0%,#fffdf8_100%)] ${displayConfig.imageSize}`}>
-                      <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.22vw]" />
-                    </div>
+                    <div className={`relative flex-1 overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,#fff9ef_0%,#fffdf8_100%)] ${displayConfig.imageSize}`}>
+                      <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.3vw]" />
+                      <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(15,23,42,0)_0%,rgba(15,23,42,0.28)_36%,rgba(15,23,42,0.88)_100%)] px-[0.5vw] pb-[0.4vw] pt-[1.6vw]">
+                        <h3 className={`${displayConfig.nameClass} line-clamp-2 font-bold text-white drop-shadow-sm`}>
+                          {product.khmerName || product.name}
+                        </h3>
 
-                    <div className="mt-[0.5vw] flex min-h-0 flex-1 flex-col">
-                      <h3 className={`${displayConfig.nameClass} line-clamp-2 font-bold text-slate-900`}>
-                        {product.khmerName || product.name}
-                      </h3>
+                        {product.khmerName && product.khmerName !== product.name ? (
+                          <p className={`mt-[0.12vw] ${displayConfig.secondaryClass} line-clamp-1 font-medium text-white/80`}>
+                            {product.name}
+                          </p>
+                        ) : null}
 
-                      {product.khmerName && product.khmerName !== product.name ? (
-                        <p className={`mt-[0.22vw] ${displayConfig.secondaryClass} line-clamp-1 font-medium text-slate-500`}>
-                          {product.name}
-                        </p>
-                      ) : null}
-
-                      {product.description || product.khmerDescription ? (
-                        <p className={`mt-[0.28vw] ${displayConfig.secondaryClass} line-clamp-2 leading-[1.35] text-slate-500`}>
-                          {product.khmerDescription || product.description}
-                        </p>
-                      ) : (
-                        <div className="flex-1" />
-                      )}
-
-                      <div className="mt-auto pt-[0.35vw]">
+                        <div className="mt-[0.26vw]">
                         {showDiscount ? (
                           <div className="flex flex-wrap items-end gap-x-[0.45vw] gap-y-[0.1vw]">
                             <span className={`${displayConfig.priceClass} font-extrabold text-brand-600`}>{promo.khr}</span>
-                            <span className={`${displayConfig.secondaryClass} text-slate-400 line-through`}>{regular.khr}</span>
+                            <span className={`${displayConfig.secondaryClass} text-white/65 line-through`}>{regular.khr}</span>
                           </div>
                         ) : (
                           <span className={`${displayConfig.priceClass} font-extrabold text-brand-600`}>{promo.khr}</span>
                         )}
-                        <p className={`mt-[0.14vw] ${displayConfig.secondaryClass} text-slate-400`}>{promo.usd}</p>
+                        <p className={`mt-[0.08vw] ${displayConfig.secondaryClass} text-white/72`}>{promo.usd}</p>
+                        </div>
                       </div>
                     </div>
                   </article>
