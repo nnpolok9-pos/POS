@@ -44,8 +44,7 @@ const statusFilterStyles = {
 
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
 const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
-const requiresVoidRefundMethod = (order) =>
-  Number(order?.total || 0) > 0 && !isCustomerQueueOrder(order) && Boolean(order?.paymentMethod);
+const requiresVoidRefundMethod = (order) => Number(order?.total || 0) > 0 && Boolean(order?.paymentMethod);
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -54,6 +53,7 @@ const OrdersPage = () => {
   const canUseDateRange = ["master_admin", "admin", "checker"].includes(user?.role);
   const canMutateOrders = ["master_admin", "admin", "staff"].includes(user?.role);
   const canVoidCompleted = ["master_admin", "admin"].includes(user?.role);
+  const canDeleteOrders = user?.role === "master_admin";
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [historyOrder, setHistoryOrder] = useState(null);
@@ -157,6 +157,29 @@ const OrdersPage = () => {
       toast.error(error.response?.data?.message || "Failed to serve order");
     } finally {
       setServeSubmitting(false);
+    }
+  };
+
+  const handleDeleteOrder = async (order) => {
+    if (!order) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete order ${order.orderId}? This will permanently remove it from the order list.`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await orderService.deleteOrder(order.id);
+      toast.success(`Order ${order.orderId} deleted`);
+      setSelectedOrder((current) => (current?.id === order.id ? null : current));
+      setHistoryOrder((current) => (current?.id === order.id ? null : current));
+      setVoidingOrder((current) => (current?.id === order.id ? null : current));
+      setServingOrder((current) => (current?.id === order.id ? null : current));
+      await loadOrders(canUseDateRange && appliedDateRange ? appliedDateRange : {});
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete order");
     }
   };
 
@@ -479,7 +502,17 @@ const OrdersPage = () => {
                         <Trash2 size={16} />
                         Void Sale
                       </button>
-                      )}
+                    )}
+                    {canDeleteOrders && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOrder(order)}
+                        className="btn-secondary h-10 gap-2 px-3 text-sm text-rose-700"
+                      >
+                        <Trash2 size={16} />
+                        Delete
+                      </button>
+                    )}
                     </div>
                   </td>
                 </tr>

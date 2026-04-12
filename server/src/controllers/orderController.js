@@ -1,5 +1,12 @@
 const generateOrderId = require("../utils/generateOrderId");
-const { getAllProducts, getOrders: getAllOrders, getOrderById: getStoredOrderById, saveOrder, getUsersByIds } = require("../lib/dataStore");
+const {
+  getAllProducts,
+  getOrders: getAllOrders,
+  getOrderById: getStoredOrderById,
+  saveOrder,
+  getUsersByIds,
+  deleteOrderById
+} = require("../lib/dataStore");
 const { isCompositeProductType, isBaseProductType, inferProductType, saveProduct } = require("../lib/productLogic");
 
 const buildLocalDayRange = (dateValue, endOfDay = false) => {
@@ -837,4 +844,25 @@ const serveOrder = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, createPublicOrder, getOrders, getEditedOrders, getOrderById, updateOrder, voidOrder, serveOrder };
+const deleteOrder = async (req, res) => {
+  const order = await getStoredOrderById(req.params.id);
+
+  if (!order) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+
+  await deleteOrderById(order.id);
+  res.json({ message: "Order deleted successfully" });
+};
+
+module.exports = {
+  createOrder,
+  createPublicOrder,
+  getOrders,
+  getEditedOrders,
+  getOrderById,
+  updateOrder,
+  voidOrder,
+  serveOrder,
+  deleteOrder
+};

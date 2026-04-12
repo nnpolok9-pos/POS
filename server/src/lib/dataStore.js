@@ -301,6 +301,10 @@ const getOrderByPublicId = async (id) => {
   return mapOrderRow(rows[0]);
 };
 
+const deleteOrderById = async (id) => {
+  await query(`DELETE FROM orders WHERE id=:id`, { id });
+};
+
 const saveOrder = async (order, connection = null) => {
   const params = {
     id: order.id || createId(),
@@ -385,6 +389,7 @@ module.exports = {
   getOrders,
   getOrderById,
   getOrderByPublicId,
+  deleteOrderById,
   saveOrder,
   clearCoreData
 };

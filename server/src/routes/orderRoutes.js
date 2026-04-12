@@ -1,5 +1,15 @@
 const express = require("express");
-const { createOrder, createPublicOrder, getOrders, getEditedOrders, getOrderById, updateOrder, voidOrder, serveOrder } = require("../controllers/orderController");
+const {
+  createOrder,
+  createPublicOrder,
+  getOrders,
+  getEditedOrders,
+  getOrderById,
+  updateOrder,
+  voidOrder,
+  serveOrder,
+  deleteOrder
+} = require("../controllers/orderController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -12,5 +22,6 @@ router.get("/:id", protect, authorize("master_admin", "admin", "checker", "staff
 router.put("/:id", protect, authorize("master_admin", "admin", "staff"), updateOrder);
 router.patch("/:id/serve", protect, authorize("master_admin", "admin", "staff"), serveOrder);
 router.patch("/:id/void", protect, authorize("master_admin", "admin", "staff"), voidOrder);
+router.delete("/:id", protect, authorize("master_admin"), deleteOrder);
 
 module.exports = router;
