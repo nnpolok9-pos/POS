@@ -26,6 +26,14 @@ const ReportsPage = () => {
             >
               Sales Transactions
             </NavLink>
+            <NavLink
+              to="/reports/product-sales"
+              className={({ isActive }) =>
+                `rounded-2xl px-3.5 py-2 text-[13px] font-semibold transition ${isActive ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`
+              }
+            >
+              Product Sales
+            </NavLink>
           </div>
         </div>
       </section>

@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 import ReportDatePicker from "./ReportDatePicker";
 
 const ProductStockModal = ({ open, product, onClose, onSubmit, submitting }) => {
-  const [receivedQuantity, setReceivedQuantity] = useState(1);
+  const [receivedQuantity, setReceivedQuantity] = useState("1");
   const [expiryDate, setExpiryDate] = useState("");
 
   useEffect(() => {
-    setReceivedQuantity(1);
+    setReceivedQuantity("1");
     setExpiryDate("");
   }, [product]);
 
@@ -17,12 +17,14 @@ const ProductStockModal = ({ open, product, onClose, onSubmit, submitting }) => 
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    onSubmit({ receivedQuantity, expiryDate });
+    onSubmit({ receivedQuantity: Number(receivedQuantity), expiryDate });
   };
 
   const bumpStock = (amount) => {
-    setReceivedQuantity((current) => Math.max(1, current + amount));
+    setReceivedQuantity((current) => String(Math.max(1, Number(current || 0) + amount)));
   };
+
+  const previewQuantity = Math.max(0, Number(receivedQuantity) || 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
@@ -50,7 +52,15 @@ const ProductStockModal = ({ open, product, onClose, onSubmit, submitting }) => 
               type="number"
               min="1"
               value={receivedQuantity}
-              onChange={(event) => setReceivedQuantity(Math.max(1, Number(event.target.value) || 1))}
+              onChange={(event) => {
+                const { value } = event.target;
+                if (value === "") {
+                  setReceivedQuantity("");
+                  return;
+                }
+
+                setReceivedQuantity(value);
+              }}
               className="input"
               required
             />
@@ -69,7 +79,7 @@ const ProductStockModal = ({ open, product, onClose, onSubmit, submitting }) => 
           <p className="-mt-2 text-xs text-slate-500">Optional. If selected, this will update the product expiry date for the newly added stock.</p>
 
           <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            New stock after add: <span className="font-bold">{product.stock + receivedQuantity}</span>
+            New stock after add: <span className="font-bold">{product.stock + previewQuantity}</span>
           </div>
 
           <button type="submit" disabled={submitting} className="btn-primary w-full">

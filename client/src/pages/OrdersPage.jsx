@@ -44,6 +44,8 @@ const statusFilterStyles = {
 
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
 const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
+const requiresVoidRefundMethod = (order) =>
+  Number(order?.total || 0) > 0 && !isCustomerQueueOrder(order) && Boolean(order?.paymentMethod);
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -117,7 +119,7 @@ const OrdersPage = () => {
       return;
     }
 
-    if (Number(voidingOrder.total || 0) > 0 && !refundMethod) {
+    if (requiresVoidRefundMethod(voidingOrder) && !refundMethod) {
       toast.error("Select how the refund was made");
       return;
     }
@@ -502,6 +504,7 @@ const OrdersPage = () => {
       <RefundMethodModal
         open={Boolean(voidingOrder)}
         order={voidingOrder}
+        requiresRefundMethod={requiresVoidRefundMethod(voidingOrder)}
         refundMethod={refundMethod}
         onRefundMethodChange={setRefundMethod}
         onClose={() => {

@@ -527,8 +527,11 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
                           <input
                             type="number"
                             min="1"
-                            value={item.quantity}
-                            onChange={(event) => updateComboItem(index, { quantity: Number(event.target.value) })}
+                            value={item.quantity ?? ""}
+                            onChange={(event) => {
+                              const { value } = event.target;
+                              updateComboItem(index, { quantity: value === "" ? "" : value });
+                            }}
                             className="input"
                             required
                           />

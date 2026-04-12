@@ -3,6 +3,7 @@ const { inferProductType, isCompositeProductType, buildCompositeRequirements } =
 
 const REPORT_TIMEZONE = process.env.REPORT_TIMEZONE || process.env.TZ || "Asia/Bangkok";
 const COMPLETED_STATUSES = ["completed", "confirmed"];
+const PAYMENT_METHODS = ["cash", "card", "qr"];
 
 const buildDateRange = (from, to) => {
   const now = new Date();
@@ -18,6 +19,81 @@ const toReportDay = (dateValue) =>
     month: "2-digit",
     day: "2-digit"
   }).format(new Date(dateValue));
+
+const pushPaymentFlow = (flows, method, direction, amount) => {
+  if (!PAYMENT_METHODS.includes(method)) {
+    return;
+  }
+
+  const numericAmount = Number(amount || 0);
+  if (numericAmount <= 0) {
+    return;
+  }
+
+  flows[`${method}${direction}`] += numericAmount;
+};
+
+const getInitialPaymentTransaction = (order) => {
+  const firstEdit = Array.isArray(order.editHistory) ? order.editHistory[0] : null;
+
+  if (order?.source === "customer" && firstEdit?.oldPaymentMethod == null && firstEdit?.newPaymentMethod) {
+    return {
+      amount: Number(firstEdit?.oldTotal ?? order.originalTotal ?? order.total ?? 0),
+      method: firstEdit.newPaymentMethod
+    };
+  }
+
+  return {
+    amount: Number(firstEdit?.oldTotal ?? order.originalTotal ?? order.total ?? 0),
+    method: firstEdit?.oldPaymentMethod || order.paymentMethod || null
+  };
+};
+
+const getOrderPaymentFlows = (order) => {
+  const flows = PAYMENT_METHODS.reduce((acc, method) => {
+    acc[`${method}In`] = 0;
+    acc[`${method}Out`] = 0;
+    return acc;
+  }, {});
+
+  const initialTransaction = getInitialPaymentTransaction(order);
+  pushPaymentFlow(flows, initialTransaction.method, "In", initialTransaction.amount);
+
+  const editHistory = Array.isArray(order.editHistory) ? order.editHistory : [];
+
+  editHistory.forEach((entry) => {
+    if (order?.source === "customer" && entry.oldPaymentMethod == null && entry.newPaymentMethod) {
+      return;
+    }
+
+    if (entry.adjustmentType === "void") {
+      pushPaymentFlow(flows, entry.adjustmentMethod, "Out", entry.adjustmentAmount);
+      return;
+    }
+
+    const oldMethod = entry.oldPaymentMethod || null;
+    const newMethod = entry.newPaymentMethod || null;
+    const oldTotal = Number(entry.oldTotal || 0);
+    const newTotal = Number(entry.newTotal || 0);
+
+    if (oldMethod && newMethod && oldMethod !== newMethod) {
+      pushPaymentFlow(flows, oldMethod, "Out", oldTotal);
+      pushPaymentFlow(flows, newMethod, "In", newTotal);
+      return;
+    }
+
+    if (entry.adjustmentType === "add") {
+      pushPaymentFlow(flows, entry.adjustmentMethod || newMethod || oldMethod, "In", entry.adjustmentAmount);
+      return;
+    }
+
+    if (entry.adjustmentType === "refund") {
+      pushPaymentFlow(flows, entry.adjustmentMethod || oldMethod || newMethod, "Out", entry.adjustmentAmount);
+    }
+  });
+
+  return flows;
+};
 
 const calculateProductInventory = (product, productMap) => {
   const lowStockThreshold = Number(product?.lowStockThreshold) || 5;
@@ -137,9 +213,8 @@ const getDashboardSummary = async (_req, res) => {
 const getSalesRangeReport = async (req, res) => {
   const { from, to } = req.query;
   const { start, end } = buildDateRange(from, to);
-  const orders = (await getOrders()).filter(
-    (order) => COMPLETED_STATUSES.includes(order.status) && new Date(order.createdAt) >= start && new Date(order.createdAt) <= end
-  );
+  const allOrders = await getOrders();
+  const orders = allOrders.filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end);
 
   const grouped = new Map();
   orders.forEach((order) => {
@@ -147,13 +222,26 @@ const getSalesRangeReport = async (req, res) => {
     const existing = grouped.get(date) || {
       totalSaleAmount: 0,
       numberOfOrder: 0,
-      cash: 0,
-      card: 0,
-      qr: 0
+      cashIn: 0,
+      cashOut: 0,
+      cardIn: 0,
+      cardOut: 0,
+      qrIn: 0,
+      qrOut: 0
     };
-    existing.totalSaleAmount += Number(order.total || 0);
-    existing.numberOfOrder += 1;
-    existing[order.paymentMethod || "cash"] += Number(order.total || 0);
+
+    if (COMPLETED_STATUSES.includes(order.status)) {
+      existing.totalSaleAmount += Number(order.total || 0);
+      existing.numberOfOrder += 1;
+    }
+
+    const flows = getOrderPaymentFlows(order);
+    existing.cashIn += Number(flows.cashIn || 0);
+    existing.cashOut += Number(flows.cashOut || 0);
+    existing.cardIn += Number(flows.cardIn || 0);
+    existing.cardOut += Number(flows.cardOut || 0);
+    existing.qrIn += Number(flows.qrIn || 0);
+    existing.qrOut += Number(flows.qrOut || 0);
     grouped.set(date, existing);
   });
 
@@ -165,13 +253,93 @@ const getSalesRangeReport = async (req, res) => {
       totalSaleAmount: row.totalSaleAmount,
       numberOfOrder: row.numberOfOrder,
       paymentBy: {
-        cash: row.cash,
-        card: row.card,
-        qr: row.qr
+        cash: row.cashIn - row.cashOut,
+        card: row.cardIn - row.cardOut,
+        qr: row.qrIn - row.qrOut
       }
     }));
 
   res.json({ from: start, to: end, rows });
+};
+
+const getProductSalesReport = async (req, res) => {
+  const { from, to } = req.query;
+  const { start, end } = buildDateRange(from, to);
+  const [orders, products] = await Promise.all([getOrders(), getAllProducts()]);
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
+  const grouped = new Map();
+
+  orders
+    .filter((order) => COMPLETED_STATUSES.includes(order.status) && new Date(order.createdAt) >= start && new Date(order.createdAt) <= end)
+    .forEach((order) => {
+      order.items.forEach((item) => {
+        const productId = String(item.product);
+        const product = productMap.get(productId);
+
+        if (product && product.forSale === false) {
+          return;
+        }
+
+        const existing = grouped.get(productId) || {
+          productId,
+          productName: item.name || product?.name || "Unknown Product",
+          category: product?.category || item.category || "-",
+          productType: product ? inferProductType(product) : item.productType || "raw",
+          soldQty: 0,
+          saleAmount: 0,
+          orderCount: 0
+        };
+
+        existing.soldQty += Number(item.quantity || 0);
+        existing.saleAmount += Number(item.subtotal || 0);
+        existing.orderCount += 1;
+        grouped.set(productId, existing);
+      });
+    });
+
+  const rows = [...grouped.values()]
+    .sort((left, right) => right.soldQty - left.soldQty || right.saleAmount - left.saleAmount || left.productName.localeCompare(right.productName))
+    .map((row, index) => ({
+      sl: index + 1,
+      productId: row.productId,
+      productName: row.productName,
+      category: row.category,
+      productType: row.productType,
+      soldQty: row.soldQty,
+      saleAmount: row.saleAmount,
+      orderCount: row.orderCount
+    }));
+
+  const summary = rows.reduce(
+    (acc, row) => {
+      acc.totalProducts += 1;
+      acc.totalQty += Number(row.soldQty || 0);
+      acc.totalSales += Number(row.saleAmount || 0);
+      acc.totalOrderTouches += Number(row.orderCount || 0);
+      acc.categories.add(row.category || "-");
+      return acc;
+    },
+    {
+      totalProducts: 0,
+      totalQty: 0,
+      totalSales: 0,
+      totalOrderTouches: 0,
+      categories: new Set()
+    }
+  );
+
+  res.json({
+    from: start,
+    to: end,
+    summary: {
+      totalProducts: summary.totalProducts,
+      totalQty: summary.totalQty,
+      totalSales: summary.totalSales,
+      totalOrderTouches: summary.totalOrderTouches,
+      categoryCount: summary.categories.size
+    },
+    rows
+  });
 };
 
 const getCashPositionReport = async (req, res) => {
@@ -242,6 +410,7 @@ module.exports = {
   getLowStockProducts,
   getDashboardSummary,
   getSalesRangeReport,
+  getProductSalesReport,
   getCashPositionReport,
   getOrdersByDate
 };

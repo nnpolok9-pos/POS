@@ -2,12 +2,32 @@ import { formatServeTime } from "./format";
 
 const paymentMethods = ["cash", "card", "qr"];
 
+const pushFlow = (flows, method, direction, amount) => {
+  if (!paymentMethods.includes(method)) {
+    return;
+  }
+
+  const numericAmount = Number(amount || 0);
+  if (numericAmount <= 0) {
+    return;
+  }
+
+  flows[`${method}${direction}`] += numericAmount;
+};
+
 const getInitialTransaction = (order) => {
-  const firstEdit = order.editHistory?.[0];
+  const firstEdit = Array.isArray(order.editHistory) ? order.editHistory[0] : null;
+
+  if (order?.source === "customer" && firstEdit?.oldPaymentMethod == null && firstEdit?.newPaymentMethod) {
+    return {
+      amount: Number(firstEdit?.oldTotal ?? order.originalTotal ?? order.total ?? 0),
+      method: firstEdit.newPaymentMethod
+    };
+  }
 
   return {
     amount: Number(firstEdit?.oldTotal ?? order.originalTotal ?? order.total ?? 0),
-    method: firstEdit?.oldPaymentMethod || order.paymentMethod || "cash"
+    method: firstEdit?.oldPaymentMethod || order.paymentMethod || null
   };
 };
 
@@ -33,24 +53,38 @@ export const getTransactionSummary = (order) => {
   }, {});
 
   const initialTransaction = getInitialTransaction(order);
-  if (paymentMethods.includes(initialTransaction.method)) {
-    flows[`${initialTransaction.method}In`] += initialTransaction.amount;
-  }
+  pushFlow(flows, initialTransaction.method, "In", initialTransaction.amount);
 
   const editHistory = Array.isArray(order.editHistory) ? order.editHistory : [];
 
   editHistory.forEach((entry) => {
-    const method = entry.adjustmentMethod;
-    if (!paymentMethods.includes(method)) {
+    if (order?.source === "customer" && entry.oldPaymentMethod == null && entry.newPaymentMethod) {
+      return;
+    }
+
+    if (entry.adjustmentType === "void") {
+      pushFlow(flows, entry.adjustmentMethod, "Out", entry.adjustmentAmount);
+      return;
+    }
+
+    const oldMethod = entry.oldPaymentMethod || null;
+    const newMethod = entry.newPaymentMethod || null;
+    const oldTotal = Number(entry.oldTotal || 0);
+    const newTotal = Number(entry.newTotal || 0);
+
+    if (oldMethod && newMethod && oldMethod !== newMethod) {
+      pushFlow(flows, oldMethod, "Out", oldTotal);
+      pushFlow(flows, newMethod, "In", newTotal);
       return;
     }
 
     if (entry.adjustmentType === "add") {
-      flows[`${method}In`] += Number(entry.adjustmentAmount || 0);
+      pushFlow(flows, entry.adjustmentMethod || newMethod || oldMethod, "In", entry.adjustmentAmount);
+      return;
     }
 
-    if (entry.adjustmentType === "refund" || entry.adjustmentType === "void") {
-      flows[`${method}Out`] += Number(entry.adjustmentAmount || 0);
+    if (entry.adjustmentType === "refund") {
+      pushFlow(flows, entry.adjustmentMethod || oldMethod || newMethod, "Out", entry.adjustmentAmount);
     }
   });
 

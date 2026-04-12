@@ -150,30 +150,30 @@ const MenuCardPage = () => {
   const displayConfig = useMemo(() => getDisplayConfig(displayProducts.length), [displayProducts.length]);
 
   return (
-    <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.16),_transparent_42%),linear-gradient(180deg,#fffdf8_0%,#fff7eb_50%,#fffdf9_100%)] p-[1.15vw] text-slate-900">
+    <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.18),_transparent_26%),linear-gradient(180deg,#0f172a_0%,#111827_45%,#020617_100%)] p-[1.15vw] text-white">
       <div className="mx-auto flex h-full max-w-[1920px] flex-col gap-[0.7vw]">
-        <header className="flex shrink-0 items-center gap-[0.8vw] rounded-[1.45vw] border border-white/80 bg-white/88 px-[0.95vw] py-[0.48vw] shadow-[0_16px_34px_rgba(160,120,50,0.10)] backdrop-blur">
-          <div className="flex h-[4.1vw] w-[4.1vw] min-h-[54px] min-w-[54px] items-center justify-center overflow-hidden rounded-[1vw] border border-[#efe3d3] bg-white shadow-sm">
+        <header className="flex shrink-0 items-center gap-[0.8vw] rounded-[1.45vw] border border-white/10 bg-white/5 px-[0.95vw] py-[0.48vw] shadow-[0_16px_34px_rgba(0,0,0,0.24)] backdrop-blur">
+          <div className="flex h-[4.1vw] w-[4.1vw] min-h-[54px] min-w-[54px] items-center justify-center overflow-hidden rounded-[1vw] border border-white/10 bg-white shadow-sm">
             {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-contain p-[0.3vw]" /> : null}
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-[1.28vw] font-extrabold leading-none tracking-tight text-slate-900">{MENU_CARD_TITLE}</h1>
-            <p className="mt-[0.14vw] text-[0.64vw] font-medium text-slate-500">
+            <h1 className="font-display text-[1.28vw] font-extrabold leading-none tracking-tight text-white">{MENU_CARD_TITLE}</h1>
+            <p className="mt-[0.14vw] text-[0.64vw] font-medium text-white/65">
               Fresh fast food menu for easy customer viewing
             </p>
           </div>
         </header>
 
         {loading ? (
-          <div className="flex flex-1 items-center justify-center rounded-[1.8vw] border border-white/80 bg-white/88 text-[1.15vw] text-slate-500 shadow-[0_18px_40px_rgba(160,120,50,0.10)]">
+          <div className="flex flex-1 items-center justify-center rounded-[1.8vw] border border-white/10 bg-white/5 text-[1.15vw] text-white/65 shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
             Loading menu card...
           </div>
         ) : displayProducts.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-[1.8vw] border border-dashed border-slate-300 bg-white/88 text-[1.15vw] text-slate-500 shadow-[0_18px_40px_rgba(160,120,50,0.10)]">
+          <div className="flex flex-1 items-center justify-center rounded-[1.8vw] border border-dashed border-white/20 bg-white/5 text-[1.15vw] text-white/65 shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
             No products available for display.
           </div>
         ) : (
-          <section className="min-h-0 flex-1 overflow-hidden rounded-[1.8vw] border border-white/80 bg-white/90 p-[0.62vw] shadow-[0_18px_40px_rgba(160,120,50,0.10)] backdrop-blur">
+          <section className="min-h-0 flex-1 overflow-hidden rounded-[1.8vw] border border-white/10 bg-white/5 p-[0.62vw] shadow-[0_18px_40px_rgba(0,0,0,0.24)] backdrop-blur">
             <div
               className={`grid h-full ${displayConfig.gapClass}`}
               style={{
@@ -190,30 +190,30 @@ const MenuCardPage = () => {
                 return (
                   <article
                     key={product.id}
-                    className={`relative flex h-full min-h-0 overflow-hidden rounded-[1.2vw] border border-[#f3eadb] bg-[linear-gradient(180deg,#ffffff_0%,#fffaf1_100%)] ${displayConfig.cardPadding} shadow-[0_10px_22px_rgba(160,120,50,0.07)]`}
+                    className={`relative flex h-full min-h-0 overflow-hidden rounded-[1.2vw] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.04)_100%)] ${displayConfig.cardPadding} shadow-[0_14px_26px_rgba(0,0,0,0.24)]`}
                   >
                     <div className="pointer-events-none absolute left-[0.45vw] right-[0.45vw] top-[0.45vw] z-10 flex items-start justify-between gap-[0.45vw]">
-                      <span className="max-w-[78%] truncate rounded-full bg-[#fff4e1]/95 px-[0.5vw] py-[0.18vw] text-[0.56vw] font-semibold uppercase tracking-[0.08em] text-slate-700 shadow-sm">
+                      <span className="max-w-[78%] truncate rounded-full bg-black/50 px-[0.5vw] py-[0.18vw] text-[0.56vw] font-semibold uppercase tracking-[0.08em] text-white shadow-sm">
                         {product.name}
                       </span>
                       {product.lowStock ? (
-                        <span className="rounded-full bg-amber-100/95 px-[0.46vw] py-[0.18vw] text-[0.54vw] font-semibold text-amber-700 shadow-sm">
+                        <span className="rounded-full bg-amber-300/90 px-[0.46vw] py-[0.18vw] text-[0.54vw] font-semibold text-slate-900 shadow-sm">
                           Low
                         </span>
                       ) : null}
                     </div>
 
-                    <div className={`relative flex-1 overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,#fff9ef_0%,#fffdf8_100%)] ${displayConfig.imageSize}`}>
+                    <div className={`relative flex-1 overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.03)_100%)] ${displayConfig.imageSize}`}>
                       <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.3vw]" />
-                      <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(15,23,42,0)_0%,rgba(15,23,42,0.28)_36%,rgba(15,23,42,0.88)_100%)] px-[0.5vw] pb-[0.4vw] pt-[1.6vw]">
+                      <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(2,6,23,0)_0%,rgba(2,6,23,0.34)_36%,rgba(2,6,23,0.96)_100%)] px-[0.5vw] pb-[0.4vw] pt-[1.6vw]">
                         <div className="mt-[0.26vw]">
                         {showDiscount ? (
                           <div className="flex flex-wrap items-end gap-x-[0.45vw] gap-y-[0.1vw]">
-                            <span className={`${displayConfig.priceClass} font-extrabold text-[#facc15]`}>{promo.khr}</span>
+                            <span className={`${displayConfig.priceClass} font-extrabold text-[#fde047] drop-shadow-[0_2px_10px_rgba(250,204,21,0.32)]`}>{promo.khr}</span>
                             <span className={`${displayConfig.secondaryClass} text-white/65 line-through`}>{regular.khr}</span>
                           </div>
                         ) : (
-                          <span className={`${displayConfig.priceClass} font-extrabold text-[#facc15]`}>{promo.khr}</span>
+                          <span className={`${displayConfig.priceClass} font-extrabold text-[#fde047] drop-shadow-[0_2px_10px_rgba(250,204,21,0.32)]`}>{promo.khr}</span>
                         )}
                         </div>
                       </div>

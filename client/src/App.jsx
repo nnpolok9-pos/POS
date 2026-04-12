@@ -11,6 +11,7 @@ import StocksPage from "./pages/StocksPage";
 import ReportsPage from "./pages/ReportsPage";
 import SalesReportPage from "./pages/SalesReportPage";
 import SalesTransactionPage from "./pages/SalesTransactionPage";
+import ProductSalesReportPage from "./pages/ProductSalesReportPage";
 import UsersPage from "./pages/UsersPage";
 import EditedListPage from "./pages/EditedListPage";
 import ShopProfilePage from "./pages/ShopProfilePage";
@@ -138,6 +139,7 @@ function App() {
           <Route index element={<Navigate to="/reports/sales" replace />} />
           <Route path="sales" element={<SalesReportPage />} />
           <Route path="sales-transaction" element={<SalesTransactionPage />} />
+          <Route path="product-sales" element={<ProductSalesReportPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

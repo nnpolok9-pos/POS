@@ -2,13 +2,13 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { currency } from "../utils/format";
 
-const RefundMethodModal = ({ open, order, refundMethod, onRefundMethodChange, onClose, onConfirm, loading }) => {
+const RefundMethodModal = ({ open, order, requiresRefundMethod = true, refundMethod, onRefundMethodChange, onClose, onConfirm, loading }) => {
   if (!open || !order) {
     return null;
   }
 
   const refundAmount = Number(order.total || 0);
-  const collectionMethod = order.paymentMethod || "-";
+  const collectionMethod = order.paymentMethod || "Unpaid queue";
 
   return createPortal(
     <div className="fixed inset-0 z-[95] overflow-y-auto bg-slate-950/55 p-4 sm:p-6" onClick={onClose}>
@@ -35,33 +35,46 @@ const RefundMethodModal = ({ open, order, refundMethod, onRefundMethodChange, on
               <div className="rounded-3xl bg-amber-50 p-4">
                 <p className="text-sm text-amber-700">Collected By</p>
                 <p className="mt-1 text-2xl font-bold capitalize text-amber-950">{collectionMethod}</p>
-                <p className="mt-1 text-xs text-amber-700">Original order payment method</p>
+                <p className="mt-1 text-xs text-amber-700">
+                  {requiresRefundMethod ? "Original order payment method" : "No payment was collected for this queue order"}
+                </p>
               </div>
             </div>
 
-            <div>
-              <p className="mb-2 text-sm font-semibold text-slate-700">Refunded by</p>
-              <div className="grid grid-cols-3 gap-2">
-                {["cash", "card", "qr"].map((method) => (
-                  <button
-                    key={method}
-                    type="button"
-                    onClick={() => onRefundMethodChange(method)}
-                    className={`rounded-2xl px-4 py-3 text-sm font-semibold capitalize transition ${
-                      refundMethod === method ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    {method}
-                  </button>
-                ))}
+            {requiresRefundMethod ? (
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-700">Refunded by</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {["cash", "card", "qr"].map((method) => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => onRefundMethodChange(method)}
+                      className={`rounded-2xl px-4 py-3 text-sm font-semibold capitalize transition ${
+                        refundMethod === method ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {method}
+                    </button>
+                  ))}
+                </div>
+                {refundAmount > 0 && !refundMethod ? (
+                  <p className="mt-2 text-xs font-semibold text-rose-600">Select the refund method before confirming the void sale.</p>
+                ) : null}
               </div>
-              {refundAmount > 0 && !refundMethod ? (
-                <p className="mt-2 text-xs font-semibold text-rose-600">Select the refund method before confirming the void sale.</p>
-              ) : null}
-            </div>
+            ) : (
+              <div className="rounded-3xl bg-emerald-50 p-4 text-sm text-emerald-800">
+                This is an unpaid customer queue order. No refund method is required to void it.
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-3">
-              <button type="button" onClick={onConfirm} className="btn-primary" disabled={loading || (refundAmount > 0 && !refundMethod)}>
+              <button
+                type="button"
+                onClick={onConfirm}
+                className="btn-primary"
+                disabled={loading || (requiresRefundMethod && refundAmount > 0 && !refundMethod)}
+              >
                 {loading ? "Voiding..." : "Confirm Void"}
               </button>
               <button type="button" onClick={onClose} className="btn-secondary">

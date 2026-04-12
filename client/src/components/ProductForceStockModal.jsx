@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
 const ProductForceStockModal = ({ open, product, onClose, onSubmit, submitting }) => {
-  const [stockQuantity, setStockQuantity] = useState(0);
+  const [stockQuantity, setStockQuantity] = useState("0");
   const [reason, setReason] = useState("");
 
   useEffect(() => {
-    setStockQuantity(Number(product?.stock || 0));
+    setStockQuantity(String(Number(product?.stock || 0)));
     setReason("");
   }, [product]);
 
@@ -15,8 +15,10 @@ const ProductForceStockModal = ({ open, product, onClose, onSubmit, submitting }
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    onSubmit({ stockQuantity, reason });
+    onSubmit({ stockQuantity: Number(stockQuantity), reason });
   };
+
+  const previewQuantity = Math.max(0, Number(stockQuantity) || 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
@@ -47,7 +49,15 @@ const ProductForceStockModal = ({ open, product, onClose, onSubmit, submitting }
               min="0"
               step="0.001"
               value={stockQuantity}
-              onChange={(event) => setStockQuantity(Math.max(0, Number(event.target.value) || 0))}
+              onChange={(event) => {
+                const { value } = event.target;
+                if (value === "") {
+                  setStockQuantity("");
+                  return;
+                }
+
+                setStockQuantity(value);
+              }}
               className="input"
               required
             />
@@ -66,7 +76,7 @@ const ProductForceStockModal = ({ open, product, onClose, onSubmit, submitting }
           </label>
 
           <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            New stock after force update: <span className="font-bold">{stockQuantity}</span>
+            New stock after force update: <span className="font-bold">{previewQuantity}</span>
           </div>
 
           <button type="submit" disabled={submitting} className="btn-primary w-full">

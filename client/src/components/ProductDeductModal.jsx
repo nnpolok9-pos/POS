@@ -2,11 +2,11 @@ import { Minus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const ProductDeductModal = ({ open, product, onClose, onSubmit, submitting }) => {
-  const [deductionQuantity, setDeductionQuantity] = useState(1);
+  const [deductionQuantity, setDeductionQuantity] = useState("1");
   const [reason, setReason] = useState("");
 
   useEffect(() => {
-    setDeductionQuantity(1);
+    setDeductionQuantity("1");
     setReason("");
   }, [product]);
 
@@ -16,12 +16,14 @@ const ProductDeductModal = ({ open, product, onClose, onSubmit, submitting }) =>
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    onSubmit({ deductionQuantity, reason });
+    onSubmit({ deductionQuantity: Number(deductionQuantity), reason });
   };
 
   const bumpQuantity = (amount) => {
-    setDeductionQuantity((current) => Math.min(product.stock, Math.max(1, current + amount)));
+    setDeductionQuantity((current) => String(Math.min(product.stock, Math.max(1, Number(current || 0) + amount))));
   };
+
+  const previewQuantity = Math.max(0, Math.min(product.stock, Number(deductionQuantity) || 0));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
@@ -50,9 +52,15 @@ const ProductDeductModal = ({ open, product, onClose, onSubmit, submitting }) =>
               min="1"
               max={product.stock}
               value={deductionQuantity}
-              onChange={(event) =>
-                setDeductionQuantity(Math.min(product.stock, Math.max(1, Number(event.target.value) || 1)))
-              }
+              onChange={(event) => {
+                const { value } = event.target;
+                if (value === "") {
+                  setDeductionQuantity("");
+                  return;
+                }
+
+                setDeductionQuantity(value);
+              }}
               className="input"
               required
             />
@@ -80,7 +88,7 @@ const ProductDeductModal = ({ open, product, onClose, onSubmit, submitting }) =>
           </label>
 
           <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            New stock after deduction: <span className="font-bold">{Math.max(product.stock - deductionQuantity, 0)}</span>
+            New stock after deduction: <span className="font-bold">{Math.max(product.stock - previewQuantity, 0)}</span>
           </div>
 
           <button type="submit" disabled={submitting || product.stock <= 0} className="btn-primary w-full">
