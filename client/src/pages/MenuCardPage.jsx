@@ -43,7 +43,7 @@ const getDisplayConfig = (count) => {
   if (count <= 8) {
     return {
       columns: 4,
-      imageSize: "h-[12vh] min-h-[88px]",
+      imageSize: "h-[14vh] min-h-[104px]",
       nameClass: "text-[1.55vw] leading-[1.15]",
       secondaryClass: "text-[0.88vw]",
       priceClass: "text-[1.45vw]",
@@ -55,7 +55,7 @@ const getDisplayConfig = (count) => {
   if (count <= 12) {
     return {
       columns: 4,
-      imageSize: "h-[10.4vh] min-h-[76px]",
+      imageSize: "h-[12.5vh] min-h-[92px]",
       nameClass: "text-[1.28vw] leading-[1.12]",
       secondaryClass: "text-[0.8vw]",
       priceClass: "text-[1.2vw]",
@@ -67,7 +67,7 @@ const getDisplayConfig = (count) => {
   if (count <= 18) {
     return {
       columns: 5,
-      imageSize: "h-[8.9vh] min-h-[64px]",
+      imageSize: "h-[10.4vh] min-h-[74px]",
       nameClass: "text-[1.02vw] leading-[1.1]",
       secondaryClass: "text-[0.72vw]",
       priceClass: "text-[1vw]",
@@ -79,7 +79,7 @@ const getDisplayConfig = (count) => {
   if (count <= 24) {
     return {
       columns: 6,
-      imageSize: "h-[7.7vh] min-h-[56px]",
+      imageSize: "h-[9.3vh] min-h-[68px]",
       nameClass: "text-[0.9vw] leading-[1.08]",
       secondaryClass: "text-[0.65vw]",
       priceClass: "text-[0.92vw]",
@@ -90,7 +90,7 @@ const getDisplayConfig = (count) => {
 
   return {
     columns: 7,
-    imageSize: "h-[6.9vh] min-h-[48px]",
+    imageSize: "h-[8.1vh] min-h-[60px]",
     nameClass: "text-[0.8vw] leading-[1.05]",
     secondaryClass: "text-[0.58vw]",
     priceClass: "text-[0.84vw]",
@@ -147,37 +147,22 @@ const MenuCardPage = () => {
   }, []);
 
   const displayProducts = useMemo(() => buildMenuProducts(products), [products]);
-  const categories = useMemo(
-    () => moveDrinksCategoryToEnd(Array.from(new Set(displayProducts.map((product) => product.category || "Menu")))),
-    [displayProducts]
-  );
   const displayConfig = useMemo(() => getDisplayConfig(displayProducts.length), [displayProducts.length]);
 
   return (
     <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.16),_transparent_42%),linear-gradient(180deg,#fffdf8_0%,#fff7eb_50%,#fffdf9_100%)] p-[1.15vw] text-slate-900">
-      <div className="mx-auto flex h-full max-w-[1920px] flex-col gap-[0.9vw]">
-        <header className="flex shrink-0 items-center gap-[1vw] rounded-[1.6vw] border border-white/80 bg-white/88 px-[1.1vw] py-[0.7vw] shadow-[0_16px_34px_rgba(160,120,50,0.10)] backdrop-blur">
-          <div className="flex h-[5vw] w-[5vw] min-h-[66px] min-w-[66px] items-center justify-center overflow-hidden rounded-[1.2vw] border border-[#efe3d3] bg-white shadow-sm">
+      <div className="mx-auto flex h-full max-w-[1920px] flex-col gap-[0.7vw]">
+        <header className="flex shrink-0 items-center gap-[0.8vw] rounded-[1.45vw] border border-white/80 bg-white/88 px-[0.95vw] py-[0.48vw] shadow-[0_16px_34px_rgba(160,120,50,0.10)] backdrop-blur">
+          <div className="flex h-[4.1vw] w-[4.1vw] min-h-[54px] min-w-[54px] items-center justify-center overflow-hidden rounded-[1vw] border border-[#efe3d3] bg-white shadow-sm">
             {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-contain p-[0.3vw]" /> : null}
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-[1.6vw] font-extrabold leading-none tracking-tight text-slate-900">{MENU_CARD_TITLE}</h1>
-            <p className="mt-[0.24vw] text-[0.76vw] font-medium text-slate-500">
+            <h1 className="font-display text-[1.28vw] font-extrabold leading-none tracking-tight text-slate-900">{MENU_CARD_TITLE}</h1>
+            <p className="mt-[0.14vw] text-[0.64vw] font-medium text-slate-500">
               Fresh fast food menu for easy customer viewing
             </p>
           </div>
         </header>
-
-        <div className="flex shrink-0 flex-wrap gap-[0.38vw]">
-          {categories.map((category) => (
-            <div
-              key={category}
-              className="rounded-full border border-[#eadcc4] bg-white/92 px-[0.68vw] py-[0.28vw] text-[0.64vw] font-semibold text-slate-700 shadow-sm"
-            >
-              {category}
-            </div>
-          ))}
-        </div>
 
         {loading ? (
           <div className="flex flex-1 items-center justify-center rounded-[1.8vw] border border-white/80 bg-white/88 text-[1.15vw] text-slate-500 shadow-[0_18px_40px_rgba(160,120,50,0.10)]">
@@ -188,7 +173,7 @@ const MenuCardPage = () => {
             No products available for display.
           </div>
         ) : (
-          <section className="min-h-0 flex-1 overflow-hidden rounded-[1.8vw] border border-white/80 bg-white/90 p-[0.7vw] shadow-[0_18px_40px_rgba(160,120,50,0.10)] backdrop-blur">
+          <section className="min-h-0 flex-1 overflow-hidden rounded-[1.8vw] border border-white/80 bg-white/90 p-[0.62vw] shadow-[0_18px_40px_rgba(160,120,50,0.10)] backdrop-blur">
             <div
               className={`grid h-full ${displayConfig.gapClass}`}
               style={{
@@ -218,8 +203,8 @@ const MenuCardPage = () => {
                       ) : null}
                     </div>
 
-                    <div className={`overflow-hidden rounded-[1vw] bg-amber-100 ${displayConfig.imageSize}`}>
-                      <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
+                    <div className={`overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,#fff9ef_0%,#fffdf8_100%)] ${displayConfig.imageSize}`}>
+                      <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.22vw]" />
                     </div>
 
                     <div className="mt-[0.5vw] flex min-h-0 flex-1 flex-col">
