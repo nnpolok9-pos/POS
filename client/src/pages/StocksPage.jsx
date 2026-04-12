@@ -79,6 +79,8 @@ const StocksPage = () => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("items");
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [deductModalOpen, setDeductModalOpen] = useState(false);
@@ -116,22 +118,22 @@ const StocksPage = () => {
 
   const filteredStockRows = useMemo(() => {
     const query = search.trim().toLowerCase();
-
-    if (!query) {
-      return stockRows;
-    }
-
     return stockRows.filter((row) => {
       const expiryText = row.expiryDate ? formatDateOnly(row.expiryDate).toLowerCase() : "";
-      return (
+      const productStatus = Number(row.currentStock || 0) <= 0 ? "out" : row.lowStock ? "low" : "healthy";
+      const matchesType = typeFilter === "all" || row.productType === typeFilter;
+      const matchesStatus = statusFilter === "all" || productStatus === statusFilter;
+      const matchesSearch =
+        !query ||
         row.productName.toLowerCase().includes(query) ||
         (row.sku || "").toLowerCase().includes(query) ||
         categoryLabel(row.category).toLowerCase().includes(query) ||
         productTypeLabel(row.productType).toLowerCase().includes(query) ||
-        expiryText.includes(query)
-      );
+        expiryText.includes(query);
+
+      return matchesType && matchesStatus && matchesSearch;
     });
-  }, [search, stockRows]);
+  }, [search, statusFilter, stockRows, typeFilter]);
 
   const filteredHistoryRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -433,7 +435,7 @@ const StocksPage = () => {
       </section>
 
       <section className="glass-card overflow-hidden p-4 sm:p-6">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3">
           <div>
             <h2 className="text-lg font-bold text-slate-900">
               {activeTab === "items" ? "Stock Items" : activeTab === "history" ? "Stock Editing History" : "Arrange Early"}
@@ -446,14 +448,62 @@ const StocksPage = () => {
                   : "Use this list to arrange the next stock refill before operations slow down."}
             </p>
           </div>
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={
-              activeTab === "history" ? "Search product, note, SKU, or user" : "Search product, type, category, or expiry"
-            }
-            className="input max-w-sm"
-          />
+
+          {activeTab === "items" ? (
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_220px_220px_auto] lg:items-end">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Search</span>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search product, SKU, category, or expiry"
+                  className="input"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Type</span>
+                <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="input">
+                  <option value="all">All Types</option>
+                  <option value="raw">A La Catre</option>
+                  <option value="raw_material">Base</option>
+                  <option value="sauce">Sauce</option>
+                  <option value="seasoning">Seasoning</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Status</span>
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="input">
+                  <option value="all">All Status</option>
+                  <option value="healthy">Healthy</option>
+                  <option value="low">Low Stock</option>
+                  <option value="out">Out of Stock</option>
+                </select>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setTypeFilter("all");
+                  setStatusFilter("all");
+                }}
+                className="btn-secondary h-11 rounded-full px-5"
+              >
+                Reset
+              </button>
+            </div>
+          ) : (
+            <div className="sm:max-w-sm">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={activeTab === "history" ? "Search product, note, SKU, or user" : "Search product, type, category, or expiry"}
+                className="input"
+              />
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">
