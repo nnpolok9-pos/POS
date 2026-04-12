@@ -22,22 +22,81 @@ const moveDrinksCategoryToEnd = (categories) => {
   return [...nonDrinks, ...drinks];
 };
 
-const groupProductsByCategory = (products) => {
-  const categoryMap = new Map();
+const buildMenuProducts = (products) => {
+  const categoryOrder = moveDrinksCategoryToEnd(
+    Array.from(new Set(products.map((product) => product.category || "Menu")))
+  );
 
-  products.forEach((product) => {
-    const category = product.category || "Menu";
-    if (!categoryMap.has(category)) {
-      categoryMap.set(category, []);
+  return [...products].sort((left, right) => {
+    const leftCategoryIndex = categoryOrder.indexOf(left.category || "Menu");
+    const rightCategoryIndex = categoryOrder.indexOf(right.category || "Menu");
+
+    if (leftCategoryIndex !== rightCategoryIndex) {
+      return leftCategoryIndex - rightCategoryIndex;
     }
 
-    categoryMap.get(category).push(product);
+    return (left.khmerName || left.name || "").localeCompare(right.khmerName || right.name || "");
   });
+};
 
-  return moveDrinksCategoryToEnd([...categoryMap.keys()]).map((category) => ({
-    category,
-    products: (categoryMap.get(category) || []).sort((left, right) => left.name.localeCompare(right.name))
-  }));
+const getDisplayConfig = (count) => {
+  if (count <= 8) {
+    return {
+      columns: 4,
+      imageSize: "h-[12vh] min-h-[88px]",
+      nameClass: "text-[1.55vw] leading-[1.15]",
+      secondaryClass: "text-[0.88vw]",
+      priceClass: "text-[1.45vw]",
+      cardPadding: "p-[0.85vw]",
+      gapClass: "gap-[0.8vw]"
+    };
+  }
+
+  if (count <= 12) {
+    return {
+      columns: 4,
+      imageSize: "h-[10.4vh] min-h-[76px]",
+      nameClass: "text-[1.28vw] leading-[1.12]",
+      secondaryClass: "text-[0.8vw]",
+      priceClass: "text-[1.2vw]",
+      cardPadding: "p-[0.72vw]",
+      gapClass: "gap-[0.7vw]"
+    };
+  }
+
+  if (count <= 18) {
+    return {
+      columns: 5,
+      imageSize: "h-[8.9vh] min-h-[64px]",
+      nameClass: "text-[1.02vw] leading-[1.1]",
+      secondaryClass: "text-[0.72vw]",
+      priceClass: "text-[1vw]",
+      cardPadding: "p-[0.6vw]",
+      gapClass: "gap-[0.58vw]"
+    };
+  }
+
+  if (count <= 24) {
+    return {
+      columns: 6,
+      imageSize: "h-[7.7vh] min-h-[56px]",
+      nameClass: "text-[0.9vw] leading-[1.08]",
+      secondaryClass: "text-[0.65vw]",
+      priceClass: "text-[0.92vw]",
+      cardPadding: "p-[0.5vw]",
+      gapClass: "gap-[0.5vw]"
+    };
+  }
+
+  return {
+    columns: 7,
+    imageSize: "h-[6.9vh] min-h-[48px]",
+    nameClass: "text-[0.8vw] leading-[1.05]",
+    secondaryClass: "text-[0.58vw]",
+    priceClass: "text-[0.84vw]",
+    cardPadding: "p-[0.42vw]",
+    gapClass: "gap-[0.42vw]"
+  };
 };
 
 const MenuCardPage = () => {
@@ -87,114 +146,132 @@ const MenuCardPage = () => {
     loadData();
   }, []);
 
-  const groupedProducts = useMemo(() => groupProductsByCategory(products), [products]);
+  const displayProducts = useMemo(() => buildMenuProducts(products), [products]);
+  const categories = useMemo(
+    () => moveDrinksCategoryToEnd(Array.from(new Set(displayProducts.map((product) => product.category || "Menu")))),
+    [displayProducts]
+  );
+  const displayConfig = useMemo(() => getDisplayConfig(displayProducts.length), [displayProducts.length]);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.16),_transparent_45%),linear-gradient(180deg,#fffdf8_0%,#fff7eb_50%,#fffdf9_100%)] px-6 py-6 text-slate-900 md:px-8 lg:px-10">
-      <div className="mx-auto flex max-w-[1800px] flex-col gap-6">
-        <header className="rounded-[2rem] border border-white/80 bg-white/85 px-6 py-5 shadow-[0_18px_40px_rgba(160,120,50,0.12)] backdrop-blur">
-          <div className="flex items-center justify-between gap-6">
-            <div className="flex min-w-0 items-center gap-4">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.6rem] border border-[#efe3d3] bg-white shadow-sm">
-                {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-contain p-2" /> : null}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-brand-500">TV Menu Card</p>
-                <h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">
-                  {MENU_CARD_TITLE}
-                </h1>
-                <p className="mt-1 text-sm text-slate-500">{shop.shopName}</p>
-              </div>
+    <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.16),_transparent_42%),linear-gradient(180deg,#fffdf8_0%,#fff7eb_50%,#fffdf9_100%)] p-[1.15vw] text-slate-900">
+      <div className="mx-auto flex h-full max-w-[1920px] flex-col gap-[0.9vw]">
+        <header className="flex shrink-0 items-center justify-between gap-[1vw] rounded-[1.6vw] border border-white/80 bg-white/88 px-[1.1vw] py-[0.7vw] shadow-[0_16px_34px_rgba(160,120,50,0.10)] backdrop-blur">
+          <div className="flex min-w-0 items-center gap-[0.9vw]">
+            <div className="flex h-[5.2vw] w-[5.2vw] min-h-[68px] min-w-[68px] items-center justify-center overflow-hidden rounded-[1.25vw] border border-[#efe3d3] bg-white shadow-sm">
+              {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-contain p-[0.35vw]" /> : null}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-[1.4rem] bg-[#fff7ea] px-4 py-3 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Categories</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">{groupedProducts.length}</p>
-              </div>
-              <div className="rounded-[1.4rem] bg-slate-900 px-4 py-3 text-white shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">Items</p>
-                <p className="mt-1 text-2xl font-bold">{products.length}</p>
-              </div>
+            <div className="min-w-0">
+              <p className="text-[0.68vw] font-semibold uppercase tracking-[0.28em] text-brand-500">Display Menu</p>
+              <h1 className="mt-[0.2vw] font-display text-[2vw] font-extrabold leading-none tracking-tight text-slate-900">
+                {MENU_CARD_TITLE}
+              </h1>
+              <p className="mt-[0.24vw] text-[0.82vw] font-medium text-slate-500">{shop.shopName}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-[0.7vw]">
+            <div className="rounded-[1.2vw] bg-[#fff7ea] px-[0.95vw] py-[0.75vw] shadow-sm">
+              <p className="text-[0.58vw] font-semibold uppercase tracking-[0.2em] text-slate-400">Categories</p>
+              <p className="mt-[0.16vw] text-[1.35vw] font-bold text-slate-900">{categories.length}</p>
+            </div>
+            <div className="rounded-[1.2vw] bg-slate-900 px-[0.95vw] py-[0.75vw] text-white shadow-sm">
+              <p className="text-[0.58vw] font-semibold uppercase tracking-[0.2em] text-white/60">Items</p>
+              <p className="mt-[0.16vw] text-[1.35vw] font-bold">{displayProducts.length}</p>
             </div>
           </div>
         </header>
 
+        <div className="flex shrink-0 flex-wrap gap-[0.45vw]">
+          {categories.map((category) => (
+            <div
+              key={category}
+              className="rounded-full border border-[#eadcc4] bg-white/92 px-[0.75vw] py-[0.36vw] text-[0.68vw] font-semibold text-slate-700 shadow-sm"
+            >
+              {category}
+            </div>
+          ))}
+        </div>
+
         {loading ? (
-          <div className="rounded-[2rem] border border-white/80 bg-white/85 px-8 py-16 text-center text-lg text-slate-500 shadow-[0_18px_40px_rgba(160,120,50,0.12)]">
+          <div className="flex flex-1 items-center justify-center rounded-[1.8vw] border border-white/80 bg-white/88 text-[1.15vw] text-slate-500 shadow-[0_18px_40px_rgba(160,120,50,0.10)]">
             Loading menu card...
           </div>
-        ) : groupedProducts.length === 0 ? (
-          <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white/85 px-8 py-16 text-center text-lg text-slate-500 shadow-[0_18px_40px_rgba(160,120,50,0.12)]">
+        ) : displayProducts.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center rounded-[1.8vw] border border-dashed border-slate-300 bg-white/88 text-[1.15vw] text-slate-500 shadow-[0_18px_40px_rgba(160,120,50,0.10)]">
             No products available for display.
           </div>
         ) : (
-          <div className="space-y-5">
-            {groupedProducts.map((section) => (
-              <section
-                key={section.category}
-                className="rounded-[2rem] border border-white/80 bg-white/88 px-5 py-5 shadow-[0_18px_40px_rgba(160,120,50,0.10)] backdrop-blur"
-              >
-                <div className="mb-4 flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="font-display text-2xl font-bold text-slate-900">{section.category}</h2>
-                    <p className="mt-1 text-sm text-slate-500">{section.products.length} items</p>
-                  </div>
-                </div>
+          <section className="min-h-0 flex-1 overflow-hidden rounded-[1.8vw] border border-white/80 bg-white/90 p-[0.7vw] shadow-[0_18px_40px_rgba(160,120,50,0.10)] backdrop-blur">
+            <div
+              className={`grid h-full ${displayConfig.gapClass}`}
+              style={{
+                gridTemplateColumns: `repeat(${displayConfig.columns}, minmax(0, 1fr))`,
+                gridAutoRows: "1fr"
+              }}
+            >
+              {displayProducts.map((product) => {
+                const regular = currencyParts(product.regularPrice ?? product.price ?? 0);
+                const promo = currencyParts(product.promotionalPrice ?? product.price ?? 0);
+                const showDiscount =
+                  Number(product.promotionalPrice ?? product.price ?? 0) < Number(product.regularPrice ?? product.price ?? 0);
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {section.products.map((product) => {
-                    const regular = currencyParts(product.regularPrice ?? product.price ?? 0);
-                    const promo = currencyParts(product.promotionalPrice ?? product.price ?? 0);
-                    const showDiscount = Number(product.promotionalPrice ?? product.price ?? 0) < Number(product.regularPrice ?? product.price ?? 0);
+                return (
+                  <article
+                    key={product.id}
+                    className={`flex h-full min-h-0 flex-col rounded-[1.2vw] border border-[#f3eadb] bg-[linear-gradient(180deg,#ffffff_0%,#fffaf1_100%)] ${displayConfig.cardPadding} shadow-[0_10px_22px_rgba(160,120,50,0.07)]`}
+                  >
+                    <div className="mb-[0.4vw] flex items-start justify-between gap-[0.45vw]">
+                      <span className="rounded-full bg-[#fff4e1] px-[0.5vw] py-[0.18vw] text-[0.56vw] font-semibold uppercase tracking-[0.12em] text-slate-600">
+                        {product.category || "Menu"}
+                      </span>
+                      {product.lowStock ? (
+                        <span className="rounded-full bg-amber-100 px-[0.46vw] py-[0.18vw] text-[0.54vw] font-semibold text-amber-700">
+                          Low
+                        </span>
+                      ) : null}
+                    </div>
 
-                    return (
-                      <article
-                        key={product.id}
-                        className="flex min-h-[170px] gap-4 rounded-[1.6rem] border border-[#f3eadb] bg-[linear-gradient(180deg,#ffffff_0%,#fffaf1_100%)] p-4 shadow-[0_12px_26px_rgba(160,120,50,0.08)]"
-                      >
-                        <div className="h-28 w-28 shrink-0 overflow-hidden rounded-[1.35rem] bg-amber-100">
-                          <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
-                        </div>
-                        <div className="flex min-w-0 flex-1 flex-col">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <h3 className="line-clamp-2 text-xl font-bold text-slate-900">{product.khmerName || product.name}</h3>
-                              {product.khmerName && product.khmerName !== product.name ? (
-                                <p className="mt-1 text-sm font-medium text-slate-500">{product.name}</p>
-                              ) : null}
-                            </div>
-                            {product.lowStock ? (
-                              <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">Low</span>
-                            ) : null}
+                    <div className={`overflow-hidden rounded-[1vw] bg-amber-100 ${displayConfig.imageSize}`}>
+                      <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
+                    </div>
+
+                    <div className="mt-[0.5vw] flex min-h-0 flex-1 flex-col">
+                      <h3 className={`${displayConfig.nameClass} line-clamp-2 font-bold text-slate-900`}>
+                        {product.khmerName || product.name}
+                      </h3>
+
+                      {product.khmerName && product.khmerName !== product.name ? (
+                        <p className={`mt-[0.22vw] ${displayConfig.secondaryClass} line-clamp-1 font-medium text-slate-500`}>
+                          {product.name}
+                        </p>
+                      ) : null}
+
+                      {product.description || product.khmerDescription ? (
+                        <p className={`mt-[0.28vw] ${displayConfig.secondaryClass} line-clamp-2 leading-[1.35] text-slate-500`}>
+                          {product.khmerDescription || product.description}
+                        </p>
+                      ) : (
+                        <div className="flex-1" />
+                      )}
+
+                      <div className="mt-auto pt-[0.35vw]">
+                        {showDiscount ? (
+                          <div className="flex flex-wrap items-end gap-x-[0.45vw] gap-y-[0.1vw]">
+                            <span className={`${displayConfig.priceClass} font-extrabold text-brand-600`}>{promo.khr}</span>
+                            <span className={`${displayConfig.secondaryClass} text-slate-400 line-through`}>{regular.khr}</span>
                           </div>
-
-                          {product.description || product.khmerDescription ? (
-                            <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">
-                              {product.khmerDescription || product.description}
-                            </p>
-                          ) : (
-                            <div className="mt-2 flex-1" />
-                          )}
-
-                          <div className="mt-3">
-                            {showDiscount ? (
-                              <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
-                                <span className="text-2xl font-extrabold text-brand-600">{promo.khr}</span>
-                                <span className="text-sm text-slate-400 line-through">{regular.khr}</span>
-                              </div>
-                            ) : (
-                              <span className="text-2xl font-extrabold text-brand-600">{promo.khr}</span>
-                            )}
-                            <p className="mt-1 text-sm text-slate-400">{promo.usd}</p>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
+                        ) : (
+                          <span className={`${displayConfig.priceClass} font-extrabold text-brand-600`}>{promo.khr}</span>
+                        )}
+                        <p className={`mt-[0.14vw] ${displayConfig.secondaryClass} text-slate-400`}>{promo.usd}</p>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
         )}
       </div>
     </div>

@@ -153,6 +153,12 @@ const getLocalizedCategory = (product, language) =>
   language === "km" ? product.khmerCategory || translateCategory(product.category, language) : product.category;
 const MENU_PAGE_TITLE = "ASEN FOOD MENU";
 
+const localizedPrimaryTextClass = (language, englishClass = "text-slate-900") =>
+  language === "km" ? "text-black" : englishClass;
+
+const localizedSecondaryTextClass = (language, englishClass = "text-slate-500") =>
+  language === "km" ? "text-black" : englishClass;
+
 const getCartTotal = (cart) =>
   cart.reduce((sum, item) => {
     const adjustmentTotal = (item.selectedAlternatives || []).reduce((adjustmentSum, selectedAlternative) => {
@@ -419,7 +425,13 @@ const CustomerOrderPage = () => {
                         }`}
                       >
                         <span className="flex items-start justify-between gap-2">
-                          <span className="block min-w-0 flex-1 whitespace-normal break-words text-left leading-snug">{getCategoryLabel(category, language)}</span>
+                          <span
+                            className={`block min-w-0 flex-1 whitespace-normal break-words text-left leading-snug ${
+                              selectedCategory === category.key ? "text-white" : localizedPrimaryTextClass(language, "text-slate-700")
+                            }`}
+                          >
+                            {getCategoryLabel(category, language)}
+                          </span>
                           <span
                             className={`h-2 w-2 shrink-0 rounded-full transition ${
                               selectedCategory === category.key ? "bg-white" : "bg-slate-200 group-hover:bg-brand-300"
@@ -516,7 +528,13 @@ const CustomerOrderPage = () => {
                         : "border border-white/80 bg-white/95 text-slate-600 shadow-sm"
                     }`}
                   >
-                    <span className="block whitespace-normal break-words text-left leading-snug">{getCategoryLabel(category, language)}</span>
+                    <span
+                      className={`block whitespace-normal break-words text-left leading-snug ${
+                        selectedCategory === category.key ? "text-white" : localizedPrimaryTextClass(language, "text-slate-700")
+                      }`}
+                    >
+                      {getCategoryLabel(category, language)}
+                    </span>
                   </button>
                 ))}
                 </div>
@@ -551,10 +569,12 @@ const CustomerOrderPage = () => {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <p className="truncate text-[15px] font-bold text-slate-900">{product.name}</p>
-                                <p className="mt-1 text-[12px] text-slate-500">{product.category}</p>
+                                <p className={`truncate text-[15px] font-bold ${localizedPrimaryTextClass(language, "text-slate-900")}`}>{product.name}</p>
+                                <p className={`mt-1 text-[12px] ${localizedSecondaryTextClass(language, "text-slate-500")}`}>{product.category}</p>
                                 {product.description ? (
-                                  <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-slate-500">{product.description}</p>
+                                  <p className={`mt-1 line-clamp-2 text-[11px] leading-5 ${localizedSecondaryTextClass(language, "text-slate-500")}`}>
+                                    {product.description}
+                                  </p>
                                 ) : null}
                               </div>
                               <span
