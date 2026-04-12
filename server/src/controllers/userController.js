@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const { toSafeUser } = require("./authController");
+const { removeImageFile } = require("../lib/productLogic");
 const {
   saveUser,
   getUsersByRoles,
@@ -19,6 +20,8 @@ const getManageableRoles = (actorRole) => {
 
   return [];
 };
+
+const buildAvatarPath = (file) => (file ? `/uploads/users/${file.filename}` : "");
 
 const getVisibleRoles = (actorRole) => {
   if (actorRole === "master_admin") {
@@ -68,6 +71,7 @@ const createUser = async (req, res) => {
     name,
     email: normalizedEmail,
     password: passwordHash,
+    avatar: "",
     role,
     isActive: true
   });
@@ -112,6 +116,7 @@ const updateUser = async (req, res) => {
     name: req.body.name ?? user.name,
     email,
     password: passwordHash,
+    avatar: user.avatar || "",
     role,
     isActive
   });
@@ -119,4 +124,89 @@ const updateUser = async (req, res) => {
   res.json(toSafeUser(updated));
 };
 
-module.exports = { getUsers, createUser, updateUser };
+const getProfile = async (req, res) => {
+  const user = await getUserById(req.user.id);
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  res.json({
+    ...toSafeUser(user),
+    isActive: user.isActive,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt
+  });
+};
+
+const updateProfile = async (req, res) => {
+  const user = await getUserById(req.user.id);
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  const name = String(req.body.name ?? user.name).trim();
+  const currentPassword = String(req.body.currentPassword || "");
+  const newPassword = String(req.body.newPassword || "");
+  let passwordHash = user.password;
+
+  if (!name) {
+    if (req.file) {
+      removeImageFile(buildAvatarPath(req.file));
+    }
+    return res.status(400).json({ message: "Name is required" });
+  }
+
+  if (newPassword) {
+    if (!currentPassword) {
+      if (req.file) {
+        removeImageFile(buildAvatarPath(req.file));
+      }
+      return res.status(400).json({ message: "Current password is required to set a new password" });
+    }
+
+    const passwordMatches = await bcrypt.compare(currentPassword, user.password);
+    if (!passwordMatches) {
+      if (req.file) {
+        removeImageFile(buildAvatarPath(req.file));
+      }
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    if (newPassword.length < 4) {
+      if (req.file) {
+        removeImageFile(buildAvatarPath(req.file));
+      }
+      return res.status(400).json({ message: "New password must be at least 4 characters" });
+    }
+
+    passwordHash = await bcrypt.hash(newPassword, 10);
+  }
+
+  const previousAvatar = user.avatar || "";
+  const nextAvatar = req.file ? buildAvatarPath(req.file) : previousAvatar;
+
+  const updated = await saveUser({
+    id: user.id,
+    name,
+    email: user.email,
+    password: passwordHash,
+    avatar: nextAvatar,
+    role: user.role,
+    isActive: user.isActive
+  });
+
+  if (req.file && previousAvatar && previousAvatar !== nextAvatar) {
+    removeImageFile(previousAvatar);
+  }
+
+  res.json({
+    ...toSafeUser(updated),
+    isActive: updated.isActive,
+    createdAt: updated.createdAt,
+    updatedAt: updated.updatedAt
+  });
+};
+
+module.exports = { getUsers, createUser, updateUser, getProfile, updateProfile };

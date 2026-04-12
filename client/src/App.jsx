@@ -17,6 +17,7 @@ import EditedListPage from "./pages/EditedListPage";
 import ShopProfilePage from "./pages/ShopProfilePage";
 import CustomerOrderPage from "./pages/CustomerOrderPage";
 import MenuCardPage from "./pages/MenuCardPage";
+import ProfilePage from "./pages/ProfilePage";
 
 const ProtectedRoute = ({ roles, children }) => {
   const { isAuthenticated, user, loading } = useAuth();
@@ -56,6 +57,14 @@ function App() {
         }
       >
         <Route index element={<HomeRedirect />} />
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute roles={["master_admin", "admin", "checker", "staff"]}>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="pos"
           element={

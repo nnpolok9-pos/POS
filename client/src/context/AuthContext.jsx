@@ -41,6 +41,21 @@ export const AuthProvider = ({ children }) => {
     return response.user;
   };
 
+  const refreshUser = async () => {
+    if (!token) {
+      return null;
+    }
+
+    setAuthToken(token);
+    const currentUser = await authService.me();
+    setUser(currentUser);
+    return currentUser;
+  };
+
+  const setCurrentUser = (nextUser) => {
+    setUser(nextUser);
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -54,6 +69,8 @@ export const AuthProvider = ({ children }) => {
       token,
       loading,
       login,
+      refreshUser,
+      setCurrentUser,
       logout,
       isAuthenticated: Boolean(token && user)
     }),

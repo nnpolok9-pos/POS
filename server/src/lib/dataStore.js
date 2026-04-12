@@ -11,7 +11,7 @@ const {
 } = require("../config/db");
 
 const userColumns = `
-  id, name, email, password_hash, role, is_active, created_at, updated_at
+  id, name, email, password_hash, avatar, role, is_active, created_at, updated_at
 `;
 
 const productColumns = `
@@ -41,14 +41,15 @@ const boolToInt = (value) => (value ? 1 : 0);
 const saveUser = async (user) => {
   if (user.id) {
     await query(
-      `UPDATE users
-       SET name=:name, email=:email, password_hash=:passwordHash, role=:role, is_active=:isActive
+       `UPDATE users
+       SET name=:name, email=:email, password_hash=:passwordHash, avatar=:avatar, role=:role, is_active=:isActive
        WHERE id=:id`,
       {
         id: user.id,
         name: user.name,
         email: user.email,
         passwordHash: user.password,
+        avatar: user.avatar || "",
         role: user.role,
         isActive: boolToInt(user.isActive)
       }
@@ -58,13 +59,14 @@ const saveUser = async (user) => {
 
   const id = createId();
   await query(
-    `INSERT INTO users (id, name, email, password_hash, role, is_active)
-     VALUES (:id, :name, :email, :passwordHash, :role, :isActive)`,
+    `INSERT INTO users (id, name, email, password_hash, avatar, role, is_active)
+     VALUES (:id, :name, :email, :passwordHash, :avatar, :role, :isActive)`,
     {
       id,
       name: user.name,
       email: user.email,
       passwordHash: user.password,
+      avatar: user.avatar || "",
       role: user.role,
       isActive: boolToInt(user.isActive ?? true)
     }

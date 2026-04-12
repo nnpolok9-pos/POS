@@ -1,6 +1,6 @@
 import { Archive, BarChart3, FilePenLine, LayoutDashboard, LogOut, Menu, PackagePlus, PackageSearch, ReceiptText, ShoppingCart, Store, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useShopSettings } from "../context/ShopSettingsContext";
 import { imageUrl } from "../utils/format";
@@ -21,8 +21,10 @@ const navItems = [
 const AppShell = () => {
   const { logout, user } = useAuth();
   const { settings } = useShopSettings();
+  const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
 
   const visibleNavItems = navItems.filter((item) => item.roles.includes(user?.role));
   const shopName = settings?.shopName || "ASEN POS";
@@ -49,13 +51,19 @@ const AppShell = () => {
     setLogoFailed(false);
   }, [settings?.logo]);
 
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [user?.avatar]);
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(245,146,63,0.35),_transparent_32%),linear-gradient(180deg,#fff7ed_0%,#fffbeb_100%)]">
       <div className="mx-auto flex min-h-screen max-w-[1720px] flex-col gap-3 p-3 sm:gap-4 sm:p-4 md:p-5 xl:flex-row">
         <div className="glass-card flex items-center justify-between px-3.5 py-2.5 xl:hidden">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-[#efe3d3] bg-white shadow-sm">
-              {logoSrc ? (
+              {user?.avatar && !avatarFailed ? (
+                <img src={imageUrl(user.avatar)} alt={user.name} className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
+              ) : logoSrc ? (
                 <img src={logoSrc} alt={shopName} className="h-full w-full object-contain p-1.5" onError={() => setLogoFailed(true)} />
               ) : (
                 <span className="text-sm font-bold tracking-[0.12em] text-slate-700">{shopInitials}</span>
@@ -91,18 +99,30 @@ const AppShell = () => {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[1.6rem] bg-[linear-gradient(145deg,#171d31,#111728)] p-0 text-white shadow-[0_16px_28px_rgba(15,23,42,0.18)]">
+          <button
+            type="button"
+            onClick={() => {
+              navigate("/profile");
+              setMobileNavOpen(false);
+            }}
+            className="overflow-hidden rounded-[1.6rem] bg-[linear-gradient(145deg,#171d31,#111728)] p-0 text-left text-white shadow-[0_16px_28px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.22)]"
+          >
             <div className="px-4 py-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-[15px] font-bold text-white">
-                  {(user?.name || "U").charAt(0).toUpperCase()}
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-[15px] font-bold text-white">
+                  {user?.avatar && !avatarFailed ? (
+                    <img src={imageUrl(user.avatar)} alt={user.name} className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
+                  ) : (
+                    (user?.name || "U").charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="truncate pt-1 text-[1.1rem] font-bold leading-tight text-white">{user?.name}</p>
+                  <p className="mt-1 text-xs text-white/60">Open profile</p>
                 </div>
               </div>
             </div>
-          </div>
+          </button>
 
           <nav className="rounded-[1.6rem] border border-[#eee3cf] bg-white/70 p-2.5 shadow-[0_10px_24px_rgba(160,120,50,0.05)]">
             <div className="mb-1 px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">

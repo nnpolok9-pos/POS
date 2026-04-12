@@ -25,6 +25,7 @@ const mysqlSchemaStatements = [
     name VARCHAR(191) NOT NULL,
     email VARCHAR(191) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    avatar TEXT NULL,
     role ENUM('master_admin','admin','checker','staff') NOT NULL DEFAULT 'staff',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -118,6 +119,7 @@ const sqliteSchemaStatements = [
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    avatar TEXT NOT NULL DEFAULT '',
     role TEXT NOT NULL DEFAULT 'staff',
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -253,6 +255,13 @@ const runMysqlSchemaStatements = async (connection) => {
   }
 };
 
+const ensureMysqlColumn = async (connection, tableName, columnName, definition) => {
+  const [rows] = await connection.query(`SHOW COLUMNS FROM \`${tableName}\` LIKE ?`, [columnName]);
+  if (!rows.length) {
+    await connection.query(`ALTER TABLE \`${tableName}\` ADD COLUMN ${definition}`);
+  }
+};
+
 const ensureMysqlDatabase = async () => {
   const basePool = createBasePool(false);
   try {
@@ -266,6 +275,14 @@ const runSqliteStatements = (db, statements) => {
   statements.forEach((statement) => {
     db.prepare(statement).run();
   });
+};
+
+const ensureSqliteColumn = (db, tableName, columnName, definition) => {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+  const exists = columns.some((column) => column.name === columnName);
+  if (!exists) {
+    db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${definition}`).run();
+  }
 };
 
 const normalizeSqliteValue = (value) => {
@@ -313,6 +330,7 @@ const connectDB = async () => {
     sqliteDb.pragma("journal_mode = WAL");
     sqliteDb.pragma("foreign_keys = ON");
     runSqliteStatements(sqliteDb, sqliteSchemaStatements);
+    ensureSqliteColumn(sqliteDb, "users", "avatar", "avatar TEXT NOT NULL DEFAULT ''");
     console.log(`SQLite connected: ${DEFAULTS.sqlitePath}`);
     return;
   }
@@ -323,6 +341,7 @@ const connectDB = async () => {
 
   try {
     await runMysqlSchemaStatements(connection);
+    await ensureMysqlColumn(connection, "users", "avatar", "`avatar` TEXT NULL");
     console.log("MySQL connected");
   } finally {
     connection.release();
@@ -428,6 +447,7 @@ const mapUserRow = (row) => {
     name: row.name,
     email: row.email,
     password: row.password_hash,
+    avatar: row.avatar || "",
     role: row.role,
     isActive: Boolean(row.is_active),
     createdAt: row.created_at,
