@@ -156,37 +156,23 @@ const MenuCardPage = () => {
   return (
     <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.16),_transparent_42%),linear-gradient(180deg,#fffdf8_0%,#fff7eb_50%,#fffdf9_100%)] p-[1.15vw] text-slate-900">
       <div className="mx-auto flex h-full max-w-[1920px] flex-col gap-[0.9vw]">
-        <header className="flex shrink-0 items-center justify-between gap-[1vw] rounded-[1.6vw] border border-white/80 bg-white/88 px-[1.1vw] py-[0.7vw] shadow-[0_16px_34px_rgba(160,120,50,0.10)] backdrop-blur">
-          <div className="flex min-w-0 items-center gap-[0.9vw]">
-            <div className="flex h-[5.2vw] w-[5.2vw] min-h-[68px] min-w-[68px] items-center justify-center overflow-hidden rounded-[1.25vw] border border-[#efe3d3] bg-white shadow-sm">
-              {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-contain p-[0.35vw]" /> : null}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[0.68vw] font-semibold uppercase tracking-[0.28em] text-brand-500">Display Menu</p>
-              <h1 className="mt-[0.2vw] font-display text-[2vw] font-extrabold leading-none tracking-tight text-slate-900">
-                {MENU_CARD_TITLE}
-              </h1>
-              <p className="mt-[0.24vw] text-[0.82vw] font-medium text-slate-500">{shop.shopName}</p>
-            </div>
+        <header className="flex shrink-0 items-center gap-[1vw] rounded-[1.6vw] border border-white/80 bg-white/88 px-[1.1vw] py-[0.7vw] shadow-[0_16px_34px_rgba(160,120,50,0.10)] backdrop-blur">
+          <div className="flex h-[5vw] w-[5vw] min-h-[66px] min-w-[66px] items-center justify-center overflow-hidden rounded-[1.2vw] border border-[#efe3d3] bg-white shadow-sm">
+            {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-contain p-[0.3vw]" /> : null}
           </div>
-
-          <div className="flex items-center gap-[0.7vw]">
-            <div className="rounded-[1.2vw] bg-[#fff7ea] px-[0.95vw] py-[0.75vw] shadow-sm">
-              <p className="text-[0.58vw] font-semibold uppercase tracking-[0.2em] text-slate-400">Categories</p>
-              <p className="mt-[0.16vw] text-[1.35vw] font-bold text-slate-900">{categories.length}</p>
-            </div>
-            <div className="rounded-[1.2vw] bg-slate-900 px-[0.95vw] py-[0.75vw] text-white shadow-sm">
-              <p className="text-[0.58vw] font-semibold uppercase tracking-[0.2em] text-white/60">Items</p>
-              <p className="mt-[0.16vw] text-[1.35vw] font-bold">{displayProducts.length}</p>
-            </div>
+          <div className="min-w-0">
+            <h1 className="font-display text-[1.6vw] font-extrabold leading-none tracking-tight text-slate-900">{MENU_CARD_TITLE}</h1>
+            <p className="mt-[0.24vw] text-[0.76vw] font-medium text-slate-500">
+              Fresh fast food menu for easy customer viewing
+            </p>
           </div>
         </header>
 
-        <div className="flex shrink-0 flex-wrap gap-[0.45vw]">
+        <div className="flex shrink-0 flex-wrap gap-[0.38vw]">
           {categories.map((category) => (
             <div
               key={category}
-              className="rounded-full border border-[#eadcc4] bg-white/92 px-[0.75vw] py-[0.36vw] text-[0.68vw] font-semibold text-slate-700 shadow-sm"
+              className="rounded-full border border-[#eadcc4] bg-white/92 px-[0.68vw] py-[0.28vw] text-[0.64vw] font-semibold text-slate-700 shadow-sm"
             >
               {category}
             </div>
