@@ -33,8 +33,8 @@ export const orderService = {
     const { data } = await api.patch(`/orders/${id}/void`, payload);
     return data;
   },
-  deleteOrder: async (id) => {
-    const { data } = await api.delete(`/orders/${id}`);
+  deleteOrder: async (id, pin) => {
+    const { data } = await api.delete(`/orders/${id}`, { data: { pin } });
     return data;
   }
 };

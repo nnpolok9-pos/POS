@@ -203,8 +203,8 @@ const MenuCardPage = () => {
                       ) : null}
                     </div>
 
-                    <div className={`relative flex-1 overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(255,255,255,0.03)_100%)] ${displayConfig.imageSize}`}>
-                      <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.3vw]" />
+                    <div className={`relative flex-1 overflow-hidden rounded-[1vw] bg-white ${displayConfig.imageSize}`}>
+                      <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
                       <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(2,6,23,0)_0%,rgba(2,6,23,0.34)_36%,rgba(2,6,23,0.96)_100%)] px-[0.5vw] pb-[0.4vw] pt-[1.6vw]">
                         <div className="mt-[0.26vw]">
                         {showDiscount ? (

@@ -60,6 +60,7 @@ const buildQueueNumber = (orderId = "") => orderId.split("-").pop() || orderId;
 const isFoodServingStatus = (status) => status === "food_serving" || status === "quote_prepared";
 const isCompletedStatus = (status) => status === "completed" || status === "confirmed";
 const isQueuedStatus = (status) => status === "queued";
+const getDeleteOrderPin = () => String(process.env.ORDER_DELETE_PIN || process.env.FORCE_STOCK_PIN || "4422").trim();
 
 const buildItemChangeLog = (previousItems = [], nextItems = []) => {
   const previousMap = new Map(previousItems.map((item) => [String(item.product), item]));
@@ -846,9 +847,14 @@ const serveOrder = async (req, res) => {
 
 const deleteOrder = async (req, res) => {
   const order = await getStoredOrderById(req.params.id);
+  const pin = String(req.body?.pin || "").trim();
 
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
+  }
+
+  if (!pin || pin !== getDeleteOrderPin()) {
+    return res.status(403).json({ message: "Invalid PIN for deleting order" });
   }
 
   await deleteOrderById(order.id);

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import OrderDetailModal from "../components/OrderDetailModal";
 import EditHistoryModal from "../components/EditHistoryModal";
+import ForceStockPinModal from "../components/ForceStockPinModal";
 import RefundMethodModal from "../components/RefundMethodModal";
 import ReportDatePicker from "../components/ReportDatePicker";
 import ServeOrderModal from "../components/ServeOrderModal";
@@ -67,6 +68,8 @@ const OrdersPage = () => {
   const [voidSubmitting, setVoidSubmitting] = useState(false);
   const [servingOrder, setServingOrder] = useState(null);
   const [serveSubmitting, setServeSubmitting] = useState(false);
+  const [deletingOrder, setDeletingOrder] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [sauceProducts, setSauceProducts] = useState([]);
 
   const loadSauces = async () => {
@@ -160,26 +163,25 @@ const OrdersPage = () => {
     }
   };
 
-  const handleDeleteOrder = async (order) => {
-    if (!order) {
+  const handleDeleteOrder = async (pin) => {
+    if (!deletingOrder) {
       return;
     }
 
-    const confirmed = window.confirm(`Delete order ${order.orderId}? This will permanently remove it from the order list.`);
-    if (!confirmed) {
-      return;
-    }
-
+    setDeleteSubmitting(true);
     try {
-      await orderService.deleteOrder(order.id);
-      toast.success(`Order ${order.orderId} deleted`);
-      setSelectedOrder((current) => (current?.id === order.id ? null : current));
-      setHistoryOrder((current) => (current?.id === order.id ? null : current));
-      setVoidingOrder((current) => (current?.id === order.id ? null : current));
-      setServingOrder((current) => (current?.id === order.id ? null : current));
+      await orderService.deleteOrder(deletingOrder.id, pin);
+      toast.success(`Order ${deletingOrder.orderId} deleted`);
+      setSelectedOrder((current) => (current?.id === deletingOrder.id ? null : current));
+      setHistoryOrder((current) => (current?.id === deletingOrder.id ? null : current));
+      setVoidingOrder((current) => (current?.id === deletingOrder.id ? null : current));
+      setServingOrder((current) => (current?.id === deletingOrder.id ? null : current));
+      setDeletingOrder(null);
       await loadOrders(canUseDateRange && appliedDateRange ? appliedDateRange : {});
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to delete order");
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -262,10 +264,6 @@ const OrdersPage = () => {
     }
 
     if (user?.role === "checker") {
-      return false;
-    }
-
-    if (user?.role === "staff" && order.status === "completed") {
       return false;
     }
 
@@ -506,7 +504,10 @@ const OrdersPage = () => {
                     {canDeleteOrders && (
                       <button
                         type="button"
-                        onClick={() => handleDeleteOrder(order)}
+                        onClick={() => {
+                          setSelectedOrder(null);
+                          setDeletingOrder(order);
+                        }}
                         className="btn-secondary h-10 gap-2 px-3 text-sm text-rose-700"
                       >
                         <Trash2 size={16} />
@@ -555,6 +556,21 @@ const OrdersPage = () => {
         onClose={() => setServingOrder(null)}
         onConfirm={handleServe}
         loading={serveSubmitting}
+      />
+      <ForceStockPinModal
+        open={Boolean(deletingOrder)}
+        product={deletingOrder ? { name: deletingOrder.orderId } : null}
+        title="Delete Order PIN"
+        subtitle={deletingOrder ? `Delete ${deletingOrder.orderId}` : ""}
+        heading="Security check before permanent order deletion"
+        description="Deleting an order removes it permanently from order history. Enter the admin PIN before continuing."
+        pinLabel="Delete PIN"
+        confirmLabel="Delete Order"
+        onClose={() => {
+          setDeletingOrder(null);
+        }}
+        onSubmit={handleDeleteOrder}
+        submitting={deleteSubmitting}
       />
     </div>
   );

@@ -1,7 +1,19 @@
 import { ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const ForceStockPinModal = ({ open, product, onClose, onSubmit, submitting }) => {
+const ForceStockPinModal = ({
+  open,
+  product,
+  onClose,
+  onSubmit,
+  submitting,
+  title = "Verify Admin PIN",
+  subtitle,
+  heading = "Security check before direct inventory reset",
+  description = "Force update changes the stock directly. Enter the admin PIN first, then the stock adjustment form will open.",
+  pinLabel = "Admin PIN",
+  confirmLabel = "Continue"
+}) => {
   const [pin, setPin] = useState("");
 
   useEffect(() => {
@@ -24,8 +36,8 @@ const ForceStockPinModal = ({ open, product, onClose, onSubmit, submitting }) =>
       <div className="glass-card w-full max-w-md p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h3 className="font-display text-2xl font-bold text-slate-900">Verify Admin PIN</h3>
-            <p className="text-sm text-slate-500">{product.name}</p>
+            <h3 className="font-display text-2xl font-bold text-slate-900">{title}</h3>
+            <p className="text-sm text-slate-500">{subtitle || product.name}</p>
           </div>
           <button type="button" onClick={onClose} className="btn-secondary">
             Close
@@ -39,16 +51,14 @@ const ForceStockPinModal = ({ open, product, onClose, onSubmit, submitting }) =>
                 <ShieldCheck size={18} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900">Security check before direct inventory reset</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Force update changes the stock directly. Enter the admin PIN first, then the stock adjustment form will open.
-                </p>
+                <p className="text-sm font-semibold text-slate-900">{heading}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
               </div>
             </div>
           </div>
 
           <label className="block">
-            <span className="mb-2 block text-sm font-semibold text-slate-600">Admin PIN</span>
+            <span className="mb-2 block text-sm font-semibold text-slate-600">{pinLabel}</span>
             <input
               type="password"
               inputMode="numeric"
@@ -62,7 +72,7 @@ const ForceStockPinModal = ({ open, product, onClose, onSubmit, submitting }) =>
           </label>
 
           <button type="submit" disabled={submitting || pin.length === 0} className="btn-primary w-full">
-            {submitting ? "Checking..." : "Continue"}
+            {submitting ? "Checking..." : confirmLabel}
           </button>
         </form>
       </div>
