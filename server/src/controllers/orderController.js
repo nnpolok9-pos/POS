@@ -47,13 +47,9 @@ const normalizeSauceItems = (items = []) =>
     .filter((item) => item.product && item.quantity > 0);
 
 const normalizeBookingDetails = (bookingDetails = {}) => ({
-  leadTravelerName: bookingDetails.leadTravelerName?.trim() || "",
-  contactPhone: bookingDetails.contactPhone?.trim() || "",
-  destination: bookingDetails.destination?.trim() || "",
-  departureDate: bookingDetails.departureDate ? new Date(bookingDetails.departureDate) : null,
-  returnDate: bookingDetails.returnDate ? new Date(bookingDetails.returnDate) : null,
-  travelerCount: Math.max(1, Number(bookingDetails.travelerCount) || 1),
-  notes: bookingDetails.notes?.trim() || ""
+  customerName: bookingDetails.customerName?.trim() || bookingDetails.leadTravelerName?.trim() || "",
+  customerPhone: bookingDetails.customerPhone?.trim() || bookingDetails.contactPhone?.trim() || "",
+  customerDateOfBirth: bookingDetails.customerDateOfBirth || null
 });
 
 const buildQueueNumber = (orderId = "") => orderId.split("-").pop() || orderId;

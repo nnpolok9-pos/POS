@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import CartPanel from "../components/CartPanel";
+import CustomerInfoModal from "../components/CustomerInfoModal";
 import ProductCard from "../components/ProductCard";
 import { useShopSettings } from "../context/ShopSettingsContext";
 import { orderService } from "../services/orderService";
@@ -64,6 +65,12 @@ const PosPage = () => {
   const [latestOrder, setLatestOrder] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null);
   const [adjustmentMethod, setAdjustmentMethod] = useState("");
+  const [customerInfo, setCustomerInfo] = useState({
+    customerName: "",
+    customerPhone: "",
+    customerDateOfBirth: ""
+  });
+  const [customerInfoOpen, setCustomerInfoOpen] = useState(false);
   const previousEditDifferenceRef = useRef(0);
   const allowItemCustomization = !editingOrder || ["queued", "food_serving", "quote_prepared"].includes(editingOrder.status);
   const editingDifference = useMemo(() => {
@@ -89,6 +96,11 @@ const PosPage = () => {
           setCart([]);
           setPaymentMethod("cash");
           setAdjustmentMethod("");
+          setCustomerInfo({
+            customerName: "",
+            customerPhone: "",
+            customerDateOfBirth: ""
+          });
           return;
         }
 
@@ -102,6 +114,11 @@ const PosPage = () => {
         setEditingOrder(order);
         setPaymentMethod(order.paymentMethod || "cash");
         setAdjustmentMethod("");
+        setCustomerInfo({
+          customerName: order.bookingDetails?.customerName || "",
+          customerPhone: order.bookingDetails?.customerPhone || "",
+          customerDateOfBirth: order.bookingDetails?.customerDateOfBirth || ""
+        });
         const existingOrderMap = new Map(order.items.map((item) => [String(item.product), item.quantity]));
         setCart(
           order.items.map((item) => {
@@ -259,6 +276,7 @@ const PosPage = () => {
           })
         })),
         paymentMethod,
+        bookingDetails: customerInfo,
         adjustmentMethod: editingOrder ? adjustmentMethod || null : null
       };
 
@@ -279,6 +297,11 @@ const PosPage = () => {
       setEditingOrder(null);
       setPaymentMethod("cash");
       setAdjustmentMethod("");
+      setCustomerInfo({
+        customerName: "",
+        customerPhone: "",
+        customerDateOfBirth: ""
+      });
 
       const refreshedProducts = await productService.getProducts();
       setProducts(refreshedProducts);
@@ -298,12 +321,22 @@ const PosPage = () => {
     setCart([]);
     setPaymentMethod("cash");
     setAdjustmentMethod("");
+    setCustomerInfo({
+      customerName: "",
+      customerPhone: "",
+      customerDateOfBirth: ""
+    });
     navigate("/orders", { replace: true });
   };
 
   const clearQueue = () => {
     setCart([]);
     setAdjustmentMethod("");
+    setCustomerInfo({
+      customerName: "",
+      customerPhone: "",
+      customerDateOfBirth: ""
+    });
     toast.success("Order queue cleared");
   };
 
@@ -420,8 +453,20 @@ const PosPage = () => {
           onUpdateAlternatives={updateItemAlternatives}
           allowItemCustomization={allowItemCustomization}
           checkoutDisabled={requiresAdjustmentMethod && !adjustmentMethod}
+          customerInfo={customerInfo}
+          onOpenCustomerInfo={() => setCustomerInfoOpen(true)}
         />
       </div>
+      <CustomerInfoModal
+        open={customerInfoOpen}
+        value={customerInfo}
+        onClose={() => setCustomerInfoOpen(false)}
+        onSave={(nextValue) => {
+          setCustomerInfo(nextValue);
+          setCustomerInfoOpen(false);
+          toast.success("Customer info saved");
+        }}
+      />
     </>
   );
 };

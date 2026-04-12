@@ -96,6 +96,26 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onSer
               </div>
             </div>
 
+            {(order.bookingDetails?.customerName || order.bookingDetails?.customerPhone || order.bookingDetails?.customerDateOfBirth) && (
+              <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50 p-5">
+                <p className="font-semibold text-slate-900">Customer Info</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Name</p>
+                    <p className="mt-1 text-sm text-slate-700">{order.bookingDetails?.customerName || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Phone Number</p>
+                    <p className="mt-1 text-sm text-slate-700">{order.bookingDetails?.customerPhone || "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Date of Birth</p>
+                    <p className="mt-1 text-sm text-slate-700">{order.bookingDetails?.customerDateOfBirth || "-"}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {order.status === "void" && (
               <div className="mt-4 rounded-3xl bg-rose-50 p-4 text-sm text-rose-800">
                 <p>Current void amount: {currency(order.total)}</p>

@@ -1,4 +1,4 @@
-import { Minus, Plus, Printer, Trash2 } from "lucide-react";
+import { Minus, Plus, Printer, Trash2, UserRound } from "lucide-react";
 import { currency, currencyParts, formatDate, imageUrl } from "../utils/format";
 
 const productTypeLabel = (type) =>
@@ -61,7 +61,9 @@ const CartPanel = ({
   latestOrderLabel = "Last Order",
   showLatestPrint = true,
   labels = {},
-  checkoutDisabled = false
+  checkoutDisabled = false,
+  customerInfo,
+  onOpenCustomerInfo
 }) => {
   const text = {
     emptyCart: "Add products from the grid to start an order.",
@@ -263,6 +265,20 @@ const CartPanel = ({
       <div className="mt-auto space-y-4 border-t border-slate-100 bg-white pt-3">
         {showPaymentSection && (
           <div>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <label className="block text-[13px] font-semibold text-slate-600">Customer Info</label>
+              <button type="button" onClick={onOpenCustomerInfo} className="btn-secondary gap-2 px-3 py-2 text-[13px]">
+                <UserRound size={16} />
+                Customer Info
+              </button>
+            </div>
+            {(customerInfo?.customerName || customerInfo?.customerPhone || customerInfo?.customerDateOfBirth) && (
+              <div className="mb-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[13px] text-slate-600">
+                {customerInfo?.customerName ? <p><span className="font-semibold text-slate-800">Name:</span> {customerInfo.customerName}</p> : null}
+                {customerInfo?.customerPhone ? <p><span className="font-semibold text-slate-800">Phone:</span> {customerInfo.customerPhone}</p> : null}
+                {customerInfo?.customerDateOfBirth ? <p><span className="font-semibold text-slate-800">Date of Birth:</span> {customerInfo.customerDateOfBirth}</p> : null}
+              </div>
+            )}
             <label className="mb-2 block text-[13px] font-semibold text-slate-600">{text.paymentMethod}</label>
             <div className="grid grid-cols-3 gap-2">
               {["cash", "card", "qr"].map((method) => (
