@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { productService } from "../services/productService";
+import { shopSettingsService } from "../services/shopSettingsService";
 import { currencyParts, imageUrl } from "../utils/format";
 
 const POSTER_TITLE = "ASEN MENU SHOWCASE";
@@ -52,6 +53,29 @@ const ProductPrice = ({ product, big = false }) => {
   );
 };
 
+const PosterImageCard = ({ product, compact = false }) => (
+  <div className="relative h-full overflow-hidden rounded-[1vw] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.96),rgba(236,234,244,0.94))] shadow-[0_10px_24px_rgba(15,23,42,0.1)]">
+    <img
+      src={imageUrl(product.image)}
+      alt={product.name}
+      className={`h-full w-full ${compact ? "object-contain p-[0.2vw]" : "object-cover"}`}
+    />
+    <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(20,20,20,0)_0%,rgba(20,20,20,0.72)_42%,rgba(20,20,20,0.96)_100%)] p-[0.42vw] text-white">
+      <p className={`${compact ? "text-[0.7vw]" : "text-[0.84vw]"} line-clamp-2 font-black uppercase leading-[1.02]`}>
+        {product.name}
+      </p>
+      <div className="mt-[0.14vw]">
+        <div className={`${compact ? "text-[0.92vw]" : "text-[1.02vw]"} font-extrabold leading-none text-[#fde047]`}>
+          {currencyParts(product.promotionalPrice ?? product.price ?? 0).khr}
+        </div>
+        <div className="text-[0.54vw] font-semibold text-white/80">
+          {currencyParts(product.promotionalPrice ?? product.price ?? 0).usd}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const SectionHeader = ({ title }) => (
   <div className="mb-[0.38vw]">
     <h2 className="font-display text-[1.28vw] font-black uppercase leading-none tracking-tight text-[#1d1d1d]">
@@ -61,28 +85,28 @@ const SectionHeader = ({ title }) => (
 );
 
 const ProductTile = ({ product, indexLabel }) => (
-  <div className="rounded-[0.9vw] bg-white/72 p-[0.42vw] shadow-[0_8px_22px_rgba(15,23,42,0.08)]">
-    <div className="flex items-start justify-between gap-[0.42vw]">
+  <div className="h-full rounded-[0.9vw] bg-white/78 p-[0.32vw] shadow-[0_8px_22px_rgba(15,23,42,0.08)]">
+    <div className="flex h-full items-stretch justify-between gap-[0.36vw]">
       <div className="min-w-0">
         <p className="text-[0.5vw] font-bold uppercase tracking-[0.08em] text-slate-500">{indexLabel}</p>
         <p className="mt-[0.08vw] line-clamp-2 text-[0.66vw] font-extrabold leading-[1.05] text-[#151515]">
           {product.name}
         </p>
+        <div className="mt-[0.28vw]">
+          <ProductPrice product={product} />
+        </div>
       </div>
-      <div className="h-[3.45vw] w-[3.45vw] shrink-0 overflow-hidden rounded-[0.78vw] bg-white">
+      <div className="h-full min-h-[4.6vw] w-[4.8vw] shrink-0 overflow-hidden rounded-[0.8vw] bg-white">
         <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
       </div>
-    </div>
-    <div className="mt-[0.26vw]">
-      <ProductPrice product={product} />
     </div>
   </div>
 );
 
 const GridSection = ({ title, products }) => (
-  <section className="h-full overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,245,252,0.92)_100%)] p-[0.58vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,245,252,0.92)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title={title} />
-    <div className="grid grid-cols-2 gap-[0.48vw]">
+    <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-[0.42vw]">
       {products.slice(0, 4).map((product, index) => (
         <ProductTile key={product.id} product={product} indexLabel={String.fromCharCode(65 + index)} />
       ))}
@@ -98,23 +122,44 @@ const FeatureSection = ({ title, products }) => {
     return null;
   }
 
+  if (products.length <= 3) {
+    return (
+      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+        <SectionHeader title={title} />
+        <div
+          className="grid flex-1 gap-[0.42vw]"
+          style={{ gridTemplateColumns: `repeat(${Math.min(products.length, 3)}, minmax(0, 1fr))` }}
+        >
+          {products.map((product) => (
+            <PosterImageCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="h-full overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] p-[0.62vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+    <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
       <SectionHeader title={title} />
-      <div className="grid h-full grid-cols-[minmax(0,1fr)_39%] gap-[0.48vw]">
-        <div className="space-y-[0.34vw] overflow-hidden">
+      <div className="grid flex-1 grid-cols-[minmax(0,1fr)_44%] gap-[0.42vw]">
+        <div className="grid grid-rows-4 gap-[0.32vw] overflow-hidden">
           {list.length > 0 ? (
             list.map((product, index) => (
-              <div key={product.id} className="rounded-[0.92vw] bg-white/78 p-[0.38vw] shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
-                <div className="flex items-start justify-between gap-[0.45vw]">
-                  <div className="min-w-0">
+              <div key={product.id} className="rounded-[0.92vw] bg-white/82 p-[0.32vw] shadow-[0_8px_20px_rgba(15,23,42,0.07)]">
+                <div className="flex h-full items-stretch justify-between gap-[0.34vw]">
+                  <div className="min-w-0 flex-1">
                     <p className="text-[0.48vw] font-bold uppercase tracking-[0.08em] text-slate-500">{`Set ${index + 1}`}</p>
                     <p className="mt-[0.08vw] line-clamp-2 text-[0.68vw] font-black leading-[1.05] text-[#171717]">{product.name}</p>
                     {product.description ? (
-                      <p className="mt-[0.12vw] line-clamp-2 text-[0.48vw] leading-[1.15] text-slate-500">{product.description}</p>
+                      <p className="mt-[0.1vw] line-clamp-2 text-[0.46vw] leading-[1.14] text-slate-500">{product.description}</p>
                     ) : null}
+                    <div className="mt-[0.12vw]">
+                      <ProductPrice product={product} />
+                    </div>
                   </div>
-                  <ProductPrice product={product} />
+                  <div className="h-full min-h-[4.2vw] w-[4.2vw] shrink-0 overflow-hidden rounded-[0.72vw] bg-white">
+                    <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
+                  </div>
                 </div>
               </div>
             ))
@@ -146,16 +191,16 @@ const FeatureSection = ({ title, products }) => {
 };
 
 const CompactSection = ({ title, products }) => (
-  <section className="h-full overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] p-[0.58vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title={title} />
-    <div className="grid grid-cols-2 gap-[0.42vw]">
+    <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-[0.42vw]">
       {products.slice(0, 4).map((product) => (
-        <div key={product.id} className="flex items-center gap-[0.42vw] rounded-[0.86vw] bg-white/78 p-[0.34vw] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
-          <div className="h-[3vw] w-[3vw] shrink-0 overflow-hidden rounded-[0.68vw] bg-white">
+        <div key={product.id} className="grid h-full grid-cols-[36%_1fr] gap-[0.22vw] rounded-[0.86vw] bg-white/82 p-[0.26vw] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+          <div className="overflow-hidden rounded-[0.72vw] bg-white">
             <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
           </div>
-          <div className="min-w-0">
-            <p className="line-clamp-2 text-[0.6vw] font-extrabold leading-[1.03] text-[#171717]">{product.name}</p>
+          <div className="min-w-0 self-center">
+            <p className="line-clamp-2 text-[0.62vw] font-extrabold leading-[1.03] text-[#171717]">{product.name}</p>
             <div className="mt-[0.12vw]">
               <ProductPrice product={product} />
             </div>
@@ -167,17 +212,17 @@ const CompactSection = ({ title, products }) => (
 );
 
 const DrinksStrip = ({ products }) => (
-  <section className="h-full overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,243,250,0.94)_100%)] p-[0.58vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,243,250,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title="Drinks" />
-    <div className="grid h-full grid-cols-5 gap-[0.42vw]">
+    <div className="grid flex-1 grid-cols-5 gap-[0.32vw]">
       {products.slice(0, 5).map((product) => (
-        <div key={product.id} className="flex min-w-0 items-center gap-[0.36vw] rounded-[0.86vw] bg-white/78 p-[0.34vw] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
-          <div className="h-[3vw] w-[3vw] shrink-0 overflow-hidden rounded-[0.68vw] bg-white">
+        <div key={product.id} className="flex min-w-0 flex-col justify-between rounded-[0.86vw] bg-white/82 p-[0.24vw] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+          <div className="h-[4.5vw] overflow-hidden rounded-[0.72vw] bg-white">
             <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain" />
           </div>
-          <div className="min-w-0">
-            <p className="line-clamp-2 text-[0.6vw] font-extrabold leading-[1.03] text-[#171717]">{product.name}</p>
-            <div className="mt-[0.1vw]">
+          <div className="min-w-0 pt-[0.12vw]">
+            <p className="line-clamp-2 text-[0.58vw] font-extrabold leading-[1.03] text-[#171717]">{product.name}</p>
+            <div className="mt-[0.06vw]">
               <ProductPrice product={product} />
             </div>
           </div>
@@ -189,6 +234,7 @@ const DrinksStrip = ({ products }) => (
 
 const MenuCardPosterPage = () => {
   const [products, setProducts] = useState([]);
+  const [shop, setShop] = useState({ logo: "" });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -200,17 +246,24 @@ const MenuCardPosterPage = () => {
       setLoading(true);
 
       try {
-        const menu = await productService.getPublicMenu();
+        const [menu, settings] = await Promise.all([productService.getPublicMenu(), shopSettingsService.getPublic()]);
         setProducts(menu || []);
+        setShop({
+          logo: settings?.logo || ""
+        });
       } catch (error) {
         const cachedMenu = productService.getCachedPublicMenu();
         const cachedAdminProducts = productService
           .getCachedProducts()
           .filter((product) => product.isActive !== false && product.forSale !== false);
         const fallbackMenu = cachedMenu.length > 0 ? cachedMenu : cachedAdminProducts;
+        const cachedSettings = shopSettingsService.getCachedPublic();
 
         if (fallbackMenu.length > 0) {
           setProducts(fallbackMenu || []);
+          setShop({
+            logo: cachedSettings?.logo || ""
+          });
           toast.error(error.response?.data?.message || "Failed to load menu poster. Showing cached menu.");
         } else {
           toast.error(error.response?.data?.message || "Failed to load menu poster");
@@ -235,6 +288,11 @@ const MenuCardPosterPage = () => {
   return (
     <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(232,230,242,0.98))] p-[0.45vw] text-slate-900">
       <div className="mx-auto flex h-full max-w-[1920px] flex-col gap-[0.42vw]">
+        {shop.logo ? (
+          <div className="pointer-events-none absolute right-[0.7vw] top-[0.7vw] z-10 flex h-[4.2vw] w-[4.2vw] items-center justify-center overflow-hidden rounded-[1vw] bg-white/92 p-[0.3vw] shadow-[0_12px_24px_rgba(15,23,42,0.12)]">
+            <img src={imageUrl(shop.logo)} alt="ASEN logo" className="h-full w-full object-contain" />
+          </div>
+        ) : null}
         {loading ? (
           <div className="flex flex-1 items-center justify-center rounded-[1.6vw] bg-white/75 text-[1.2vw] font-semibold text-slate-500 shadow-[0_18px_36px_rgba(15,23,42,0.1)]">
             Loading poster menu...
