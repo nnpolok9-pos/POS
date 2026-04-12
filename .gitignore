@@ -25,6 +25,8 @@ build/
 .mysql-test/
 server/.mongo-data/
 server/node_modules/.cache/
+server/data/*.sqlite
+server/data/*.sqlite-*
 
 # Dumps and backups
 *.sql

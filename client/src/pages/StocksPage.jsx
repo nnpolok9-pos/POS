@@ -2,6 +2,7 @@ import { Archive, Boxes, Clock3, PackagePlus, TrendingDown, TrendingUp } from "l
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import ProductDeductModal from "../components/ProductDeductModal";
+import ProductForceStockModal from "../components/ProductForceStockModal";
 import ProductStockModal from "../components/ProductStockModal";
 import ReportDatePicker from "../components/ReportDatePicker";
 import { useAuth } from "../context/AuthContext";
@@ -55,6 +56,7 @@ const StocksPage = () => {
   const { user } = useAuth();
   const canAddStock = ["master_admin", "admin", "staff"].includes(user?.role);
   const canDeductStock = ["master_admin", "admin"].includes(user?.role);
+  const canForceUpdateStock = ["master_admin", "admin"].includes(user?.role);
   const [from, setFrom] = useState(todayString());
   const [to, setTo] = useState(todayString());
   const [appliedDateRange, setAppliedDateRange] = useState({ from: todayString(), to: todayString() });
@@ -69,8 +71,10 @@ const StocksPage = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [deductModalOpen, setDeductModalOpen] = useState(false);
+  const [forceModalOpen, setForceModalOpen] = useState(false);
   const [stockSubmitting, setStockSubmitting] = useState(false);
   const [deductSubmitting, setDeductSubmitting] = useState(false);
+  const [forceSubmitting, setForceSubmitting] = useState(false);
 
   const loadReport = async (params = {}) => {
     setLoading(true);
@@ -225,6 +229,25 @@ const StocksPage = () => {
       toast.error(error.response?.data?.message || "Failed to deduct stock");
     } finally {
       setDeductSubmitting(false);
+    }
+  };
+
+  const handleForceStockUpdate = async ({ stockQuantity, reason }) => {
+    if (!selectedProduct) {
+      return;
+    }
+
+    setForceSubmitting(true);
+    try {
+      await productService.forceUpdateStock(selectedProduct.productId, stockQuantity, reason);
+      toast.success("Stock force updated");
+      setForceModalOpen(false);
+      setSelectedProduct(null);
+      await refreshReport();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to force update stock");
+    } finally {
+      setForceSubmitting(false);
     }
   };
 
@@ -489,6 +512,19 @@ const StocksPage = () => {
                               Deduct
                             </button>
                           )}
+
+                          {canForceUpdateStock && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedProduct(row);
+                                setForceModalOpen(true);
+                              }}
+                              className="btn-secondary gap-2 text-amber-700"
+                            >
+                              Force
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -648,6 +684,25 @@ const StocksPage = () => {
         }}
         onSubmit={handleStockDeduction}
         submitting={deductSubmitting}
+      />
+
+      <ProductForceStockModal
+        open={forceModalOpen}
+        product={
+          selectedProduct
+            ? {
+                id: selectedProduct.productId,
+                name: selectedProduct.productName,
+                stock: Number(selectedProduct.currentStock || 0)
+              }
+            : null
+        }
+        onClose={() => {
+          setForceModalOpen(false);
+          setSelectedProduct(null);
+        }}
+        onSubmit={handleForceStockUpdate}
+        submitting={forceSubmitting}
       />
     </div>
   );

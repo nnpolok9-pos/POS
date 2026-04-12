@@ -187,6 +187,48 @@ const updateProductStock = async (req, res) => {
   res.json(serialized);
 };
 
+const forceUpdateProductStock = async (req, res) => {
+  const product = await getProductById(req.params.id);
+
+  if (!product) {
+    return res.status(404).json({ message: "Product not found" });
+  }
+
+  if (!isBaseProductType(product)) {
+    return res.status(400).json({ message: "Combo stock is derived from raw item inventory" });
+  }
+
+  const stockQuantity = Number(req.body.stockQuantity);
+  const reason = String(req.body.reason || "").trim();
+
+  if (Number.isNaN(stockQuantity) || stockQuantity < 0) {
+    return res.status(400).json({ message: "Stock quantity must be zero or greater" });
+  }
+
+  if (!reason) {
+    return res.status(400).json({ message: "Reason is required for force stock update" });
+  }
+
+  const previousStock = Number(product.stock || 0);
+  product.stock = stockQuantity;
+  syncAvailability(product);
+  const savedProduct = await saveProduct(product);
+
+  if (previousStock !== stockQuantity) {
+    await recordInventoryMovement({
+      product: savedProduct,
+      previousStock,
+      newStock: stockQuantity,
+      performedBy: req.user?.id,
+      movementType: stockQuantity >= previousStock ? "received" : "deducted",
+      reason: `Force stock update | ${reason}`
+    });
+  }
+
+  const [serialized] = await serializeProducts([savedProduct]);
+  res.json(serialized);
+};
+
 const updateProduct = async (req, res) => {
   const product = await getProductById(req.params.id);
 
@@ -336,6 +378,7 @@ module.exports = {
   getProducts,
   getAdminProducts,
   updateProductStock,
+  forceUpdateProductStock,
   deductProductStock,
   updateProduct,
   deleteProduct

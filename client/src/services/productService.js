@@ -46,6 +46,10 @@ export const productService = {
     const { data } = await api.patch(`/products/${id}/stock/deduct`, { deductionQuantity, reason });
     return data;
   },
+  forceUpdateStock: async (id, stockQuantity, reason) => {
+    const { data } = await api.patch(`/products/${id}/stock/force`, { stockQuantity, reason });
+    return data;
+  },
   deleteProduct: async (id) => {
     const { data } = await api.delete(`/products/${id}`);
     return data;

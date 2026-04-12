@@ -268,6 +268,25 @@ const runSqliteStatements = (db, statements) => {
   });
 };
 
+const normalizeSqliteValue = (value) => {
+  if (value === undefined) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value) || (value && typeof value === "object" && !Buffer.isBuffer(value))) {
+    return JSON.stringify(value);
+  }
+
+  return value;
+};
+
+const normalizeSqliteParams = (params = {}) =>
+  Object.fromEntries(Object.entries(params).map(([key, value]) => [key, normalizeSqliteValue(value)]));
+
 const ensureSqliteDatabase = () => {
   const sqliteDir = path.dirname(DEFAULTS.sqlitePath);
   if (!fs.existsSync(sqliteDir)) {
@@ -277,12 +296,13 @@ const ensureSqliteDatabase = () => {
 
 const executeSqlite = (executor, sql, params = {}) => {
   const statement = executor.prepare(sql);
+  const normalizedParams = normalizeSqliteParams(params);
 
   if (statement.reader) {
-    return statement.all(params);
+    return statement.all(normalizedParams);
   }
 
-  statement.run(params);
+  statement.run(normalizedParams);
   return [];
 };
 
