@@ -5,6 +5,7 @@ import { shopSettingsService } from "../services/shopSettingsService";
 import { currencyParts, imageUrl } from "../utils/format";
 
 const POSTER_TITLE = "ASEN MENU SHOWCASE";
+const HALAL_LOGO_PATH = "/halal-logo-final.png";
 
 const moveDrinksCategoryToEnd = (categories) => {
   const nonDrinks = [];
@@ -140,7 +141,7 @@ const GridSection = ({ title, products, showDescription = false, largeImage = fa
   </section>
 );
 
-const FeatureSection = ({ title, products }) => {
+const FeatureSection = ({ title, products, brandLogo }) => {
   const featured = products[0];
   const list = products.slice(1, 5);
 
@@ -151,16 +152,29 @@ const FeatureSection = ({ title, products }) => {
   if (products.length <= 3) {
     return (
       <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.18vw] pb-[0.12vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
-        <div className="pl-[0.14vw]">
+        <div className="pl-[0.22vw]">
           <SectionHeader title={title} />
         </div>
-        <div
-          className="grid flex-1 gap-[0.18vw] px-[0.02vw]"
-          style={{ gridTemplateColumns: `repeat(${Math.min(products.length, 3)}, minmax(0, 1fr))` }}
-        >
+        <div className="grid flex-1 gap-[0.18vw] px-[0.06vw]" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr)) minmax(0, 0.22fr)" }}>
           {products.map((product) => (
             <ComboImageCard key={product.id} product={product} />
           ))}
+          <div className="flex h-full flex-col justify-between rounded-[0.96vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(243,241,248,0.96)_100%)] p-[0.16vw] shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
+            <div className="flex justify-end">
+              {brandLogo ? (
+                <div className="flex h-[3vw] w-[3vw] items-center justify-center overflow-hidden rounded-[0.7vw] bg-white p-[0.16vw] shadow-[0_10px_18px_rgba(15,23,42,0.08)]">
+                  <img src={imageUrl(brandLogo)} alt="ASEN logo" className="h-full w-full object-contain" />
+                </div>
+              ) : (
+                <div />
+              )}
+            </div>
+            <div className="flex justify-center pb-[0.04vw]">
+              <div className="flex h-[3.45vw] w-[3.45vw] items-center justify-center overflow-hidden rounded-[0.9vw] bg-white p-[0.14vw] shadow-[0_10px_20px_rgba(15,23,42,0.08)]">
+                <img src={HALAL_LOGO_PATH} alt="Halal logo" className="h-full w-full object-contain" />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     );
@@ -349,11 +363,6 @@ const MenuCardPosterPage = () => {
   return (
     <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(232,230,242,0.98))] p-[0.45vw] text-slate-900">
       <div className="mx-auto flex h-full max-w-[1920px] flex-col gap-[0.42vw]">
-        {shop.logo ? (
-          <div className="pointer-events-none absolute right-[0.7vw] top-[0.7vw] z-10 flex h-[4.2vw] w-[4.2vw] items-center justify-center overflow-hidden rounded-[1vw] bg-white/92 p-[0.3vw] shadow-[0_12px_24px_rgba(15,23,42,0.12)]">
-            <img src={imageUrl(shop.logo)} alt="ASEN logo" className="h-full w-full object-contain" />
-          </div>
-        ) : null}
         {loading ? (
           <div className="flex flex-1 items-center justify-center rounded-[1.6vw] bg-white/75 text-[1.2vw] font-semibold text-slate-500 shadow-[0_18px_36px_rgba(15,23,42,0.1)]">
             Loading poster menu...
@@ -367,7 +376,7 @@ const MenuCardPosterPage = () => {
               </div>
 
               <div className="col-span-8 grid min-h-0 grid-rows-[1.03fr_0.77fr] gap-[0.42vw]">
-                {feature ? <FeatureSection title={feature.category} products={feature.products} /> : <div className="rounded-[1.5vw] bg-white/75" />}
+                {feature ? <FeatureSection title={feature.category} products={feature.products} brandLogo={shop.logo} /> : <div className="rounded-[1.5vw] bg-white/75" />}
 
                 <div className="grid min-h-0 grid-cols-2 gap-[0.42vw]">
                   {rightBottom ? <CompactSection title={rightBottom.category} products={rightBottom.products} dense /> : <div className="rounded-[1.5vw] bg-white/75" />}
