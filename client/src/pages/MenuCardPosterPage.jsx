@@ -104,9 +104,9 @@ const SectionHeader = ({ title }) => (
 );
 
 const ProductTile = ({ product, indexLabel }) => (
-  <div className="h-full rounded-[0.9vw] bg-white/78 p-[0.32vw] shadow-[0_8px_22px_rgba(15,23,42,0.08)]">
-    <div className="flex h-full items-stretch justify-between gap-[0.36vw]">
-      <div className="min-w-0">
+  <div className="h-full rounded-[0.9vw] bg-white/78 p-[0.26vw] shadow-[0_8px_22px_rgba(15,23,42,0.08)]">
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_5.2vw] items-center gap-[0.28vw]">
+      <div className="min-w-0 self-center">
         <p className="text-[0.5vw] font-bold uppercase tracking-[0.08em] text-slate-500">{indexLabel}</p>
         <p className="mt-[0.08vw] line-clamp-2 text-[0.66vw] font-extrabold leading-[1.05] text-[#151515]">
           {product.name}
@@ -115,8 +115,8 @@ const ProductTile = ({ product, indexLabel }) => (
           <ProductPrice product={product} />
         </div>
       </div>
-      <div className="h-full min-h-[4.6vw] w-[5.2vw] shrink-0 overflow-hidden rounded-[0.8vw] bg-white">
-        <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.12vw]" />
+      <div className="h-[5.2vw] w-[5.2vw] shrink-0 self-center overflow-hidden rounded-[0.8vw] bg-white">
+        <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.08vw]" />
       </div>
     </div>
   </div>
