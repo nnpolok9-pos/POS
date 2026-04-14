@@ -151,26 +151,26 @@ const FeatureSection = ({ title, products, brandLogo }) => {
 
   if (products.length <= 3) {
     return (
-      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.18vw] pb-[0.12vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
-        <div className="pl-[0.22vw]">
+      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.28vw] pb-[0.16vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+        <div className="pl-[0.34vw]">
           <SectionHeader title={title} />
         </div>
-        <div className="grid flex-1 gap-[0.18vw] px-[0.06vw]" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr)) minmax(0, 0.22fr)" }}>
+        <div className="grid flex-1 gap-[0.18vw] px-[0.14vw]" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr)) minmax(4.6vw, 0.36fr)" }}>
           {products.map((product) => (
             <ComboImageCard key={product.id} product={product} />
           ))}
-          <div className="flex h-full flex-col justify-between rounded-[0.96vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.92)_0%,rgba(243,241,248,0.96)_100%)] p-[0.16vw] shadow-[0_10px_24px_rgba(15,23,42,0.08)]">
-            <div className="flex justify-end">
+          <div className="flex h-full flex-col justify-between rounded-[0.96vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(243,241,248,0.98)_100%)] px-[0.18vw] py-[0.22vw] shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+            <div className="flex justify-center">
               {brandLogo ? (
-                <div className="flex h-[3vw] w-[3vw] items-center justify-center overflow-hidden rounded-[0.7vw] bg-white p-[0.16vw] shadow-[0_10px_18px_rgba(15,23,42,0.08)]">
+                <div className="flex h-[4vw] w-[4vw] items-center justify-center overflow-hidden rounded-[0.8vw] bg-white p-[0.18vw] shadow-[0_10px_18px_rgba(15,23,42,0.08)]">
                   <img src={imageUrl(brandLogo)} alt="ASEN logo" className="h-full w-full object-contain" />
                 </div>
               ) : (
                 <div />
               )}
             </div>
-            <div className="flex justify-center pb-[0.04vw]">
-              <div className="flex h-[3.45vw] w-[3.45vw] items-center justify-center overflow-hidden rounded-[0.9vw] bg-white p-[0.14vw] shadow-[0_10px_20px_rgba(15,23,42,0.08)]">
+            <div className="flex justify-center pt-[0.12vw]">
+              <div className="flex h-[4.6vw] w-[4.6vw] items-center justify-center overflow-hidden rounded-[0.95vw] bg-white p-[0.12vw] shadow-[0_10px_20px_rgba(15,23,42,0.08)]">
                 <img src={HALAL_LOGO_PATH} alt="Halal logo" className="h-full w-full object-contain" />
               </div>
             </div>
