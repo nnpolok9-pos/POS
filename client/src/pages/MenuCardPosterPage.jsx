@@ -354,7 +354,7 @@ const MenuCardPosterPage = () => {
         ) : (
           <>
             <main className="grid min-h-0 flex-1 grid-cols-12 gap-[0.42vw]">
-              <div className="col-span-4 grid min-h-0 grid-rows-2 gap-[0.42vw]">
+              <div className="col-span-4 grid min-h-0 grid-rows-[0.84fr_1.16fr] gap-[0.42vw]">
                 {leftTop ? <GridSection title={leftTop.category} products={leftTop.products} /> : <div className="rounded-[1.5vw] bg-white/75" />}
                 {leftBottom ? <GridSection title={leftBottom.category} products={leftBottom.products} /> : <div className="rounded-[1.5vw] bg-white/75" />}
               </div>
