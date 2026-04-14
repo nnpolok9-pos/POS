@@ -106,12 +106,11 @@ const SectionHeader = ({ title }) => (
   </div>
 );
 
-const ProductTile = ({ product, indexLabel }) => (
-  <div className="h-full rounded-[0.9vw] bg-white/78 p-[0.26vw] shadow-[0_8px_22px_rgba(15,23,42,0.08)]">
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_5.2vw] items-center gap-[0.28vw]">
-      <div className="min-w-0 self-center">
-        <p className="text-[0.5vw] font-bold uppercase tracking-[0.08em] text-slate-500">{indexLabel}</p>
-        <p className="mt-[0.08vw] line-clamp-2 text-[0.66vw] font-extrabold leading-[1.05] text-[#151515]">
+const ProductTile = ({ product }) => (
+  <div className="h-full rounded-[0.9vw] bg-white/78 p-[0.22vw] shadow-[0_8px_22px_rgba(15,23,42,0.08)]">
+    <div className="grid h-full grid-cols-[minmax(0,1fr)_5.2vw] items-start gap-[0.28vw]">
+      <div className="min-w-0 self-start pt-[0.02vw]">
+        <p className="line-clamp-2 text-[0.66vw] font-extrabold leading-[1.05] text-[#151515]">
           {product.name}
         </p>
         <div className="mt-[0.28vw]">
@@ -129,8 +128,8 @@ const GridSection = ({ title, products }) => (
   <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,245,252,0.92)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title={title} />
     <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-[0.42vw]">
-      {products.slice(0, 4).map((product, index) => (
-        <ProductTile key={product.id} product={product} indexLabel={String.fromCharCode(65 + index)} />
+      {products.slice(0, 4).map((product) => (
+        <ProductTile key={product.id} product={product} />
       ))}
     </div>
   </section>
