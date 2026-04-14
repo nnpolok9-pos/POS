@@ -150,10 +150,12 @@ const FeatureSection = ({ title, products }) => {
 
   if (products.length <= 3) {
     return (
-      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.12vw] pb-[0.12vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
-        <SectionHeader title={title} />
+      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.18vw] pb-[0.12vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+        <div className="pl-[0.14vw]">
+          <SectionHeader title={title} />
+        </div>
         <div
-          className="grid flex-1 gap-[0.18vw]"
+          className="grid flex-1 gap-[0.18vw] px-[0.02vw]"
           style={{ gridTemplateColumns: `repeat(${Math.min(products.length, 3)}, minmax(0, 1fr))` }}
         >
           {products.map((product) => (
