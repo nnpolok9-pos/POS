@@ -108,7 +108,7 @@ const SectionHeader = ({ title }) => (
 
 const ProductTile = ({ product, showDescription = false, largeImage = false }) => (
   <div className={`h-full rounded-[0.9vw] bg-white/78 ${largeImage ? "p-[0.18vw]" : "p-[0.22vw]"} shadow-[0_8px_22px_rgba(15,23,42,0.08)]`}>
-    <div className={`grid h-full items-start gap-[0.28vw] ${largeImage ? "grid-cols-[minmax(0,1fr)_7.2vw]" : "grid-cols-[minmax(0,1fr)_5.2vw]"}`}>
+    <div className={`grid h-full items-start gap-[0.28vw] ${largeImage ? "grid-cols-[minmax(0,1fr)_7.2vw]" : "grid-cols-[minmax(0,1fr)_6vw]"}`}>
       <div className="min-w-0 self-start pt-[0.02vw]">
         <p className="line-clamp-2 text-[0.66vw] font-extrabold leading-[1.05] text-[#151515]">
           {product.name}
@@ -122,8 +122,8 @@ const ProductTile = ({ product, showDescription = false, largeImage = false }) =
           <ProductPrice product={product} />
         </div>
       </div>
-      <div className={`${largeImage ? "h-[4.8vw] w-[7.2vw]" : "h-[5.35vw] w-[5.35vw]"} shrink-0 self-center overflow-hidden rounded-[0.8vw] bg-white`}>
-        <img src={imageUrl(product.image)} alt={product.name} className={`h-full w-full object-contain ${largeImage ? "p-[0.02vw]" : "p-[0.02vw]"}`} />
+      <div className={`${largeImage ? "h-[4.8vw] w-[7.2vw]" : "h-[6vw] w-[6vw]"} shrink-0 self-center overflow-hidden rounded-[0.8vw] bg-white`}>
+        <img src={imageUrl(product.image)} alt={product.name} className={`h-full w-full object-contain ${largeImage ? "p-[0.02vw]" : "p-0"}`} />
       </div>
     </div>
   </div>
@@ -150,10 +150,10 @@ const FeatureSection = ({ title, products }) => {
 
   if (products.length <= 3) {
     return (
-      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.12vw] pb-[0.12vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
         <SectionHeader title={title} />
         <div
-          className="grid flex-1 gap-[0.42vw]"
+          className="grid flex-1 gap-[0.18vw]"
           style={{ gridTemplateColumns: `repeat(${Math.min(products.length, 3)}, minmax(0, 1fr))` }}
         >
           {products.map((product) => (
