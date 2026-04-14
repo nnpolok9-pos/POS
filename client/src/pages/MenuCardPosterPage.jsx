@@ -80,8 +80,12 @@ const PosterImageCard = ({ product, compact = false }) => (
   </div>
 );
 
-const ComboImageCard = ({ product }) => (
-  <div className="grid h-full grid-rows-[63%_1fr] overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,244,251,0.95)_100%)] shadow-[0_10px_24px_rgba(15,23,42,0.1)]">
+const ComboImageCard = ({ product, soft = false }) => (
+  <div
+    className={`grid h-full grid-rows-[63%_1fr] overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,244,251,0.95)_100%)] ${
+      soft ? "shadow-[0_4px_10px_rgba(15,23,42,0.04)]" : "shadow-[0_10px_24px_rgba(15,23,42,0.1)]"
+    }`}
+  >
     <div className="overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.96),rgba(236,234,244,0.94))]">
       <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.15vw]" />
     </div>
@@ -157,20 +161,20 @@ const FeatureSection = ({ title, products, brandLogo }) => {
         </div>
         <div className="grid flex-1 gap-[0.18vw] px-[0.14vw]" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr)) minmax(4.6vw, 0.36fr)" }}>
           {products.map((product) => (
-            <ComboImageCard key={product.id} product={product} />
+            <ComboImageCard key={product.id} product={product} soft />
           ))}
-          <div className="flex h-full flex-col justify-between rounded-[0.96vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(243,241,248,0.98)_100%)] px-[0.18vw] py-[0.22vw] shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
+          <div className="flex h-full flex-col items-center justify-start gap-[0.28vw] rounded-[0.96vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(243,241,248,0.98)_100%)] px-[0.14vw] py-[0.18vw]">
             <div className="flex justify-center">
               {brandLogo ? (
-                <div className="flex h-[4vw] w-[4vw] items-center justify-center overflow-hidden rounded-[0.8vw] bg-white p-[0.18vw] shadow-[0_10px_18px_rgba(15,23,42,0.08)]">
+                <div className="flex h-[5vw] w-[5vw] items-center justify-center overflow-hidden rounded-[0.9vw] bg-white p-[0.2vw] shadow-[0_8px_16px_rgba(15,23,42,0.06)]">
                   <img src={imageUrl(brandLogo)} alt="ASEN logo" className="h-full w-full object-contain" />
                 </div>
               ) : (
                 <div />
               )}
             </div>
-            <div className="flex justify-center pt-[0.12vw]">
-              <div className="flex h-[4.6vw] w-[4.6vw] items-center justify-center overflow-hidden rounded-[0.95vw] bg-white p-[0.12vw] shadow-[0_10px_20px_rgba(15,23,42,0.08)]">
+            <div className="flex justify-center">
+              <div className="flex h-[4.3vw] w-[4.3vw] items-center justify-center overflow-hidden rounded-[0.95vw] bg-white p-[0.08vw] shadow-[0_8px_16px_rgba(15,23,42,0.05)]">
                 <img src={HALAL_LOGO_PATH} alt="Halal logo" className="h-full w-full object-contain" />
               </div>
             </div>
