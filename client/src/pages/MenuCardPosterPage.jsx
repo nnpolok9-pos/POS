@@ -35,6 +35,8 @@ const groupProductsByCategory = (products) => {
   }));
 };
 
+const findSectionIndex = (sections, matcher) => sections.findIndex((section) => matcher((section.category || "").toLowerCase()));
+
 const ProductPrice = ({ product, big = false }) => {
   const promo = currencyParts(product.promotionalPrice ?? product.price ?? 0);
   const regular = currencyParts(product.regularPrice ?? product.price ?? 0);
@@ -300,7 +302,19 @@ const MenuCardPosterPage = () => {
 
   const groupedCategories = useMemo(() => groupProductsByCategory(products), [products]);
   const drinksSection = groupedCategories.find((entry) => (entry.category || "").toLowerCase() === "drinks");
-  const mainSections = groupedCategories.filter((entry) => (entry.category || "").toLowerCase() !== "drinks");
+  const mainSections = useMemo(() => {
+    const sections = groupedCategories.filter((entry) => (entry.category || "").toLowerCase() !== "drinks");
+    const mealIndex = findSectionIndex(sections, (category) => category === "meal");
+    const friedChickenIndex = findSectionIndex(sections, (category) => category === "fried chicken");
+
+    if (mealIndex === -1 || friedChickenIndex === -1 || mealIndex === friedChickenIndex) {
+      return sections;
+    }
+
+    const reordered = [...sections];
+    [reordered[mealIndex], reordered[friedChickenIndex]] = [reordered[friedChickenIndex], reordered[mealIndex]];
+    return reordered;
+  }, [groupedCategories]);
   const leftTop = mainSections[0];
   const feature = mainSections[1] || mainSections[0];
   const leftBottom = mainSections[2];
