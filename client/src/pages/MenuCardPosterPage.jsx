@@ -218,9 +218,9 @@ const CompactSection = ({ title, products, dense = false }) => (
       {products.slice(0, 4).map((product) => (
         <div
           key={product.id}
-          className={`grid h-full ${dense ? "grid-cols-[33%_1fr]" : "grid-cols-[36%_1fr]"} gap-[0.22vw] rounded-[0.86vw] bg-white/82 ${dense ? "p-[0.22vw]" : "p-[0.26vw]"} shadow-[0_8px_18px_rgba(15,23,42,0.06)]`}
+          className={`grid h-full items-center ${dense ? "grid-cols-[33%_1fr]" : "grid-cols-[36%_1fr]"} gap-[0.22vw] rounded-[0.86vw] bg-white/82 ${dense ? "p-[0.22vw]" : "p-[0.26vw]"} shadow-[0_8px_18px_rgba(15,23,42,0.06)]`}
         >
-          <div className="overflow-hidden rounded-[0.72vw] bg-white">
+          <div className={`flex items-center justify-center overflow-hidden rounded-[0.72vw] bg-white ${dense ? "h-[4.2vw]" : "h-full min-h-[4.6vw]"}`}>
             <img src={imageUrl(product.image)} alt={product.name} className={`h-full w-full ${dense ? "object-contain p-[0.08vw]" : "object-cover"}`} />
           </div>
           <div className="min-w-0 self-center">
