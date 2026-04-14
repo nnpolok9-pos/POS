@@ -36,6 +36,7 @@ const groupProductsByCategory = (products) => {
 };
 
 const findSectionIndex = (sections, matcher) => sections.findIndex((section) => matcher((section.category || "").toLowerCase()));
+const normalizeCategoryName = (value) => (value || "").toLowerCase().trim();
 
 const ProductPrice = ({ product, big = false }) => {
   const promo = currencyParts(product.promotionalPrice ?? product.price ?? 0);
@@ -98,7 +99,7 @@ const ComboImageCard = ({ product }) => (
 );
 
 const SectionHeader = ({ title }) => (
-  <div className="mb-[0.38vw]">
+  <div className="mb-[0.14vw]">
     <h2 className="font-display text-[1.28vw] font-black uppercase leading-none tracking-tight text-[#1d1d1d]">
       {title}
     </h2>
@@ -125,7 +126,7 @@ const ProductTile = ({ product, indexLabel }) => (
 );
 
 const GridSection = ({ title, products }) => (
-  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,245,252,0.92)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,245,252,0.92)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.16vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title={title} />
     <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-[0.42vw]">
       {products.slice(0, 4).map((product, index) => (
@@ -145,7 +146,7 @@ const FeatureSection = ({ title, products }) => {
 
   if (products.length <= 3) {
     return (
-      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.16vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
         <SectionHeader title={title} />
         <div
           className="grid flex-1 gap-[0.42vw]"
@@ -160,7 +161,7 @@ const FeatureSection = ({ title, products }) => {
   }
 
   return (
-    <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+    <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.16vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
       <SectionHeader title={title} />
       <div className="grid flex-1 grid-cols-[minmax(0,1fr)_44%] gap-[0.42vw]">
         <div className="grid grid-rows-4 gap-[0.32vw] overflow-hidden">
@@ -212,7 +213,7 @@ const FeatureSection = ({ title, products }) => {
 };
 
 const CompactSection = ({ title, products, dense = false }) => (
-  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.16vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title={title} />
     <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-[0.42vw]">
       {products.slice(0, 4).map((product) => (
@@ -236,7 +237,7 @@ const CompactSection = ({ title, products, dense = false }) => (
 );
 
 const DrinksStrip = ({ products }) => (
-  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,243,250,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,243,250,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.16vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title="Drinks" />
     <div className="grid flex-1 grid-cols-4 grid-rows-2 gap-[0.24vw]">
       {products.slice(0, 8).map((product) => (
@@ -302,24 +303,42 @@ const MenuCardPosterPage = () => {
 
   const groupedCategories = useMemo(() => groupProductsByCategory(products), [products]);
   const drinksSection = groupedCategories.find((entry) => (entry.category || "").toLowerCase() === "drinks");
-  const mainSections = useMemo(() => {
-    const sections = groupedCategories.filter((entry) => (entry.category || "").toLowerCase() !== "drinks");
-    const mealIndex = findSectionIndex(sections, (category) => category === "meal");
-    const friedChickenIndex = findSectionIndex(sections, (category) => category === "fried chicken");
+  const mainSections = useMemo(
+    () => groupedCategories.filter((entry) => normalizeCategoryName(entry.category) !== "drinks"),
+    [groupedCategories]
+  );
 
-    if (mealIndex === -1 || friedChickenIndex === -1 || mealIndex === friedChickenIndex) {
-      return sections;
-    }
+  const arrangedSections = useMemo(() => {
+    const sections = [...mainSections];
+    const takeByMatcher = (matcher) => {
+      const index = sections.findIndex((section) => matcher(normalizeCategoryName(section.category)));
+      if (index === -1) {
+        return null;
+      }
 
-    const reordered = [...sections];
-    [reordered[mealIndex], reordered[friedChickenIndex]] = [reordered[friedChickenIndex], reordered[mealIndex]];
-    return reordered;
-  }, [groupedCategories]);
-  const leftTop = mainSections[0];
-  const feature = mainSections[1] || mainSections[0];
-  const leftBottom = mainSections[2];
-  const rightBottom = mainSections[3];
-  const extraSections = mainSections.slice(4, 6);
+      return sections.splice(index, 1)[0];
+    };
+
+    const burger = takeByMatcher((category) => category === "burger");
+    const combo = takeByMatcher((category) => category === "combo");
+    const meal = takeByMatcher((category) => category === "meal");
+    const friedChicken = takeByMatcher((category) => category === "fried chicken");
+    const snacks = takeByMatcher((category) => category === "snacks");
+    const wrapAndBowl = takeByMatcher((category) => category === "wrap & bowl");
+
+    const takeFallback = () => sections.shift() || null;
+
+    return {
+      leftTop: burger || takeFallback(),
+      feature: combo || takeFallback(),
+      leftBottom: meal || takeFallback(),
+      rightBottom: friedChicken || takeFallback(),
+      extraOne: snacks || takeFallback(),
+      extraTwo: wrapAndBowl || takeFallback()
+    };
+  }, [mainSections]);
+
+  const { leftTop, feature, leftBottom, rightBottom, extraOne, extraTwo } = arrangedSections;
 
   return (
     <div className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.95),_rgba(232,230,242,0.98))] p-[0.45vw] text-slate-900">
@@ -346,8 +365,8 @@ const MenuCardPosterPage = () => {
 
                 <div className="grid min-h-0 grid-cols-2 gap-[0.42vw]">
                   {rightBottom ? <CompactSection title={rightBottom.category} products={rightBottom.products} dense /> : <div className="rounded-[1.5vw] bg-white/75" />}
-                  {extraSections[0] ? (
-                    <CompactSection title={extraSections[0].category} products={extraSections[0].products} dense />
+                  {extraOne ? (
+                    <CompactSection title={extraOne.category} products={extraOne.products} dense />
                   ) : leftTop ? (
                     <CompactSection title={`${leftTop.category} Specials`} products={leftTop.products.slice(0, 4)} dense />
                   ) : (
@@ -360,13 +379,13 @@ const MenuCardPosterPage = () => {
             <div className="grid shrink-0 grid-cols-[1.18fr_0.82fr] gap-[0.42vw]">
               {drinksSection ? (
                 <DrinksStrip products={drinksSection.products} />
-              ) : extraSections[1] ? (
-                <CompactSection title={extraSections[1].category} products={extraSections[1].products} dense />
+              ) : extraTwo ? (
+                <CompactSection title={extraTwo.category} products={extraTwo.products} dense />
               ) : (
                 <div className="rounded-[1.5vw] bg-white/75" />
               )}
-              {extraSections[1] ? (
-                <CompactSection title={extraSections[1].category} products={extraSections[1].products} dense />
+              {extraTwo ? (
+                <CompactSection title={extraTwo.category} products={extraTwo.products} dense />
               ) : feature ? (
                 <CompactSection title={`${feature.category} Picks`} products={feature.products.slice(0, 4)} dense />
               ) : (
