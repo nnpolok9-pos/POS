@@ -76,6 +76,25 @@ const PosterImageCard = ({ product, compact = false }) => (
   </div>
 );
 
+const ComboImageCard = ({ product }) => (
+  <div className="grid h-full grid-rows-[63%_1fr] overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,244,251,0.95)_100%)] shadow-[0_10px_24px_rgba(15,23,42,0.1)]">
+    <div className="overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.96),rgba(236,234,244,0.94))]">
+      <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.15vw]" />
+    </div>
+    <div className="flex flex-col justify-between p-[0.36vw]">
+      <div>
+        <p className="line-clamp-2 text-[0.74vw] font-black uppercase leading-[1.04] text-[#171717]">{product.name}</p>
+        {product.description ? (
+          <p className="mt-[0.12vw] line-clamp-3 text-[0.48vw] leading-[1.14] text-slate-500">{product.description}</p>
+        ) : null}
+      </div>
+      <div className="mt-[0.18vw]">
+        <ProductPrice product={product} />
+      </div>
+    </div>
+  </div>
+);
+
 const SectionHeader = ({ title }) => (
   <div className="mb-[0.38vw]">
     <h2 className="font-display text-[1.28vw] font-black uppercase leading-none tracking-tight text-[#1d1d1d]">
@@ -96,8 +115,8 @@ const ProductTile = ({ product, indexLabel }) => (
           <ProductPrice product={product} />
         </div>
       </div>
-      <div className="h-full min-h-[4.6vw] w-[4.8vw] shrink-0 overflow-hidden rounded-[0.8vw] bg-white">
-        <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
+      <div className="h-full min-h-[4.6vw] w-[5.2vw] shrink-0 overflow-hidden rounded-[0.8vw] bg-white">
+        <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.12vw]" />
       </div>
     </div>
   </div>
@@ -131,7 +150,7 @@ const FeatureSection = ({ title, products }) => {
           style={{ gridTemplateColumns: `repeat(${Math.min(products.length, 3)}, minmax(0, 1fr))` }}
         >
           {products.map((product) => (
-            <PosterImageCard key={product.id} product={product} />
+            <ComboImageCard key={product.id} product={product} />
           ))}
         </div>
       </section>
@@ -190,18 +209,21 @@ const FeatureSection = ({ title, products }) => {
   );
 };
 
-const CompactSection = ({ title, products }) => (
+const CompactSection = ({ title, products, dense = false }) => (
   <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title={title} />
     <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-[0.42vw]">
       {products.slice(0, 4).map((product) => (
-        <div key={product.id} className="grid h-full grid-cols-[36%_1fr] gap-[0.22vw] rounded-[0.86vw] bg-white/82 p-[0.26vw] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+        <div
+          key={product.id}
+          className={`grid h-full ${dense ? "grid-cols-[33%_1fr]" : "grid-cols-[36%_1fr]"} gap-[0.22vw] rounded-[0.86vw] bg-white/82 ${dense ? "p-[0.22vw]" : "p-[0.26vw]"} shadow-[0_8px_18px_rgba(15,23,42,0.06)]`}
+        >
           <div className="overflow-hidden rounded-[0.72vw] bg-white">
-            <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
+            <img src={imageUrl(product.image)} alt={product.name} className={`h-full w-full ${dense ? "object-contain p-[0.08vw]" : "object-cover"}`} />
           </div>
           <div className="min-w-0 self-center">
-            <p className="line-clamp-2 text-[0.62vw] font-extrabold leading-[1.03] text-[#171717]">{product.name}</p>
-            <div className="mt-[0.12vw]">
+            <p className={`line-clamp-2 ${dense ? "text-[0.58vw]" : "text-[0.62vw]"} font-extrabold leading-[1.03] text-[#171717]`}>{product.name}</p>
+            <div className={dense ? "mt-[0.08vw]" : "mt-[0.12vw]"}>
               <ProductPrice product={product} />
             </div>
           </div>
@@ -214,15 +236,15 @@ const CompactSection = ({ title, products }) => (
 const DrinksStrip = ({ products }) => (
   <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,243,250,0.94)_100%)] p-[0.52vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title="Drinks" />
-    <div className="grid flex-1 grid-cols-5 gap-[0.32vw]">
-      {products.slice(0, 5).map((product) => (
-        <div key={product.id} className="flex min-w-0 flex-col justify-between rounded-[0.86vw] bg-white/82 p-[0.24vw] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
-          <div className="h-[4.5vw] overflow-hidden rounded-[0.72vw] bg-white">
+    <div className="grid flex-1 grid-cols-3 grid-rows-2 gap-[0.28vw]">
+      {products.slice(0, 6).map((product) => (
+        <div key={product.id} className="grid min-w-0 grid-cols-[26%_1fr] items-center gap-[0.2vw] rounded-[0.8vw] bg-white/82 p-[0.18vw] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
+          <div className="h-full min-h-[3.2vw] overflow-hidden rounded-[0.62vw] bg-white">
             <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain" />
           </div>
-          <div className="min-w-0 pt-[0.12vw]">
-            <p className="line-clamp-2 text-[0.58vw] font-extrabold leading-[1.03] text-[#171717]">{product.name}</p>
-            <div className="mt-[0.06vw]">
+          <div className="min-w-0">
+            <p className="line-clamp-2 text-[0.56vw] font-extrabold leading-[1.03] text-[#171717]">{product.name}</p>
+            <div className="mt-[0.04vw]">
               <ProductPrice product={product} />
             </div>
           </div>
@@ -305,15 +327,15 @@ const MenuCardPosterPage = () => {
                 {leftBottom ? <GridSection title={leftBottom.category} products={leftBottom.products} /> : <div className="rounded-[1.5vw] bg-white/75" />}
               </div>
 
-              <div className="col-span-8 grid min-h-0 grid-rows-[1.06fr_0.74fr] gap-[0.42vw]">
+              <div className="col-span-8 grid min-h-0 grid-rows-[1.03fr_0.77fr] gap-[0.42vw]">
                 {feature ? <FeatureSection title={feature.category} products={feature.products} /> : <div className="rounded-[1.5vw] bg-white/75" />}
 
                 <div className="grid min-h-0 grid-cols-2 gap-[0.42vw]">
-                  {rightBottom ? <CompactSection title={rightBottom.category} products={rightBottom.products} /> : <div className="rounded-[1.5vw] bg-white/75" />}
+                  {rightBottom ? <CompactSection title={rightBottom.category} products={rightBottom.products} dense /> : <div className="rounded-[1.5vw] bg-white/75" />}
                   {extraSections[0] ? (
-                    <CompactSection title={extraSections[0].category} products={extraSections[0].products} />
+                    <CompactSection title={extraSections[0].category} products={extraSections[0].products} dense />
                   ) : leftTop ? (
-                    <CompactSection title={`${leftTop.category} Specials`} products={leftTop.products.slice(0, 4)} />
+                    <CompactSection title={`${leftTop.category} Specials`} products={leftTop.products.slice(0, 4)} dense />
                   ) : (
                     <div className="rounded-[1.5vw] bg-white/75" />
                   )}
@@ -321,18 +343,18 @@ const MenuCardPosterPage = () => {
               </div>
             </main>
 
-            <div className="grid shrink-0 grid-cols-2 gap-[0.42vw]">
+            <div className="grid shrink-0 grid-cols-[1.18fr_0.82fr] gap-[0.42vw]">
               {drinksSection ? (
                 <DrinksStrip products={drinksSection.products} />
               ) : extraSections[1] ? (
-                <CompactSection title={extraSections[1].category} products={extraSections[1].products} />
+                <CompactSection title={extraSections[1].category} products={extraSections[1].products} dense />
               ) : (
                 <div className="rounded-[1.5vw] bg-white/75" />
               )}
               {extraSections[1] ? (
-                <CompactSection title={extraSections[1].category} products={extraSections[1].products} />
+                <CompactSection title={extraSections[1].category} products={extraSections[1].products} dense />
               ) : feature ? (
-                <CompactSection title={`${feature.category} Picks`} products={feature.products.slice(0, 4)} />
+                <CompactSection title={`${feature.category} Picks`} products={feature.products.slice(0, 4)} dense />
               ) : (
                 <div className="rounded-[1.5vw] bg-white/75" />
               )}
