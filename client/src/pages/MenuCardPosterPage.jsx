@@ -80,10 +80,10 @@ const PosterImageCard = ({ product, compact = false }) => (
   </div>
 );
 
-const ComboImageCard = ({ product, soft = false }) => (
+const ComboImageCard = ({ product, soft = false, flat = false }) => (
   <div
     className={`grid h-full grid-rows-[63%_1fr] overflow-hidden rounded-[1vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(246,244,251,0.95)_100%)] ${
-      soft ? "shadow-[0_4px_10px_rgba(15,23,42,0.04)]" : "shadow-[0_10px_24px_rgba(15,23,42,0.1)]"
+      flat ? "border border-white/90 shadow-none" : soft ? "shadow-[0_4px_10px_rgba(15,23,42,0.04)]" : "shadow-[0_10px_24px_rgba(15,23,42,0.1)]"
     }`}
   >
     <div className="overflow-hidden bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.96),rgba(236,234,244,0.94))]">
@@ -155,13 +155,13 @@ const FeatureSection = ({ title, products, brandLogo }) => {
 
   if (products.length <= 3) {
     return (
-      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.28vw] pb-[0.16vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
-        <div className="pl-[0.34vw]">
+      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.985)_0%,rgba(246,244,251,0.96)_100%)] px-[0.34vw] pb-[0.16vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+        <div className="pl-[0.42vw]">
           <SectionHeader title={title} />
         </div>
-        <div className="grid flex-1 gap-[0.18vw] px-[0.14vw]" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr)) minmax(4.6vw, 0.36fr)" }}>
-          {products.map((product) => (
-            <ComboImageCard key={product.id} product={product} soft />
+        <div className="grid flex-1 gap-[0.18vw] px-[0.24vw]" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr)) minmax(4.6vw, 0.36fr)" }}>
+          {products.map((product, index) => (
+            <ComboImageCard key={product.id} product={product} soft flat={index === 0} />
           ))}
           <div className="flex h-full flex-col items-center justify-start gap-[0.28vw] rounded-[0.96vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(243,241,248,0.98)_100%)] px-[0.14vw] py-[0.18vw]">
             <div className="flex justify-center">
