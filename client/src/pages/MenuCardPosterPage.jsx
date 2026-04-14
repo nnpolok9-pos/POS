@@ -99,7 +99,7 @@ const ComboImageCard = ({ product }) => (
 );
 
 const SectionHeader = ({ title }) => (
-  <div className="mb-[0.04vw]">
+  <div className="mb-[0.01vw] pt-[0.12vw]">
     <h2 className="font-display text-[1.28vw] font-black uppercase leading-none tracking-tight text-[#1d1d1d]">
       {title}
     </h2>
@@ -126,7 +126,7 @@ const ProductTile = ({ product, indexLabel }) => (
 );
 
 const GridSection = ({ title, products }) => (
-  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,245,252,0.92)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.04vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,245,252,0.92)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title={title} />
     <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-[0.42vw]">
       {products.slice(0, 4).map((product, index) => (
@@ -146,7 +146,7 @@ const FeatureSection = ({ title, products }) => {
 
   if (products.length <= 3) {
     return (
-      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.04vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+      <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
         <SectionHeader title={title} />
         <div
           className="grid flex-1 gap-[0.42vw]"
@@ -161,7 +161,7 @@ const FeatureSection = ({ title, products }) => {
   }
 
   return (
-    <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.04vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+    <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
       <SectionHeader title={title} />
       <div className="grid flex-1 grid-cols-[minmax(0,1fr)_44%] gap-[0.42vw]">
         <div className="grid grid-rows-4 gap-[0.32vw] overflow-hidden">
@@ -213,7 +213,7 @@ const FeatureSection = ({ title, products }) => {
 };
 
 const CompactSection = ({ title, products, dense = false }) => (
-  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.04vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(246,244,251,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title={title} />
     <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-[0.42vw]">
       {products.slice(0, 4).map((product) => (
@@ -237,7 +237,7 @@ const CompactSection = ({ title, products, dense = false }) => (
 );
 
 const DrinksStrip = ({ products }) => (
-  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,243,250,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.04vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
+  <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,243,250,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title="Drinks" />
     <div className="grid flex-1 grid-cols-4 grid-rows-2 gap-[0.24vw]">
       {products.slice(0, 8).map((product) => (
