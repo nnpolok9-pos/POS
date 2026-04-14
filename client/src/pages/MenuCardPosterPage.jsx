@@ -99,7 +99,7 @@ const ComboImageCard = ({ product }) => (
 );
 
 const SectionHeader = ({ title }) => (
-  <div className="mb-[0.01vw] pt-[0.12vw]">
+  <div className="mb-[0.01vw] pt-[0.18vw]">
     <h2 className="font-display text-[1.28vw] font-black uppercase leading-none tracking-tight text-[#1d1d1d]">
       {title}
     </h2>
