@@ -108,7 +108,7 @@ const SectionHeader = ({ title }) => (
 
 const ProductTile = ({ product, showDescription = false, largeImage = false }) => (
   <div className={`h-full rounded-[0.9vw] bg-white/78 ${largeImage ? "p-[0.18vw]" : "p-[0.22vw]"} shadow-[0_8px_22px_rgba(15,23,42,0.08)]`}>
-    <div className={`grid h-full items-start gap-[0.28vw] ${largeImage ? "grid-cols-[minmax(0,1fr)_6vw]" : "grid-cols-[minmax(0,1fr)_5.2vw]"}`}>
+    <div className={`grid h-full items-start gap-[0.28vw] ${largeImage ? "grid-cols-[minmax(0,1fr)_7.2vw]" : "grid-cols-[minmax(0,1fr)_5.2vw]"}`}>
       <div className="min-w-0 self-start pt-[0.02vw]">
         <p className="line-clamp-2 text-[0.66vw] font-extrabold leading-[1.05] text-[#151515]">
           {product.name}
@@ -122,8 +122,8 @@ const ProductTile = ({ product, showDescription = false, largeImage = false }) =
           <ProductPrice product={product} />
         </div>
       </div>
-      <div className={`${largeImage ? "h-[6vw] w-[6vw]" : "h-[5.2vw] w-[5.2vw]"} shrink-0 self-center overflow-hidden rounded-[0.8vw] bg-white`}>
-        <img src={imageUrl(product.image)} alt={product.name} className={`h-full w-full object-contain ${largeImage ? "p-[0.04vw]" : "p-[0.08vw]"}`} />
+      <div className={`${largeImage ? "h-[4.8vw] w-[7.2vw]" : "h-[5.35vw] w-[5.35vw]"} shrink-0 self-center overflow-hidden rounded-[0.8vw] bg-white`}>
+        <img src={imageUrl(product.image)} alt={product.name} className={`h-full w-full object-contain ${largeImage ? "p-[0.02vw]" : "p-[0.02vw]"}`} />
       </div>
     </div>
   </div>
