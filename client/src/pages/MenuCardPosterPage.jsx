@@ -106,30 +106,35 @@ const SectionHeader = ({ title }) => (
   </div>
 );
 
-const ProductTile = ({ product }) => (
-  <div className="h-full rounded-[0.9vw] bg-white/78 p-[0.22vw] shadow-[0_8px_22px_rgba(15,23,42,0.08)]">
-    <div className="grid h-full grid-cols-[minmax(0,1fr)_5.2vw] items-start gap-[0.28vw]">
+const ProductTile = ({ product, showDescription = false, largeImage = false }) => (
+  <div className={`h-full rounded-[0.9vw] bg-white/78 ${largeImage ? "p-[0.18vw]" : "p-[0.22vw]"} shadow-[0_8px_22px_rgba(15,23,42,0.08)]`}>
+    <div className={`grid h-full items-start gap-[0.28vw] ${largeImage ? "grid-cols-[minmax(0,1fr)_6vw]" : "grid-cols-[minmax(0,1fr)_5.2vw]"}`}>
       <div className="min-w-0 self-start pt-[0.02vw]">
         <p className="line-clamp-2 text-[0.66vw] font-extrabold leading-[1.05] text-[#151515]">
           {product.name}
         </p>
+        {showDescription && product.description ? (
+          <p className="mt-[0.12vw] line-clamp-2 text-[0.46vw] leading-[1.12] text-slate-500">
+            {product.description}
+          </p>
+        ) : null}
         <div className="mt-[0.28vw]">
           <ProductPrice product={product} />
         </div>
       </div>
-      <div className="h-[5.2vw] w-[5.2vw] shrink-0 self-center overflow-hidden rounded-[0.8vw] bg-white">
-        <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain p-[0.08vw]" />
+      <div className={`${largeImage ? "h-[6vw] w-[6vw]" : "h-[5.2vw] w-[5.2vw]"} shrink-0 self-center overflow-hidden rounded-[0.8vw] bg-white`}>
+        <img src={imageUrl(product.image)} alt={product.name} className={`h-full w-full object-contain ${largeImage ? "p-[0.04vw]" : "p-[0.08vw]"}`} />
       </div>
     </div>
   </div>
 );
 
-const GridSection = ({ title, products }) => (
+const GridSection = ({ title, products, showDescription = false, largeImage = false }) => (
   <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(247,245,252,0.92)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title={title} />
     <div className="grid flex-1 grid-cols-2 grid-rows-2 gap-[0.42vw]">
       {products.slice(0, 4).map((product) => (
-        <ProductTile key={product.id} product={product} />
+        <ProductTile key={product.id} product={product} showDescription={showDescription} largeImage={largeImage} />
       ))}
     </div>
   </section>
@@ -356,7 +361,7 @@ const MenuCardPosterPage = () => {
             <main className="grid min-h-0 flex-1 grid-cols-12 gap-[0.42vw]">
               <div className="col-span-4 grid min-h-0 grid-rows-[0.84fr_1.16fr] gap-[0.42vw]">
                 {leftTop ? <GridSection title={leftTop.category} products={leftTop.products} /> : <div className="rounded-[1.5vw] bg-white/75" />}
-                {leftBottom ? <GridSection title={leftBottom.category} products={leftBottom.products} /> : <div className="rounded-[1.5vw] bg-white/75" />}
+                {leftBottom ? <GridSection title={leftBottom.category} products={leftBottom.products} showDescription largeImage /> : <div className="rounded-[1.5vw] bg-white/75" />}
               </div>
 
               <div className="col-span-8 grid min-h-0 grid-rows-[1.03fr_0.77fr] gap-[0.42vw]">
