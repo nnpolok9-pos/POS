@@ -60,7 +60,7 @@ const OrdersPage = () => {
   const canMutateOrders = ["master_admin", "admin", "staff"].includes(user?.role);
   const canVoidCompleted = ["master_admin", "admin"].includes(user?.role);
   const canDeleteOrders = user?.role === "master_admin";
-  const canEditVoidSale = user?.role === "master_admin";
+  const canEditVoidSale = ["master_admin", "admin"].includes(user?.role);
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [historyOrder, setHistoryOrder] = useState(null);
