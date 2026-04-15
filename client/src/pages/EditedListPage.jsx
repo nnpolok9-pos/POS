@@ -13,6 +13,7 @@ const adjustmentTypeLabel = {
   add: "Added",
   refund: "Refunded",
   void: "Voided",
+  void_edit: "Void Corrected",
   none: "No Change"
 };
 

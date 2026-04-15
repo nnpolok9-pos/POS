@@ -2,12 +2,24 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { currency } from "../utils/format";
 
-const RefundMethodModal = ({ open, order, requiresRefundMethod = true, refundMethod, onRefundMethodChange, onClose, onConfirm, loading }) => {
+const RefundMethodModal = ({
+  open,
+  order,
+  requiresRefundMethod = true,
+  refundMethod,
+  onRefundMethodChange,
+  onClose,
+  onConfirm,
+  loading,
+  title = "Void Sale",
+  confirmLabel = "Confirm Void",
+  refundAmountOverride = null
+}) => {
   if (!open || !order) {
     return null;
   }
 
-  const refundAmount = Number(order.total || 0);
+  const refundAmount = Number(refundAmountOverride ?? order.total ?? 0);
   const collectionMethod = order.paymentMethod || "Unpaid queue";
 
   return createPortal(
@@ -17,7 +29,7 @@ const RefundMethodModal = ({ open, order, requiresRefundMethod = true, refundMet
           <div className="border-b border-slate-100 bg-white/95 px-4 py-4 sm:px-5 backdrop-blur">
             <div className="flex items-start justify-between gap-4">
               <div>
-            <h3 className="font-display text-xl font-bold text-slate-900">Void Sale</h3>
+            <h3 className="font-display text-xl font-bold text-slate-900">{title}</h3>
                 <p className="text-sm text-slate-500">{order.orderId}</p>
               </div>
               <button type="button" onClick={onClose} className="btn-secondary h-11 w-11 rounded-2xl p-0" aria-label="Close refund method modal">
@@ -64,7 +76,7 @@ const RefundMethodModal = ({ open, order, requiresRefundMethod = true, refundMet
               </div>
             ) : (
               <div className="rounded-3xl bg-emerald-50 p-4 text-sm text-emerald-800">
-                This is an unpaid customer queue order. No refund method is required to void it.
+                This is an unpaid customer queue order. No refund method is required here.
               </div>
             )}
 
@@ -75,7 +87,7 @@ const RefundMethodModal = ({ open, order, requiresRefundMethod = true, refundMet
                 className="btn-primary"
                 disabled={loading || (requiresRefundMethod && refundAmount > 0 && !refundMethod)}
               >
-                {loading ? "Voiding..." : "Confirm Void"}
+                {loading ? "Saving..." : confirmLabel}
               </button>
               <button type="button" onClick={onClose} className="btn-secondary">
                 Cancel

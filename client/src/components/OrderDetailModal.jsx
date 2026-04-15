@@ -17,7 +17,12 @@ const statusLabels = {
   void: "Void Sale"
 };
 
-const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onServe, canEdit, canVoid, canServe }) => {
+const getCurrentVoidRefundMethod = (order) =>
+  [...(order?.editHistory || [])]
+    .reverse()
+    .find((entry) => ["void_edit", "void"].includes(entry?.adjustmentType))?.adjustmentMethod || null;
+
+const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEditVoid, onServe, canEdit, canVoid, canEditVoid, canServe }) => {
   useEffect(() => {
     if (!open) {
       return undefined;
@@ -38,6 +43,7 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onSer
   }
 
   const isCustomerQueue = order.source === "customer" && order.status === "queued";
+  const currentVoidRefundMethod = order.status === "void" ? getCurrentVoidRefundMethod(order) : null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4 sm:p-6" onClick={onClose}>
@@ -120,6 +126,7 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onSer
               <div className="mt-4 rounded-3xl bg-rose-50 p-4 text-sm text-rose-800">
                 <p>Current void amount: {currency(order.total)}</p>
                 <p>Original sale amount: {currency(order.originalTotal ?? 0)}</p>
+                <p>Refunded by: <span className="font-semibold capitalize">{currentVoidRefundMethod || "not recorded"}</span></p>
               </div>
             )}
 
@@ -141,6 +148,11 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onSer
               {canVoid && order.status !== "void" && (
                 <button type="button" onClick={onVoid} className="btn-secondary text-rose-600">
                   Void Sale
+                </button>
+              )}
+              {canEditVoid && order.status === "void" && (
+                <button type="button" onClick={onEditVoid} className="btn-secondary text-fuchsia-700">
+                  Edit Void
                 </button>
               )}
               <button type="button" onClick={onClose} className="btn-secondary">

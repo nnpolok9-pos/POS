@@ -1,6 +1,7 @@
 import { formatServeTime } from "./format";
 
 const paymentMethods = ["cash", "card", "qr"];
+const isVoidHistoryEntry = (entry) => ["void", "void_edit"].includes(entry?.adjustmentType);
 
 const pushFlow = (flows, method, direction, amount) => {
   if (!paymentMethods.includes(method)) {
@@ -56,14 +57,16 @@ export const getTransactionSummary = (order) => {
   pushFlow(flows, initialTransaction.method, "In", initialTransaction.amount);
 
   const editHistory = Array.isArray(order.editHistory) ? order.editHistory : [];
+  const voidEntries = editHistory.filter(isVoidHistoryEntry);
+  const latestVoidEntry = voidEntries.at(-1) || null;
+  const baseVoidEntry = voidEntries.find((entry) => entry.adjustmentType === "void") || latestVoidEntry;
 
   editHistory.forEach((entry) => {
     if (order?.source === "customer" && entry.oldPaymentMethod == null && entry.newPaymentMethod) {
       return;
     }
 
-    if (entry.adjustmentType === "void") {
-      pushFlow(flows, entry.adjustmentMethod, "Out", entry.adjustmentAmount);
+    if (isVoidHistoryEntry(entry)) {
       return;
     }
 
@@ -88,7 +91,13 @@ export const getTransactionSummary = (order) => {
     }
   });
 
-  const nonVoidEditCount = editHistory.filter((entry) => entry.adjustmentType !== "void").length;
+  if (order.status === "void") {
+    const effectiveVoidAmount = Number(latestVoidEntry?.adjustmentAmount ?? baseVoidEntry?.adjustmentAmount ?? order.originalTotal ?? 0);
+    const effectiveVoidMethod = latestVoidEntry?.adjustmentMethod ?? baseVoidEntry?.adjustmentMethod ?? null;
+    pushFlow(flows, effectiveVoidMethod, "Out", effectiveVoidAmount);
+  }
+
+  const nonVoidEditCount = editHistory.filter((entry) => !isVoidHistoryEntry(entry)).length;
 
   return {
     date: order.createdAt,

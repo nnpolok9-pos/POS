@@ -33,6 +33,10 @@ export const orderService = {
     const { data } = await api.patch(`/orders/${id}/void`, payload);
     return data;
   },
+  editVoidOrder: async (id, payload) => {
+    const { data } = await api.patch(`/orders/${id}/void-edit`, payload);
+    return data;
+  },
   deleteOrder: async (id, pin) => {
     const { data } = await api.delete(`/orders/${id}`, { data: { pin } });
     return data;

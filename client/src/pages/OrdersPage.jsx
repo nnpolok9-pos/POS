@@ -46,6 +46,11 @@ const statusFilterStyles = {
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
 const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
 const requiresVoidRefundMethod = (order) => Number(order?.total || 0) > 0 && Boolean(order?.paymentMethod);
+const getCurrentVoidRefundMethod = (order) =>
+  [...(order?.editHistory || [])]
+    .reverse()
+    .find((entry) => ["void_edit", "void"].includes(entry?.adjustmentType))?.adjustmentMethod || "";
+const requiresVoidEditRefundMethod = (order) => Number(order?.originalTotal || 0) > 0 && Boolean(order?.paymentMethod);
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -55,6 +60,7 @@ const OrdersPage = () => {
   const canMutateOrders = ["master_admin", "admin", "staff"].includes(user?.role);
   const canVoidCompleted = ["master_admin", "admin"].includes(user?.role);
   const canDeleteOrders = user?.role === "master_admin";
+  const canEditVoidSale = user?.role === "master_admin";
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [historyOrder, setHistoryOrder] = useState(null);
@@ -64,6 +70,7 @@ const OrdersPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [appliedDateRange, setAppliedDateRange] = useState(null);
   const [voidingOrder, setVoidingOrder] = useState(null);
+  const [voidDialogMode, setVoidDialogMode] = useState("void");
   const [refundMethod, setRefundMethod] = useState("");
   const [voidSubmitting, setVoidSubmitting] = useState(false);
   const [servingOrder, setServingOrder] = useState(null);
@@ -114,7 +121,15 @@ const OrdersPage = () => {
   const openVoidDialog = (order) => {
     setSelectedOrder(null);
     setVoidingOrder(order);
+    setVoidDialogMode("void");
     setRefundMethod("");
+  };
+
+  const openVoidEditDialog = (order) => {
+    setSelectedOrder(null);
+    setVoidingOrder(order);
+    setVoidDialogMode("edit");
+    setRefundMethod(getCurrentVoidRefundMethod(order));
   };
 
   const handleVoid = async () => {
@@ -122,17 +137,23 @@ const OrdersPage = () => {
       return;
     }
 
-    if (requiresVoidRefundMethod(voidingOrder) && !refundMethod) {
+    const methodRequired = voidDialogMode === "edit" ? requiresVoidEditRefundMethod(voidingOrder) : requiresVoidRefundMethod(voidingOrder);
+
+    if (methodRequired && !refundMethod) {
       toast.error("Select how the refund was made");
       return;
     }
 
     setVoidSubmitting(true);
     try {
-      const updated = await orderService.voidOrder(voidingOrder.id, { refundMethod: refundMethod || null });
-      toast.success(`Order ${updated.orderId} marked as void`);
+      const updated =
+        voidDialogMode === "edit"
+          ? await orderService.editVoidOrder(voidingOrder.id, { refundMethod: refundMethod || null })
+          : await orderService.voidOrder(voidingOrder.id, { refundMethod: refundMethod || null });
+      toast.success(voidDialogMode === "edit" ? `Void details updated for ${updated.orderId}` : `Order ${updated.orderId} marked as void`);
       setSelectedOrder(null);
       setVoidingOrder(null);
+      setVoidDialogMode("void");
       setRefundMethod("");
       setStatusFilter("all");
       await loadOrders(canUseDateRange && appliedDateRange ? appliedDateRange : {});
@@ -269,6 +290,8 @@ const OrdersPage = () => {
 
     return true;
   };
+
+  const canEditVoidOrder = (order) => canEditVoidSale && order?.status === "void";
 
   return (
     <div className="glass-card p-4 sm:p-5">
@@ -501,6 +524,12 @@ const OrdersPage = () => {
                         Void Sale
                       </button>
                     )}
+                    {canEditVoidOrder(order) && (
+                      <button type="button" onClick={() => openVoidEditDialog(order)} className="btn-secondary h-10 gap-2 px-3 text-sm text-fuchsia-700">
+                        <Pencil size={16} />
+                        Edit Void
+                      </button>
+                    )}
                     {canDeleteOrders && (
                       <button
                         type="button"
@@ -531,18 +560,24 @@ const OrdersPage = () => {
         onEdit={() => navigate(`/pos?editOrder=${selectedOrder.id}`, { state: { returnTo: "/orders" } })}
         onServe={() => openServeDialog(selectedOrder)}
         onVoid={() => openVoidDialog(selectedOrder)}
+        onEditVoid={() => openVoidEditDialog(selectedOrder)}
         canEdit={selectedOrder ? canEditOrder(selectedOrder) : false}
         canServe={canMutateOrders && selectedOrder?.status === "food_serving"}
         canVoid={canMutateOrders && (canVoidCompleted || ["food_serving", "queued"].includes(selectedOrder?.status))}
+        canEditVoid={selectedOrder ? canEditVoidOrder(selectedOrder) : false}
       />
       <RefundMethodModal
         open={Boolean(voidingOrder)}
         order={voidingOrder}
-        requiresRefundMethod={requiresVoidRefundMethod(voidingOrder)}
+        requiresRefundMethod={voidDialogMode === "edit" ? requiresVoidEditRefundMethod(voidingOrder) : requiresVoidRefundMethod(voidingOrder)}
         refundMethod={refundMethod}
         onRefundMethodChange={setRefundMethod}
+        title={voidDialogMode === "edit" ? "Edit Void Sale" : "Void Sale"}
+        confirmLabel={voidDialogMode === "edit" ? "Save Void Edit" : "Confirm Void"}
+        refundAmountOverride={voidDialogMode === "edit" ? Number(voidingOrder?.originalTotal ?? 0) : null}
         onClose={() => {
           setVoidingOrder(null);
+          setVoidDialogMode("void");
           setRefundMethod("");
         }}
         onConfirm={handleVoid}

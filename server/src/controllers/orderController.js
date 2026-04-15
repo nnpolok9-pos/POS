@@ -57,6 +57,25 @@ const isFoodServingStatus = (status) => status === "food_serving" || status === 
 const isCompletedStatus = (status) => status === "completed" || status === "confirmed";
 const isQueuedStatus = (status) => status === "queued";
 const getDeleteOrderPin = () => String(process.env.ORDER_DELETE_PIN || process.env.FORCE_STOCK_PIN || "4422").trim();
+const isVoidHistoryEntry = (entry) => ["void", "void_edit"].includes(entry?.adjustmentType);
+
+const getCurrentVoidAdjustment = (order) => {
+  const voidEntries = (order.editHistory || []).filter(isVoidHistoryEntry);
+  const latestVoidEntry = voidEntries.at(-1) || null;
+  const baseVoidEntry = voidEntries.find((entry) => entry.adjustmentType === "void") || latestVoidEntry;
+
+  if (!latestVoidEntry && !baseVoidEntry) {
+    return {
+      amount: Number(order.originalTotal ?? order.total ?? 0),
+      method: null
+    };
+  }
+
+  return {
+    amount: Number(latestVoidEntry?.adjustmentAmount ?? baseVoidEntry?.adjustmentAmount ?? order.originalTotal ?? order.total ?? 0),
+    method: latestVoidEntry?.adjustmentMethod ?? baseVoidEntry?.adjustmentMethod ?? null
+  };
+};
 
 const buildItemChangeLog = (previousItems = [], nextItems = []) => {
   const previousMap = new Map(previousItems.map((item) => [String(item.product), item]));
@@ -807,6 +826,63 @@ const voidOrder = async (req, res) => {
   res.json(hydrated);
 };
 
+const editVoidOrder = async (req, res) => {
+  const { refundMethod = null } = req.body || {};
+  const order = await getStoredOrderById(req.params.id);
+
+  if (!order) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+
+  if (order.status !== "void") {
+    return res.status(400).json({ message: "Only void orders can be corrected" });
+  }
+
+  const refundAmount = Number(order.originalTotal ?? 0);
+  const requiresRefundMethod = refundAmount > 0 && Boolean(order.paymentMethod);
+
+  if (requiresRefundMethod && !refundMethod) {
+    return res.status(400).json({ message: "Refund method is required for correcting this void sale" });
+  }
+
+  const currentVoidAdjustment = getCurrentVoidAdjustment(order);
+  const nextMethod = requiresRefundMethod ? refundMethod : null;
+
+  if ((currentVoidAdjustment.method || null) === nextMethod) {
+    return res.status(400).json({ message: "No void refund changes detected" });
+  }
+
+  order.editedAt = new Date();
+  order.editedBy = req.user.id;
+  order.editHistory = [
+    ...(order.editHistory || []),
+    {
+      editedBy: req.user.id,
+      editedAt: new Date(),
+      oldSubtotal: 0,
+      newSubtotal: 0,
+      oldTotal: 0,
+      newTotal: 0,
+      adjustmentType: "void_edit",
+      adjustmentAmount: refundAmount,
+      adjustmentMethod: nextMethod,
+      previousAdjustmentMethod: currentVoidAdjustment.method || null,
+      oldPaymentMethod: order.paymentMethod,
+      newPaymentMethod: order.paymentMethod,
+      oldItems: [],
+      newItems: [],
+      changes: [
+        `Void refund method corrected: ${currentVoidAdjustment.method || "none"} -> ${nextMethod || "none"}`,
+        `Refund amount remains ${refundAmount.toFixed(2)}`
+      ]
+    }
+  ];
+
+  await saveOrder(order);
+  const [hydrated] = await hydrateOrders([await getStoredOrderById(order.id)]);
+  res.json(hydrated);
+};
+
 const serveOrder = async (req, res) => {
   const order = await getStoredOrderById(req.params.id);
 
@@ -865,6 +941,7 @@ module.exports = {
   getOrderById,
   updateOrder,
   voidOrder,
+  editVoidOrder,
   serveOrder,
   deleteOrder
 };

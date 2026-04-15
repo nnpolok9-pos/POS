@@ -4,6 +4,7 @@ const { inferProductType, isCompositeProductType, buildCompositeRequirements } =
 const REPORT_TIMEZONE = process.env.REPORT_TIMEZONE || process.env.TZ || "Asia/Bangkok";
 const COMPLETED_STATUSES = ["completed", "confirmed"];
 const PAYMENT_METHODS = ["cash", "card", "qr"];
+const isVoidHistoryEntry = (entry) => ["void", "void_edit"].includes(entry?.adjustmentType);
 
 const buildDateRange = (from, to) => {
   const now = new Date();
@@ -60,14 +61,16 @@ const getOrderPaymentFlows = (order) => {
   pushPaymentFlow(flows, initialTransaction.method, "In", initialTransaction.amount);
 
   const editHistory = Array.isArray(order.editHistory) ? order.editHistory : [];
+  const voidEntries = editHistory.filter(isVoidHistoryEntry);
+  const latestVoidEntry = voidEntries.length ? voidEntries[voidEntries.length - 1] : null;
+  const baseVoidEntry = voidEntries.find((entry) => entry.adjustmentType === "void") || latestVoidEntry;
 
   editHistory.forEach((entry) => {
     if (order?.source === "customer" && entry.oldPaymentMethod == null && entry.newPaymentMethod) {
       return;
     }
 
-    if (entry.adjustmentType === "void") {
-      pushPaymentFlow(flows, entry.adjustmentMethod, "Out", entry.adjustmentAmount);
+    if (isVoidHistoryEntry(entry)) {
       return;
     }
 
@@ -91,6 +94,12 @@ const getOrderPaymentFlows = (order) => {
       pushPaymentFlow(flows, entry.adjustmentMethod || oldMethod || newMethod, "Out", entry.adjustmentAmount);
     }
   });
+
+  if (order?.status === "void") {
+    const effectiveVoidMethod = latestVoidEntry?.adjustmentMethod ?? baseVoidEntry?.adjustmentMethod ?? null;
+    const effectiveVoidAmount = Number(latestVoidEntry?.adjustmentAmount ?? baseVoidEntry?.adjustmentAmount ?? order.originalTotal ?? 0);
+    pushPaymentFlow(flows, effectiveVoidMethod, "Out", effectiveVoidAmount);
+  }
 
   return flows;
 };

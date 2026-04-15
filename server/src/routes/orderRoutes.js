@@ -7,6 +7,7 @@ const {
   getOrderById,
   updateOrder,
   voidOrder,
+  editVoidOrder,
   serveOrder,
   deleteOrder
 } = require("../controllers/orderController");
@@ -22,6 +23,7 @@ router.get("/:id", protect, authorize("master_admin", "admin", "checker", "staff
 router.put("/:id", protect, authorize("master_admin", "admin", "staff"), updateOrder);
 router.patch("/:id/serve", protect, authorize("master_admin", "admin", "staff"), serveOrder);
 router.patch("/:id/void", protect, authorize("master_admin", "admin", "staff"), voidOrder);
+router.patch("/:id/void-edit", protect, authorize("master_admin"), editVoidOrder);
 router.delete("/:id", protect, authorize("master_admin"), deleteOrder);
 
 module.exports = router;

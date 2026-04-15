@@ -6,6 +6,7 @@ const adjustmentLabel = {
   add: "Additional Collection",
   refund: "Refund",
   void: "Void Refund",
+  void_edit: "Void Refund Correction",
   none: "No Amount Change"
 };
 
@@ -13,6 +14,7 @@ const adjustmentTone = {
   add: "bg-emerald-50 text-emerald-700 border-emerald-100",
   refund: "bg-amber-50 text-amber-700 border-amber-100",
   void: "bg-rose-50 text-rose-700 border-rose-100",
+  void_edit: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100",
   none: "bg-slate-100 text-slate-600 border-slate-200"
 };
 
@@ -77,7 +79,7 @@ const EditHistoryModal = ({ open, order, onClose }) => {
                         <div className="rounded-2xl bg-slate-900 px-4 py-3 text-white">
                           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Difference</p>
                           <p className="mt-2 text-xl font-bold">
-                            {entry.adjustmentType === "refund" || entry.adjustmentType === "void" ? "-" : "+"}
+                            {entry.adjustmentType === "refund" || entry.adjustmentType === "void" || entry.adjustmentType === "void_edit" ? "-" : "+"}
                             {currency(entry.adjustmentAmount || 0)}
                           </p>
                           <p className="mt-1 text-xs text-slate-300 capitalize">{entry.adjustmentMethod || "No method"}</p>
