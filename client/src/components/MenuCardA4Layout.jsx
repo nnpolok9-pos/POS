@@ -98,7 +98,7 @@ const buildSections = (products, language, labels) => {
       .filter((product) => (product.category || "Menu") === category.key)
       .sort((left, right) => (getLocalizedName(left, language) || "").localeCompare(getLocalizedName(right, language) || ""));
 
-    return chunkArray(categoryProducts, 4).map((sectionProducts, index) => ({
+    return chunkArray(categoryProducts, 3).map((sectionProducts, index) => ({
       key: `${category.key}-${index}`,
       title: index === 0 ? category.title : `${category.title} • ${labels.continued}`,
       totalProducts: categoryProducts.length,
@@ -127,17 +127,17 @@ const ProductCard = ({ product, language }) => {
   const description = getLocalizedDescription(product, language);
 
   return (
-    <article className="grid grid-cols-[20mm_minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-[#f0e2cc] bg-[linear-gradient(180deg,#fffaf2_0%,#ffffff_100%)] p-3">
-      <div className="flex h-[20mm] w-[20mm] items-center justify-center overflow-hidden rounded-[12px] bg-white shadow-sm">
+    <article className="grid grid-cols-[18mm_minmax(0,1fr)_auto] items-center gap-2.5 rounded-[16px] border border-[#f0e2cc] bg-[linear-gradient(180deg,#fffaf2_0%,#ffffff_100%)] p-3">
+      <div className="flex h-[18mm] w-[18mm] items-center justify-center overflow-hidden rounded-[12px] bg-white shadow-sm">
         <img src={imageUrl(product.image)} alt={getLocalizedName(product, language)} className="h-full w-full object-cover" />
       </div>
 
       <div className="min-w-0">
-        <p className="overflow-hidden text-[13px] font-black leading-[1.1] text-slate-900" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+        <p className="overflow-hidden text-[12px] font-black leading-[1.08] text-slate-900" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
           {getLocalizedName(product, language)}
         </p>
         {description ? (
-          <p className="mt-1 overflow-hidden text-[9px] leading-[1.25] text-slate-500" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+          <p className="mt-1 overflow-hidden text-[8px] leading-[1.2] text-slate-500" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
             {description}
           </p>
         ) : null}
@@ -149,10 +149,10 @@ const ProductCard = ({ product, language }) => {
 };
 
 const SectionCard = ({ section, language, labels }) => (
-  <section className="rounded-[22px] border border-[#eadcc4] bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
+  <section className="rounded-[22px] border border-[#eadcc4] bg-white p-3.5 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
     <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#f3e7d4] pb-3">
       <div>
-        <h2 className="font-display text-[20px] font-extrabold uppercase tracking-tight text-slate-900">{section.title}</h2>
+        <h2 className="font-display text-[18px] font-extrabold uppercase tracking-tight text-slate-900">{section.title}</h2>
         <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">
           {section.totalProducts} {labels.products}
         </p>
@@ -162,7 +162,7 @@ const SectionCard = ({ section, language, labels }) => (
       </div>
     </div>
 
-    <div className="grid gap-3">
+    <div className="grid gap-2.5">
       {section.products.map((product) => (
         <ProductCard key={product.id} product={product} language={language} />
       ))}
@@ -219,15 +219,13 @@ const MenuCardA4Layout = ({ language = "en" }) => {
   }, [labels.fallbackError, labels.noMenu]);
 
   const sections = useMemo(() => buildSections(products, language, labels), [products, language, labels]);
-  const pages = useMemo(() => chunkArray(sections, 4), [sections]);
-
-  const languagePath = language === "km" ? "/menu-card-a4" : "/menu-card-a4-kh";
+  const pages = useMemo(() => chunkArray(sections, 6), [sections]);
 
   return (
     <div className="min-h-screen bg-[#e9e5dc] py-6">
       <style>{`
         @page {
-          size: A4 portrait;
+          size: A4 landscape;
           margin: 10mm;
         }
         @media print {
@@ -250,7 +248,7 @@ const MenuCardA4Layout = ({ language = "en" }) => {
         }
       `}</style>
 
-      <div className="a4-menu-toolbar mx-auto mb-5 flex max-w-[210mm] items-center justify-between gap-3 rounded-[22px] border border-[#eadcc4] bg-white px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+      <div className="a4-menu-toolbar mx-auto mb-5 flex max-w-[297mm] items-center justify-between gap-3 rounded-[22px] border border-[#eadcc4] bg-white px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{labels.switchLabel}</p>
           <div className="mt-1 flex items-center gap-2">
@@ -275,13 +273,13 @@ const MenuCardA4Layout = ({ language = "en" }) => {
         </button>
       </div>
 
-      <div className="mx-auto flex max-w-[210mm] flex-col gap-6">
+      <div className="mx-auto flex max-w-[297mm] flex-col gap-6">
         {loading ? (
-          <div className="a4-menu-page flex min-h-[297mm] items-center justify-center rounded-[28px] bg-white text-lg font-semibold text-slate-500 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
+          <div className="a4-menu-page flex min-h-[210mm] items-center justify-center rounded-[28px] bg-white text-lg font-semibold text-slate-500 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
             {labels.loading}
           </div>
         ) : pages.length === 0 ? (
-          <div className="a4-menu-page flex min-h-[297mm] items-center justify-center rounded-[28px] bg-white text-lg font-semibold text-slate-500 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
+          <div className="a4-menu-page flex min-h-[210mm] items-center justify-center rounded-[28px] bg-white text-lg font-semibold text-slate-500 shadow-[0_20px_45px_rgba(15,23,42,0.12)]">
             {labels.noMenu}
           </div>
         ) : (
@@ -289,7 +287,7 @@ const MenuCardA4Layout = ({ language = "en" }) => {
             <section
               key={`page-${pageIndex + 1}`}
               className="a4-menu-page rounded-[28px] bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.98),_rgba(252,246,235,0.98))] px-[12mm] py-[11mm] text-slate-900 shadow-[0_20px_45px_rgba(15,23,42,0.12)]"
-              style={{ width: "210mm", minHeight: "297mm" }}
+              style={{ width: "297mm", minHeight: "210mm" }}
             >
               <header className="flex items-start justify-between gap-6 border-b border-[#eedfc8] pb-4">
                 <div className="flex min-w-0 items-center gap-4">
@@ -298,9 +296,9 @@ const MenuCardA4Layout = ({ language = "en" }) => {
                   </div>
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#f17923]">{PAGE_SUBTITLE[language]}</p>
-                    <h1 className="mt-1 font-display text-[28px] font-extrabold leading-none text-slate-900">{PAGE_TITLE[language]}</h1>
-                    <p className="mt-2 text-[11px] font-medium text-slate-500">{shop.shopName || "ASEN POS"}</p>
-                    {shop.address ? <p className="mt-1 text-[10px] text-slate-400">{shop.address}</p> : null}
+                    <h1 className="mt-1 font-display text-[30px] font-extrabold leading-none text-slate-900">{PAGE_TITLE[language]}</h1>
+                    <p className="mt-1.5 text-[11px] font-medium text-slate-500">{shop.shopName || "ASEN POS"}</p>
+                    {shop.address ? <p className="mt-1 text-[9px] text-slate-400">{shop.address}</p> : null}
                   </div>
                 </div>
 
@@ -315,7 +313,7 @@ const MenuCardA4Layout = ({ language = "en" }) => {
                 </div>
               </header>
 
-              <div className="mt-5 grid grid-cols-2 gap-4">
+              <div className="mt-4 grid grid-cols-3 gap-3">
                 {pageSections.map((section) => (
                   <SectionCard key={section.key} section={section} language={language} labels={labels} />
                 ))}
