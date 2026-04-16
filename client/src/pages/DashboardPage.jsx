@@ -25,6 +25,7 @@ const categoryLabel = (category) => (/^raw$/i.test(category || "") ? "Base" : ca
 const isCompositeType = (type) => ["combo", "combo_type"].includes(type);
 
 const DashboardPage = () => {
+  const [activeTab, setActiveTab] = useState("overview");
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -83,31 +84,69 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6">
       <section className="glass-card p-4 sm:p-6">
-        <div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="font-display text-3xl font-extrabold text-slate-900">Admin Dashboard</h1>
             <p className="text-sm text-slate-500">Manage products, monitor sales, and respond to low stock quickly.</p>
           </div>
+          <div className="inline-flex flex-wrap gap-2 rounded-3xl border border-slate-100 bg-white/80 p-1.5">
+            {[
+              { key: "overview", label: "Overview" },
+              { key: "today", label: "Today's Report" }
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-2xl px-3.5 py-2 text-[13px] font-semibold transition ${
+                  activeTab === tab.key ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-3xl bg-slate-900 p-5 text-white">
-            <p className="text-sm text-slate-300">Total Revenue</p>
-            <p className="mt-2 text-3xl font-bold">{currency(summary?.totalRevenue)}</p>
+        {activeTab === "overview" ? (
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-3xl bg-slate-900 p-5 text-white">
+              <p className="text-sm text-slate-300">Total Revenue</p>
+              <p className="mt-2 text-3xl font-bold">{currency(summary?.totalRevenue)}</p>
+            </div>
+            <div className="rounded-3xl bg-white p-5">
+              <p className="text-sm text-slate-500">Total Orders</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">{summary?.totalOrders || 0}</p>
+            </div>
+            <div className="rounded-3xl bg-white p-5">
+              <p className="text-sm text-slate-500">Products</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">{summary?.productCount || 0}</p>
+            </div>
+            <div className="rounded-3xl bg-amber-100 p-5">
+              <p className="text-sm text-amber-700">Low Stock Alerts</p>
+              <p className="mt-2 text-3xl font-bold text-amber-950">{summary?.lowStockCount || 0}</p>
+            </div>
           </div>
-          <div className="rounded-3xl bg-white p-5">
-            <p className="text-sm text-slate-500">Total Orders</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">{summary?.totalOrders || 0}</p>
+        ) : (
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-3xl bg-slate-900 p-5 text-white">
+              <p className="text-sm text-slate-300">Today's Revenue</p>
+              <p className="mt-2 text-3xl font-bold">{currency(sales?.daily?.totalSales)}</p>
+            </div>
+            <div className="rounded-3xl bg-white p-5">
+              <p className="text-sm text-slate-500">Today's Orders</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">{sales?.daily?.orderCount || 0}</p>
+            </div>
+            <div className="rounded-3xl bg-white p-5">
+              <p className="text-sm text-slate-500">Low Stock Alerts</p>
+              <p className="mt-2 text-3xl font-bold text-slate-900">{summary?.lowStockCount || 0}</p>
+            </div>
+            <div className="rounded-3xl bg-amber-100 p-5">
+              <p className="text-sm text-amber-700">Products Tracked</p>
+              <p className="mt-2 text-3xl font-bold text-amber-950">{summary?.productCount || 0}</p>
+            </div>
           </div>
-          <div className="rounded-3xl bg-white p-5">
-            <p className="text-sm text-slate-500">Products</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">{summary?.productCount || 0}</p>
-          </div>
-          <div className="rounded-3xl bg-amber-100 p-5">
-            <p className="text-sm text-amber-700">Low Stock Alerts</p>
-            <p className="mt-2 text-3xl font-bold text-amber-950">{summary?.lowStockCount || 0}</p>
-          </div>
-        </div>
+        )}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">

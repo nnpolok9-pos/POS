@@ -5,11 +5,9 @@ import ForceStockPinModal from "../components/ForceStockPinModal";
 import ProductDeductModal from "../components/ProductDeductModal";
 import ProductForceStockModal from "../components/ProductForceStockModal";
 import ProductStockModal from "../components/ProductStockModal";
-import ReportDatePicker from "../components/ReportDatePicker";
 import { useAuth } from "../context/AuthContext";
 import { inventoryService } from "../services/inventoryService";
 import { productService } from "../services/productService";
-import { getLocalDateInputValue } from "../utils/date";
 import { formatDate, imageUrl } from "../utils/format";
 
 const stockUnitLabel = (unit) =>
@@ -28,7 +26,6 @@ const productTypeLabel = (type) =>
   })[type] || "A La Catre";
 
 const categoryLabel = (category) => (/^raw$/i.test(category || "") ? "Base" : category || "-");
-const todayString = () => getLocalDateInputValue();
 const tabButtonClass = "rounded-full border px-4 py-2 text-sm font-semibold transition";
 
 const formatDateOnly = (value) =>
@@ -68,9 +65,6 @@ const StocksPage = () => {
   const canAddStock = ["master_admin", "admin", "staff"].includes(user?.role);
   const canDeductStock = ["master_admin", "admin"].includes(user?.role);
   const canForceUpdateStock = ["master_admin", "admin"].includes(user?.role);
-  const [from, setFrom] = useState(todayString());
-  const [to, setTo] = useState(todayString());
-  const [appliedDateRange, setAppliedDateRange] = useState({ from: todayString(), to: todayString() });
   const [report, setReport] = useState({
     rawRows: [],
     rawSummary: {},
@@ -105,7 +99,7 @@ const StocksPage = () => {
   };
 
   useEffect(() => {
-    loadReport(appliedDateRange);
+    loadReport();
   }, []);
 
   const stockRows = useMemo(
@@ -207,7 +201,7 @@ const StocksPage = () => {
   );
 
   const refreshReport = async () => {
-    await loadReport(appliedDateRange);
+    await loadReport();
   };
 
   const handleStockUpdate = async ({ receivedQuantity, expiryDate }) => {
@@ -307,35 +301,6 @@ const StocksPage = () => {
                     : "This account can review stock data only."}
                 </p>
               </div>
-
-              <div className="rounded-full border border-[#cbbba5] bg-[#fffaf0] px-4 py-2.5 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Selected Date Range</p>
-                <p className="mt-1 text-[13px] font-semibold text-slate-800">
-                  {appliedDateRange ? `${appliedDateRange.from} to ${appliedDateRange.to}` : "All dates"}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-              <div className="rounded-[1.4rem] border border-[#efe2ca] bg-[#fff8ea] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-end">
-                  <ReportDatePicker label="From Date" value={from} onChange={setFrom} maxDate={to} />
-                  <div className="pb-3 text-center text-sm font-semibold text-slate-400">to</div>
-                  <ReportDatePicker label="To Date" value={to} onChange={setTo} minDate={from} />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const nextRange = { from, to };
-                  setAppliedDateRange(nextRange);
-                  loadReport(nextRange);
-                }}
-                className="btn-primary h-11 rounded-full px-6 shadow-sm"
-              >
-                {loading ? "Loading..." : "Generate"}
-              </button>
             </div>
           </div>
         </div>
