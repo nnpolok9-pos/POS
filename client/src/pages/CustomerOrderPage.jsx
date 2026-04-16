@@ -125,6 +125,22 @@ const moveDrinksCategoryToEnd = (categories) => {
   return [...nonDrinks, ...drinks];
 };
 
+const moveDrinkProductsToEnd = (products) => {
+  const nonDrinks = [];
+  const drinks = [];
+
+  products.forEach((product) => {
+    if ((product.category || "").toLowerCase() === "drinks") {
+      drinks.push(product);
+      return;
+    }
+
+    nonDrinks.push(product);
+  });
+
+  return [...nonDrinks, ...drinks];
+};
+
 const buildCategoryOptions = (products) => [
   { key: "All", labelKm: "ទាំងអស់", labelEn: "All" },
   ...moveDrinksCategoryToEnd(
@@ -236,20 +252,22 @@ const CustomerOrderPage = () => {
   const categoryOptions = useMemo(() => buildCategoryOptions(products), [products]);
   const filteredProducts = useMemo(
     () =>
-      products.filter((product) => {
-        const localizedName = getLocalizedProductName(product, language).toLowerCase();
-        const localizedDescription = getLocalizedProductDescription(product, language).toLowerCase();
-        const fallbackName = (product.name || "").toLowerCase();
-        const fallbackKhmerName = (product.khmerName || "").toLowerCase();
-        const query = search.toLowerCase();
-        const matchesSearch =
-          localizedName.includes(query) ||
-          localizedDescription.includes(query) ||
-          fallbackName.includes(query) ||
-          fallbackKhmerName.includes(query);
-        const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
-        return matchesSearch && matchesCategory;
-      }),
+      moveDrinkProductsToEnd(
+        products.filter((product) => {
+          const localizedName = getLocalizedProductName(product, language).toLowerCase();
+          const localizedDescription = getLocalizedProductDescription(product, language).toLowerCase();
+          const fallbackName = (product.name || "").toLowerCase();
+          const fallbackKhmerName = (product.khmerName || "").toLowerCase();
+          const query = search.toLowerCase();
+          const matchesSearch =
+            localizedName.includes(query) ||
+            localizedDescription.includes(query) ||
+            fallbackName.includes(query) ||
+            fallbackKhmerName.includes(query);
+          const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
+          return matchesSearch && matchesCategory;
+        })
+      ),
     [products, search, selectedCategory, language]
   );
   const localizedFilteredProducts = useMemo(
@@ -364,7 +382,7 @@ const CustomerOrderPage = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:gap-3">
-                      <h1 className="font-display text-xl font-bold text-slate-900 sm:text-2xl xl:shrink-0">{MENU_PAGE_TITLE}</h1>
+                      <h1 className={`font-display text-xl font-bold sm:text-2xl xl:shrink-0 ${localizedPrimaryTextClass(language, "text-slate-900")}`}>{MENU_PAGE_TITLE}</h1>
                       <input
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
@@ -386,9 +404,9 @@ const CustomerOrderPage = () => {
                 <div className="rounded-[1.35rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,248,238,0.92))] p-3 shadow-[0_12px_24px_rgba(160,120,50,0.07)]">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.categories}</p>
+                      <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${localizedSecondaryTextClass(language, "text-slate-400")}`}>{text.categories}</p>
                     </div>
-                    <div className="rounded-full border border-[#eadcc4] bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
+                    <div className={`rounded-full border border-[#eadcc4] bg-white px-3 py-1 text-[11px] font-semibold shadow-sm ${localizedPrimaryTextClass(language, "text-slate-600")}`}>
                       {Math.max(categoryOptions.length - 1, 0)} {language === "km" ? "ប្រភេទ" : "Categories"}
                     </div>
                   </div>
@@ -430,13 +448,22 @@ const CustomerOrderPage = () => {
             <div className="mt-5 min-h-[360px] flex-1 overflow-y-auto pr-1 xl:min-h-0">
               <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
                 {loading ? (
-                  <div className="rounded-3xl bg-white p-6 text-slate-500">{text.loading}</div>
+                  <div className={`rounded-3xl bg-white p-6 ${localizedSecondaryTextClass(language, "text-slate-500")}`}>{text.loading}</div>
                 ) : localizedFilteredProducts.length === 0 ? (
-                  <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-500 sm:col-span-2 2xl:col-span-3">
+                  <div className={`rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center sm:col-span-2 2xl:col-span-3 ${localizedSecondaryTextClass(language, "text-slate-500")}`}>
                     {text.noItems}
                   </div>
                 ) : (
-                  localizedFilteredProducts.map((product) => <ProductCard key={product.id} product={product} onSelect={addToCart} />)
+                  localizedFilteredProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onSelect={addToCart}
+                      language={language}
+                      showStatusBadge={false}
+                      showStockQuantity={false}
+                    />
+                  ))
                 )}
               </div>
             </div>
@@ -470,12 +497,12 @@ const CustomerOrderPage = () => {
             <div className="border-b border-white/70 bg-white/65 px-4 py-3 sm:px-5">
               <div className="flex items-center justify-between gap-3 pl-12">
                 <div className="min-w-0">
-                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.orderOnline}</p>
-                  <p className="mt-1 truncate text-[14px] font-bold text-slate-900">{shop.shopName || MENU_PAGE_TITLE}</p>
+                  <p className={`truncate text-[11px] font-semibold uppercase tracking-[0.18em] ${localizedSecondaryTextClass(language, "text-slate-400")}`}>{text.orderOnline}</p>
+                  <p className={`mt-1 truncate text-[14px] font-bold ${localizedPrimaryTextClass(language, "text-slate-900")}`}>{shop.shopName || MENU_PAGE_TITLE}</p>
                 </div>
 
                 <div className="inline-flex items-center gap-2 rounded-[1.1rem] border border-white/80 bg-white/90 px-2.5 py-2 shadow-sm">
-                  <span className="text-[11px] font-semibold text-slate-500">{text.language}</span>
+                  <span className={`text-[11px] font-semibold ${localizedSecondaryTextClass(language, "text-slate-500")}`}>{text.language}</span>
                   <button
                     type="button"
                     onClick={() => setLanguage("km")}
@@ -506,9 +533,9 @@ const CustomerOrderPage = () => {
             <div className="bg-white/55 px-4 pb-24 pt-4 sm:px-5">
               <div className="space-y-3">
                 {loading ? (
-                  <div className="rounded-[1.6rem] bg-white p-6 text-center text-sm text-slate-500 shadow-sm">{text.loading}</div>
+                  <div className={`rounded-[1.6rem] bg-white p-6 text-center text-sm shadow-sm ${localizedSecondaryTextClass(language, "text-slate-500")}`}>{text.loading}</div>
                 ) : localizedFilteredProducts.length === 0 ? (
-                  <div className="rounded-[1.6rem] border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+                  <div className={`rounded-[1.6rem] border border-dashed border-slate-200 bg-white p-8 text-center text-sm ${localizedSecondaryTextClass(language, "text-slate-500")}`}>
                     {text.noItems}
                   </div>
                 ) : (
@@ -543,12 +570,12 @@ const CustomerOrderPage = () => {
                             <div className="mt-3 flex items-end justify-between gap-3">
                               <div>
                                 {Number(product.regularPrice ?? product.price) > Number(product.promotionalPrice ?? product.price) && (
-                                  <p className="text-[12px] text-slate-400 line-through">
-                                    {regularParts.khr} <span className="text-[11px] text-slate-300">({regularParts.usd})</span>
+                                  <p className={`text-[12px] line-through ${localizedSecondaryTextClass(language, "text-slate-400")}`}>
+                                    {regularParts.khr} <span className={`text-[11px] ${localizedSecondaryTextClass(language, "text-slate-300")}`}>({regularParts.usd})</span>
                                   </p>
                                 )}
                                 <p className="text-[18px] font-bold text-brand-600">{promoParts.khr}</p>
-                                <p className="mt-0.5 text-[11px] text-slate-400">{promoParts.usd}</p>
+                                <p className={`mt-0.5 text-[11px] ${localizedSecondaryTextClass(language, "text-slate-400")}`}>{promoParts.usd}</p>
                               </div>
                               <span className="rounded-full bg-brand-500 px-3.5 py-2 text-[12px] font-semibold text-white shadow-[0_10px_20px_rgba(245,146,63,0.26)]">
                                 {text.add}
@@ -631,9 +658,9 @@ const CustomerOrderPage = () => {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-brand-500">{text.orderOnline}</p>
-                <p className="mt-1 text-[16px] font-bold text-slate-900">{MENU_PAGE_TITLE}</p>
-                <p className="mt-1 text-[12px] text-slate-500">{shop.shopName || "ASEN POS"}</p>
+                <p className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${language === "km" ? "text-black" : "text-brand-500"}`}>{text.orderOnline}</p>
+                <p className={`mt-1 text-[16px] font-bold ${localizedPrimaryTextClass(language, "text-slate-900")}`}>{MENU_PAGE_TITLE}</p>
+                <p className={`mt-1 text-[12px] ${localizedSecondaryTextClass(language, "text-slate-500")}`}>{shop.shopName || "ASEN POS"}</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex h-[58px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-white/80 bg-white shadow-[0_10px_22px_rgba(160,120,50,0.10)]">
@@ -651,18 +678,18 @@ const CustomerOrderPage = () => {
             </div>
 
             <div className="relative mt-4">
-              <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={17} className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 ${language === "km" ? "text-black" : "text-slate-400"}`} />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder={text.search}
-                className="w-full rounded-[1.35rem] border border-white/80 bg-white/95 px-11 py-3.5 text-[14px] text-slate-700 outline-none shadow-[0_12px_20px_rgba(160,120,50,0.08)] transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+                className={`w-full rounded-[1.35rem] border border-white/80 bg-white/95 px-11 py-3.5 text-[14px] outline-none shadow-[0_12px_20px_rgba(160,120,50,0.08)] transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100 ${localizedPrimaryTextClass(language, "text-slate-700")}`}
               />
             </div>
 
             <div className="mt-5 flex items-center justify-between gap-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.categories}</p>
-              <div className="rounded-full border border-white/80 bg-white/90 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
+              <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${localizedSecondaryTextClass(language, "text-slate-400")}`}>{text.categories}</p>
+              <div className={`rounded-full border border-white/80 bg-white/90 px-3 py-1.5 text-[11px] font-semibold shadow-sm ${localizedPrimaryTextClass(language, "text-slate-600")}`}>
                 {Math.max(categoryOptions.length - 1, 0)} {language === "km" ? "ប្រភេទ" : "Categories"}
               </div>
             </div>
