@@ -560,7 +560,6 @@ const CustomerOrderPage = () => {
                                 )}
                                 <p className="text-[18px] font-bold text-brand-600">{promoParts.khr}</p>
                                 <p className="mt-0.5 text-[11px] text-slate-400">{promoParts.usd}</p>
-                                <p className="mt-1 text-[11px] text-slate-500">{text.inventory} {product.stock}</p>
                               </div>
                               <span className="rounded-full bg-brand-500 px-3.5 py-2 text-[12px] font-semibold text-white shadow-[0_10px_20px_rgba(245,146,63,0.26)]">
                                 {text.add}
