@@ -354,26 +354,6 @@ const CustomerOrderPage = () => {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(245,146,63,0.18),_transparent_28%),linear-gradient(180deg,#fff7ed_0%,#fffbeb_100%)] p-3 sm:p-4 md:p-5">
       <div className="mx-auto max-w-[1720px]">
-        <div className="mb-3 flex justify-end">
-          <div className="inline-flex items-center gap-2 rounded-[1.3rem] border border-white/80 bg-white/90 px-3 py-2 shadow-sm">
-            <span className="text-[12px] font-semibold text-slate-500">{text.language}</span>
-            <button
-              type="button"
-              onClick={() => setLanguage("km")}
-              className={`rounded-full px-3 py-2 text-[12px] font-semibold ${language === "km" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"}`}
-            >
-              {text.khmer}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLanguage("en")}
-              className={`rounded-full px-3 py-2 text-[12px] font-semibold ${language === "en" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"}`}
-            >
-              {text.english}
-            </button>
-          </div>
-        </div>
-
         <div className="hidden gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_430px]">
           <section className="glass-card flex flex-col p-4 md:p-5 xl:max-h-[calc(100vh-3rem)]">
             <div className="rounded-[1.8rem] border border-[#f2ead8] bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.96),_rgba(252,246,235,0.96))] p-3.5 shadow-[0_14px_34px_rgba(160,120,50,0.10)]">
