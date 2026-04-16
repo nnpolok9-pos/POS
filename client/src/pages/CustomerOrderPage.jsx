@@ -529,7 +529,7 @@ const CustomerOrderPage = () => {
                             <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-3">
+                            <div>
                               <div className="min-w-0">
                                 <p className={`truncate text-[15px] font-bold ${localizedPrimaryTextClass(language, "text-slate-900")}`}>{product.name}</p>
                                 <p className={`mt-1 text-[12px] ${localizedSecondaryTextClass(language, "text-slate-500")}`}>{product.category}</p>
@@ -539,17 +539,6 @@ const CustomerOrderPage = () => {
                                   </p>
                                 ) : null}
                               </div>
-                              <span
-                                className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                                  product.stock === 0
-                                    ? "bg-rose-100 text-rose-600"
-                                    : product.lowStock
-                                      ? "bg-amber-100 text-amber-700"
-                                      : "bg-emerald-100 text-emerald-700"
-                                }`}
-                              >
-                                {product.stock === 0 ? text.soldOut : product.lowStock ? text.low : text.ready}
-                              </span>
                             </div>
                             <div className="mt-3 flex items-end justify-between gap-3">
                               <div>
