@@ -45,6 +45,8 @@ const statusFilterStyles = {
 
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
 const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
+const getOrderStatusLabel = (order) =>
+  order.status === "void" ? "Void" : order.status === "queued" ? "Queued" : order.status === "food_serving" ? "Food Serving" : "Completed";
 const requiresVoidRefundMethod = (order) => Number(order?.total || 0) > 0 && Boolean(order?.paymentMethod);
 const getCurrentVoidRefundMethod = (order) =>
   [...(order?.editHistory || [])]
@@ -224,14 +226,7 @@ const OrdersPage = () => {
     paymentMethod: order.paymentMethod?.toUpperCase() || "-",
     items: order.items.length,
     saleAmount: Number(order.total || 0).toFixed(2),
-    status:
-      order.status === "void"
-        ? "Void"
-        : order.status === "queued"
-          ? "Queued"
-          : order.status === "food_serving"
-            ? "Food Serving"
-            : "Completed"
+    status: getOrderStatusLabel(order)
   }));
 
   const exportExcel = () => {
@@ -425,7 +420,7 @@ const OrdersPage = () => {
         </div>
       </div>
 
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500">
           Showing: <span className="font-semibold text-slate-700">{statusFilter === "all" ? "All Orders" : statusFilter === "queued" ? "Queued" : statusFilter === "food_serving" ? "Food Serving" : statusFilter === "completed" ? "Completed" : "Void"}</span>
         </p>
@@ -436,7 +431,121 @@ const OrdersPage = () => {
         )}
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="space-y-3 lg:hidden">
+        {filteredOrders.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+            No orders found for the selected filters.
+          </div>
+        ) : (
+          filteredOrders.map((order, index) => (
+            <div key={order.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-900">{order.orderId}</p>
+                  {order.source === "customer" && order.queueNumber ? <p className="mt-1 text-xs font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
+                  <p className="mt-1 text-xs capitalize text-slate-500">{order.paymentMethod || "unpaid queue"}</p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                    order.status === "void"
+                      ? "bg-rose-100 text-rose-700"
+                      : order.status === "queued"
+                        ? "bg-violet-100 text-violet-700"
+                        : order.status === "food_serving"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-emerald-100 text-emerald-700"
+                  }`}
+                >
+                  {getOrderStatusLabel(order)}
+                </span>
+              </div>
+              {order.editHistory?.length > 0 && (
+                <button type="button" onClick={() => setHistoryOrder(order)} className="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                  Edited {order.editHistory.length} time{order.editHistory.length > 1 ? "s" : ""}
+                </button>
+              )}
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">S/N</p>
+                  <p className="mt-1 font-medium text-slate-700">{index + 1}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Date</p>
+                  <p className="mt-1 font-medium text-slate-700">{formatDate(order.createdAt)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Serve Time</p>
+                  <p className="mt-1 font-medium text-slate-700">{getServeTimeLabel(order)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Staff</p>
+                  <p className="mt-1 font-medium text-slate-700">{order.staff?.name || "Staff"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Items</p>
+                  <p className="mt-1 font-medium text-slate-700">{order.items.length}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Sale Amount</p>
+                  <p className="mt-1 font-bold text-brand-600">{currency(order.total)}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" onClick={() => setSelectedOrder(order)} className="btn-secondary h-10 gap-2 px-3 text-sm">
+                  <Eye size={16} />
+                  View
+                </button>
+                {canEditOrder(order) && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/pos?editOrder=${order.id}`, { state: { returnTo: "/orders" } })}
+                    className="btn-secondary h-10 gap-2 px-3 text-sm"
+                  >
+                    <Pencil size={16} />
+                    {isCustomerQueueOrder(order) ? "Retrieve" : "Edit"}
+                  </button>
+                )}
+                <button type="button" onClick={() => printReceipt(order, shopSettings)} className="btn-secondary h-10 gap-2 px-3 text-sm">
+                  <Printer size={16} />
+                  Print
+                </button>
+                {canMutateOrders && order.status === "food_serving" && (
+                  <button type="button" onClick={() => openServeDialog(order)} className="btn-secondary h-10 gap-2 px-3 text-sm text-emerald-700">
+                    <CheckCircle2 size={16} />
+                    Served
+                  </button>
+                )}
+                {canMutateOrders && (canVoidCompleted || ["food_serving", "queued"].includes(order.status)) && order.status !== "void" && (
+                  <button type="button" onClick={() => openVoidDialog(order)} className="btn-secondary h-10 gap-2 px-3 text-sm text-rose-600">
+                    <Trash2 size={16} />
+                    Void Sale
+                  </button>
+                )}
+                {canEditVoidOrder(order) && (
+                  <button type="button" onClick={() => openVoidEditDialog(order)} className="btn-secondary h-10 gap-2 px-3 text-sm text-fuchsia-700">
+                    <Pencil size={16} />
+                    Edit Void
+                  </button>
+                )}
+                {canDeleteOrders && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedOrder(null);
+                      setDeletingOrder(order);
+                    }}
+                    className="btn-secondary h-10 gap-2 px-3 text-sm text-rose-700"
+                  >
+                    <Trash2 size={16} />
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="hidden overflow-x-auto lg:block">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-left text-slate-500">
@@ -489,7 +598,7 @@ const OrdersPage = () => {
                           : "bg-emerald-100 text-emerald-700"
                     }`}
                   >
-                    {order.status === "void" ? "Void" : order.status === "queued" ? "Queued" : order.status === "food_serving" ? "Food Serving" : "Completed"}
+                    {getOrderStatusLabel(order)}
                   </span>
                 </td>
                 <td className="py-3">

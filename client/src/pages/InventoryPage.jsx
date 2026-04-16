@@ -408,9 +408,36 @@ const InventoryPage = () => {
           />
         </div>
 
-        <div className="overflow-x-auto">
+        <div>
           {activeTab === "raw" ? (
-            <table className="min-w-full text-sm">
+            <>
+              <div className="space-y-3 lg:hidden">
+                {filteredRows.length === 0 ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                    No base inventory records found for the selected filters.
+                  </div>
+                ) : (
+                  filteredRows.map((row, index) => (
+                    <div key={row.productId || index} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+                      <ProductCell image={row.image} name={row.productName} sku={row.sku} />
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">SL</p><p className="mt-1 text-slate-700">{index + 1}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Type</p><p className="mt-1 text-slate-700">{productTypeLabel(row.productType)}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Category</p><p className="mt-1 text-slate-700">{categoryLabel(row.category)}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Unit</p><p className="mt-1 text-slate-700">{stockUnitLabel(row.stockUnit)}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Expiry Date</p><p className="mt-1 text-slate-700">{row.expiryDate ? formatDate(row.expiryDate) : "Not set"}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Current Stock</p><p className="mt-1 font-bold text-slate-900">{row.currentStock}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Received</p><p className="mt-1 font-semibold text-emerald-700">{row.receivedQuantity}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Deducted</p><p className="mt-1 font-semibold text-rose-600">{row.deductedQuantity}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Sold</p><p className="mt-1 font-semibold text-rose-600">{row.soldQuantity}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Last Received</p><p className="mt-1 text-slate-700">{row.lastReceivedAt ? formatDate(row.lastReceivedAt) : "-"}</p></div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-slate-500">
                   <th className="pb-3 pr-4">SL</th>
@@ -453,9 +480,51 @@ const InventoryPage = () => {
                   ))
                 )}
               </tbody>
-            </table>
+                </table>
+              </div>
+            </>
           ) : isCompositeTab(activeTab) ? (
-            <table className="min-w-full text-sm">
+            <>
+              <div className="space-y-3 lg:hidden">
+                {filteredRows.length === 0 ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                    No {activeTab === "combo_type" ? "combo" : "combined"} inventory records found for the selected filters.
+                  </div>
+                ) : (
+                  filteredRows.map((row, index) => (
+                    <div key={row.productId || index} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+                      <ProductCell image={row.image} name={row.productName} sku={row.sku} />
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">SL</p><p className="mt-1 text-slate-700">{index + 1}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Type</p><p className="mt-1 text-slate-700">{productTypeLabel(row.productType)}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Category</p><p className="mt-1 text-slate-700">{categoryLabel(row.category)}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Unit</p><p className="mt-1 text-slate-700">{stockUnitLabel(row.stockUnit)}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Inventory</p><p className="mt-1 font-bold text-slate-900">{row.availableToSell}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Sold Qty</p><p className="mt-1 font-semibold text-rose-600">{row.soldQuantity}</p></div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                        <button type="button" onClick={() => setSelectedCombinedRow(row)} className="btn-secondary gap-2">
+                          <Info size={16} />
+                          View Materials
+                        </button>
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                            row.availableToSell === 0
+                              ? "bg-rose-100 text-rose-600"
+                              : row.lowAvailability
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {row.availableToSell === 0 ? "Out of stock" : row.lowAvailability ? "Low inventory" : "In inventory"}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-slate-500">
                   <th className="pb-3 pr-4">SL</th>
@@ -515,9 +584,51 @@ const InventoryPage = () => {
                   ))
                 )}
               </tbody>
-            </table>
+                </table>
+              </div>
+            </>
           ) : (
-            <table className="min-w-full text-sm">
+            <>
+              <div className="space-y-3 lg:hidden">
+                {filteredRows.length === 0 ? (
+                  <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                    No expiry-tracked products found for the selected filters.
+                  </div>
+                ) : (
+                  filteredRows.map((row, index) => (
+                    <div key={row.productId || index} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+                      <ProductCell image={row.image} name={row.productName} sku={row.sku} />
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">SL</p><p className="mt-1 text-slate-700">{index + 1}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Type</p><p className="mt-1 text-slate-700">{productTypeLabel(row.productType)}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Category</p><p className="mt-1 text-slate-700">{categoryLabel(row.category)}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Unit</p><p className="mt-1 text-slate-700">{stockUnitLabel(row.stockUnit)}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Stock</p><p className="mt-1 font-semibold text-slate-900">{row.currentStock}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Expiry Date</p><p className="mt-1 text-slate-700">{row.expiryDate ? formatDate(row.expiryDate) : "Not set"}</p></div>
+                        <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Days Left</p><p className="mt-1 text-slate-700">{!row.hasExpiryDate ? "-" : row.daysUntilExpiry < 0 ? `${Math.abs(row.daysUntilExpiry)} day(s) ago` : `${row.daysUntilExpiry} day(s)`}</p></div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                            !row.hasExpiryDate
+                              ? "bg-slate-100 text-slate-600"
+                              : row.isExpired
+                                ? "bg-rose-100 text-rose-700"
+                                : row.isExpiringSoon
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {!row.hasExpiryDate ? "Missing date" : row.isExpired ? "Expired" : row.isExpiringSoon ? "2-day alert" : "Fresh"}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm text-slate-600">{row.suggestion}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-slate-500">
                   <th className="pb-3 pr-4">SL</th>
@@ -574,7 +685,9 @@ const InventoryPage = () => {
                   ))
                 )}
               </tbody>
-            </table>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </section>
@@ -585,7 +698,34 @@ const InventoryPage = () => {
             <h2 className="text-lg font-bold text-slate-900">Inventory History</h2>
             <p className="text-xs text-slate-500">Received and deducted stock history with reasons and user records.</p>
           </div>
-          <div className="overflow-x-auto">
+          <div className="space-y-3 lg:hidden">
+            {(report.movementHistory || []).length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+                No inventory history found for the selected date range.
+              </div>
+            ) : (
+              (report.movementHistory || []).map((movement) => (
+                <div key={movement.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <ProductCell image={movement.image} name={movement.productName} sku={movement.sku} />
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${movement.movementType === "received" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                      {movement.movementType === "received" ? "Received" : "Deducted"}
+                    </span>
+                    <p className="text-xs text-slate-500">{formatDate(movement.createdAt)}</p>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Unit</p><p className="mt-1 text-slate-700">{stockUnitLabel(movement.stockUnit)}</p></div>
+                    <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Qty</p><p className="mt-1 font-semibold text-slate-900">{movement.quantity}</p></div>
+                    <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Previous</p><p className="mt-1 text-slate-700">{movement.previousStock}</p></div>
+                    <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">New</p><p className="mt-1 text-slate-700">{movement.newStock}</p></div>
+                    <div className="col-span-2"><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Reason</p><p className="mt-1 text-slate-700">{movement.reason || "-"}</p></div>
+                    <div className="col-span-2"><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">By</p><p className="mt-1 text-slate-700">{movement.performedBy?.name || "-"}</p></div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="hidden overflow-x-auto lg:block">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-slate-500">

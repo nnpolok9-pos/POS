@@ -101,7 +101,54 @@ const EditedListPage = () => {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="space-y-3 md:hidden">
+          {orders.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+              No edited orders found for the selected date range.
+            </div>
+          ) : (
+            orders.map((order, index) => {
+              const latestEdit = order.editHistory?.[order.editHistory.length - 1];
+              return (
+                <div key={order.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{order.orderId}</p>
+                      <p className="text-xs text-slate-500">{latestEdit?.editedBy?.name || "-"}</p>
+                    </div>
+                    <p className="text-sm font-bold text-brand-600">{currency(latestEdit?.newTotal ?? order.total)}</p>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">SL</p>
+                      <p className="mt-1 text-slate-700">{index + 1}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Edited At</p>
+                      <p className="mt-1 text-slate-700">{latestEdit ? formatDate(latestEdit.editedAt) : "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Old Sale Amount</p>
+                      <p className="mt-1 text-slate-700">{currency(latestEdit?.oldTotal ?? order.total)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Method</p>
+                      <p className="mt-1 capitalize text-slate-700">{latestEdit?.adjustmentMethod || "-"}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-600">
+                    {adjustmentTypeLabel[latestEdit?.adjustmentType] || "No Change"} {currency(latestEdit?.adjustmentAmount || 0)}
+                  </p>
+                  <button type="button" onClick={() => setSelectedOrder(order)} className="btn-secondary mt-4 w-full justify-center gap-2 text-sm">
+                    <CalendarRange size={16} />
+                    View History
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-slate-500">

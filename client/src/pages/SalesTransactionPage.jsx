@@ -218,7 +218,7 @@ const SalesTransactionPage = () => {
       </section>
 
       <section className="glass-card overflow-hidden p-4 sm:p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Transaction List</h2>
             <p className="text-xs text-slate-500">Every order within the selected date range is listed below in transaction format.</p>
@@ -226,7 +226,64 @@ const SalesTransactionPage = () => {
           <p className="text-xs font-medium text-slate-400">{from} to {to}</p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="space-y-3 md:hidden">
+          {orders.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+              No transactions found for the selected date range.
+            </div>
+          ) : (
+            orders.map((order, index) => {
+              const summary = getTransactionSummary(order);
+              return (
+                <div key={order.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900">{summary.orderNumber}</p>
+                      <p className="mt-1 text-xs text-slate-500">{formatDate(summary.date)}</p>
+                    </div>
+                    <p className="text-sm font-bold text-brand-600">{currency(summary.finalOrderValue)}</p>
+                  </div>
+                  {summary.editCount > 0 && (
+                    <button type="button" onClick={() => setHistoryOrder(order)} className="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                      Edited {summary.editCount} time{summary.editCount > 1 ? "s" : ""}
+                    </button>
+                  )}
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">SL</p>
+                      <p className="mt-1 text-slate-700">{index + 1}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Serve Time</p>
+                      <p className="mt-1 text-slate-700">{summary.serveTime}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Cash</p>
+                      <p className="mt-1 text-slate-700">{summary.cashIn ? currency(summary.cashIn) : "-"} / {summary.cashOut ? currency(summary.cashOut) : "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Card</p>
+                      <p className="mt-1 text-slate-700">{summary.cardIn ? currency(summary.cardIn) : "-"} / {summary.cardOut ? currency(summary.cardOut) : "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">QR</p>
+                      <p className="mt-1 text-slate-700">{summary.qrIn ? currency(summary.qrIn) : "-"} / {summary.qrOut ? currency(summary.qrOut) : "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Status</p>
+                      <p className="mt-1 text-slate-700">{summary.status}</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setSelectedOrder(order)} className="btn-secondary mt-4 w-full justify-center gap-2 text-sm">
+                    <Eye size={16} />
+                    View
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-slate-500">

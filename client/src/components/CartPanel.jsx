@@ -90,13 +90,13 @@ const CartPanel = ({
   const isQueuedLatestOrder = latestOrder?.status === "queued" || latestOrder?.source === "customer";
 
   return (
-    <div className="glass-card sticky top-4 flex h-[calc(100vh-2rem)] flex-col gap-3 p-4">
+    <div className="glass-card flex flex-col gap-3 p-4 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)]">
       <div>
-        <h2 className="font-display text-[28px] font-bold text-slate-900">{title}</h2>
+        <h2 className="font-display text-2xl font-bold text-slate-900 sm:text-[28px]">{title}</h2>
         <p className="text-[13px] text-slate-500">{description}</p>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+      <div className="space-y-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
         {cart.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
             {text.emptyCart}
@@ -262,7 +262,7 @@ const CartPanel = ({
         )}
       </div>
 
-      <div className="mt-auto space-y-4 border-t border-slate-100 bg-white pt-3">
+      <div className="space-y-4 border-t border-slate-100 bg-white pt-3 xl:mt-auto">
         {showPaymentSection && (
           <div>
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -297,7 +297,7 @@ const CartPanel = ({
           </div>
         )}
 
-        <div className="rounded-3xl bg-slate-900 p-4 text-white">
+          <div className="rounded-3xl bg-slate-900 p-4 text-white">
           {isEditing && (
             <div className="mb-3 border-b border-white/10 pb-3 text-[13px] text-slate-300">
               <div className="flex items-center justify-between">
@@ -317,9 +317,9 @@ const CartPanel = ({
             <span>{text.subtotal}</span>
             <span>{currency(subtotal)}</span>
           </div>
-          <div className="mt-2 flex items-end justify-between">
-            <span className="text-[18px] font-bold">{text.total}</span>
-            <span className="text-[22px] font-bold">{currency(subtotal)}</span>
+          <div className="mt-2 flex items-end justify-between gap-3">
+            <span className="text-base font-bold sm:text-[18px]">{text.total}</span>
+            <span className="text-xl font-bold sm:text-[22px]">{currency(subtotal)}</span>
           </div>
         </div>
 

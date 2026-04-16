@@ -208,14 +208,54 @@ const SalesReportPage = () => {
       </section>
 
       <section className="glass-card overflow-hidden p-4 sm:p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Daily Sales Table</h2>
             <p className="text-xs text-slate-500">Click any date to view that day&apos;s order list.</p>
           </div>
           <p className="text-xs font-medium text-slate-400">{from} to {to}</p>
         </div>
-        <div className="overflow-x-auto">
+        <div className="space-y-3 md:hidden">
+          {(report.rows || []).map((row) => (
+            <button
+              key={row.date}
+              type="button"
+              onClick={() => openOrdersForDate(row.date)}
+              className="w-full rounded-3xl border border-slate-100 bg-white p-4 text-left shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-brand-600">{row.date}</p>
+                  <p className="mt-1 text-xs text-slate-500">Tap to view order list</p>
+                </div>
+                <p className="text-sm font-bold text-brand-600">{currency(row.totalSaleAmount)}</p>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">SL</p>
+                  <p className="mt-1 text-slate-700">{row.sl}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Orders</p>
+                  <p className="mt-1 text-slate-700">{row.numberOfOrder}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Cash</p>
+                  <p className="mt-1 text-slate-700">{currency(row.paymentBy.cash)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Card</p>
+                  <p className="mt-1 text-slate-700">{currency(row.paymentBy.card)}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">QR</p>
+                  <p className="mt-1 text-slate-700">{currency(row.paymentBy.qr)}</p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-slate-500">

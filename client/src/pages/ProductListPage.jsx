@@ -239,7 +239,7 @@ const ProductListPage = () => {
 
   return (
     <div className="space-y-6">
-      <section className="glass-card p-6">
+      <section className="glass-card p-4 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="font-display text-3xl font-extrabold text-slate-900">Product List</h1>
@@ -284,7 +284,7 @@ const ProductListPage = () => {
         </div>
       </section>
 
-      <section className="glass-card overflow-hidden p-6">
+      <section className="glass-card overflow-hidden p-4 sm:p-6">
         <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h2 className="font-display text-2xl font-bold text-slate-900">All Products</h2>
@@ -345,7 +345,120 @@ const ProductListPage = () => {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="space-y-3 lg:hidden">
+          {filteredProducts.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+              No products match the selected filters.
+            </div>
+          ) : (
+            filteredProducts.map((product) => (
+            <div key={product.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <img src={imageUrl(product.image)} alt={product.name} className="h-16 w-16 rounded-2xl object-cover" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900">{product.name}</p>
+                      <p className="text-xs text-slate-500">{product.sku}</p>
+                    </div>
+                    <StatusBadge stock={product.stock} lowStock={product.lowStock} />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Category</p>
+                      <p className="mt-1 text-slate-700">{categoryLabel(product.category)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Type</p>
+                      <p className="mt-1 text-slate-700">{productTypeLabel(product.productType)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Unit</p>
+                      <p className="mt-1 text-slate-700">{stockUnitLabel(product.stockUnit)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">For Sale</p>
+                      <span className={`mt-1 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${product.forSale !== false ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
+                        {product.forSale !== false ? "Yes" : "No"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Price</p>
+                      <div className="mt-1 flex flex-col">
+                        {Number(product.regularPrice ?? product.price) > Number(product.promotionalPrice ?? product.price) && (
+                          <span className="text-xs text-slate-400 line-through">{currency(product.regularPrice)}</span>
+                        )}
+                        <span className="font-semibold text-slate-900">{currency(product.promotionalPrice ?? product.price)}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Inventory</p>
+                      <p className="mt-1 font-semibold text-slate-900">{product.stock}</p>
+                      <p className="text-xs text-slate-500">{isCompositeType(product.productType) ? "Calculated from linked items" : "Base stock"}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs text-slate-500">Updated {formatDate(product.updatedAt)}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {canManageProducts && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setModalOpen(true);
+                        }}
+                        className="btn-secondary gap-2"
+                      >
+                        <Pencil size={16} />
+                        Edit
+                      </button>
+                    )}
+                    {isCompositeType(product.productType) ? (
+                      <button type="button" onClick={() => openBreakdownModal(product)} className="btn-secondary gap-2">
+                        <Info size={16} />
+                        Materials
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setStockModalOpen(true);
+                        }}
+                        className="btn-secondary gap-2"
+                        disabled={!canUpdateStock}
+                      >
+                        <RefreshCcw size={16} />
+                        {canUpdateStock ? "Add" : "View"}
+                      </button>
+                    )}
+                    {canDeductStock && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedProduct(product);
+                          setDeductModalOpen(true);
+                        }}
+                        className="btn-secondary gap-2 text-rose-600"
+                        disabled={isCompositeType(product.productType) || product.stock <= 0}
+                      >
+                        <Trash2 size={16} />
+                        Deduct
+                      </button>
+                    )}
+                    {canManageProducts && (
+                      <button type="button" onClick={() => handleDelete(product.id)} className="btn-secondary gap-2 text-rose-600">
+                        <Trash2 size={16} />
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            ))
+          )}
+        </div>
+        <div className="hidden overflow-x-auto lg:block">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-slate-500">

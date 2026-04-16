@@ -51,7 +51,7 @@ const UsersPage = () => {
 
   return (
     <div className="space-y-6">
-      <section className="glass-card p-6">
+      <section className="glass-card p-4 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="font-display text-3xl font-extrabold text-slate-900">Users</h1>
@@ -75,8 +75,44 @@ const UsersPage = () => {
         </div>
       </section>
 
-      <section className="glass-card overflow-hidden p-6">
-        <div className="overflow-x-auto">
+      <section className="glass-card overflow-hidden p-4 sm:p-6">
+        <div className="space-y-3 md:hidden">
+          {users.map((user) => (
+            <div key={user.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-slate-900">{user.name}</p>
+                  <p className="text-sm text-slate-600">{user.email}</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${user.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
+                  {user.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Role</p>
+                  <p className="mt-1 capitalize text-slate-700">{user.role}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Updated</p>
+                  <p className="mt-1 text-slate-700">{formatDate(user.updatedAt)}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedUser(user);
+                  setModalOpen(true);
+                }}
+                className="btn-secondary mt-4 w-full justify-center gap-2"
+              >
+                <Pencil size={16} />
+                Edit User
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-slate-500">

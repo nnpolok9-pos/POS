@@ -79,7 +79,9 @@ const AppShell = () => {
           </button>
         </div>
 
-        <aside className={`${mobileNavOpen ? "flex" : "hidden"} glass-card flex w-full flex-col gap-3 p-3 xl:flex xl:w-[16.5rem] xl:max-h-[calc(100vh-2.5rem)] xl:overflow-y-auto`}>
+        {mobileNavOpen ? <button type="button" className="fixed inset-0 z-30 bg-slate-950/35 xl:hidden" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation overlay" /> : null}
+
+        <aside className={`${mobileNavOpen ? "flex" : "hidden"} glass-card fixed inset-y-3 left-3 right-3 z-40 flex-col gap-3 overflow-y-auto p-3 xl:static xl:flex xl:w-[16.5rem] xl:max-h-[calc(100vh-2.5rem)] xl:overflow-y-auto`}>
           <div className="overflow-hidden rounded-[1.6rem] border border-[#eadcc4] bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(252,244,228,0.94))] shadow-[0_14px_30px_rgba(160,120,50,0.08)]">
             <div className="bg-[radial-gradient(circle_at_top_left,rgba(245,146,63,0.22),transparent_45%)] p-3">
               <div className="flex justify-center">
