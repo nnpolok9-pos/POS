@@ -1,4 +1,4 @@
-import { Search, ShoppingBag, X } from "lucide-react";
+import { Menu, Search, ShoppingBag, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import CartPanel from "../components/CartPanel";
@@ -181,6 +181,7 @@ const CustomerOrderPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [queueOrder, setQueueOrder] = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [shop, setShop] = useState({ shopName: "ASEN POS", address: "", logo: "" });
   const [language, setLanguage] = useState(() => localStorage.getItem("customer-language") || "km");
 
@@ -485,63 +486,44 @@ const CustomerOrderPage = () => {
         </div>
 
         <section className="xl:hidden">
-          <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(160deg,rgba(255,255,255,0.98)_0%,rgba(255,245,230,0.96)_60%,rgba(255,237,213,0.94)_100%)] shadow-[0_18px_50px_rgba(160,120,50,0.14)]">
-            <div className="relative px-4 pb-4 pt-4 sm:px-5">
-              <div className="absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top_left,_rgba(245,146,63,0.24),_transparent_58%)]" />
-              <div className="relative flex items-center justify-between gap-3">
+          <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-[linear-gradient(160deg,rgba(255,255,255,0.98)_0%,rgba(255,245,230,0.96)_60%,rgba(255,237,213,0.94)_100%)] shadow-[0_18px_50px_rgba(160,120,50,0.14)]">
+            <div className="border-b border-white/70 bg-white/65 px-4 py-3 sm:px-5">
+              <div className="flex items-center justify-between gap-3 pl-12">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-brand-500">{text.orderOnline}</p>
-                  <p className="mt-1 text-[15px] font-bold text-slate-900">{MENU_PAGE_TITLE}</p>
+                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.orderOnline}</p>
+                  <p className="mt-1 truncate text-[14px] font-bold text-slate-900">{shop.shopName || MENU_PAGE_TITLE}</p>
                 </div>
-                <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[1.7rem] border border-white/80 bg-white shadow-[0_14px_24px_rgba(160,120,50,0.12)]">
-                  {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-cover" /> : null}
-                </div>
-              </div>
 
-              <div className="relative mt-3">
-                <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder={text.search}
-                  className="w-full rounded-[1.35rem] border border-white/80 bg-white/95 px-11 py-3.5 text-[14px] text-slate-700 outline-none shadow-[0_12px_20px_rgba(160,120,50,0.08)] transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
-                />
-              </div>
-
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.categories}</p>
-                <div className="rounded-full border border-white/80 bg-white/90 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
-                  {Math.max(categoryOptions.length - 1, 0)} {language === "km" ? "ប្រភេទ" : "Categories"}
-                </div>
-              </div>
-
-              <div className="mt-3 max-h-[172px] overflow-y-auto rounded-[1.25rem] border border-white/70 bg-white/70 p-2 shadow-[0_10px_20px_rgba(160,120,50,0.08)]">
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                {categoryOptions.map((category) => (
+                <div className="inline-flex items-center gap-2 rounded-[1.1rem] border border-white/80 bg-white/90 px-2.5 py-2 shadow-sm">
+                  <span className="text-[11px] font-semibold text-slate-500">{text.language}</span>
                   <button
-                    key={category.key}
                     type="button"
-                    onClick={() => setSelectedCategory(category.key)}
-                    className={`rounded-[0.95rem] px-3 py-2 text-left text-[12px] font-semibold transition ${
-                      selectedCategory === category.key
-                        ? "bg-slate-900 text-white shadow-[0_10px_20px_rgba(15,23,42,0.22)]"
-                        : "border border-white/80 bg-white/95 text-slate-600 shadow-sm"
-                    }`}
+                    onClick={() => setLanguage("km")}
+                    className={`rounded-full px-2.5 py-1.5 text-[11px] font-semibold ${language === "km" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"}`}
                   >
-                    <span
-                      className={`block whitespace-normal break-words text-left leading-snug ${
-                        selectedCategory === category.key ? "text-white" : localizedPrimaryTextClass(language, "text-slate-700")
-                      }`}
-                    >
-                      {getCategoryLabel(category, language)}
-                    </span>
+                    {text.khmer}
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("en")}
+                    className={`rounded-full px-2.5 py-1.5 text-[11px] font-semibold ${language === "en" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"}`}
+                  >
+                    {text.english}
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-white/70 bg-white/55 px-4 pb-24 pt-4 sm:px-5">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="absolute left-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-[1rem] border border-white/80 bg-white/95 text-slate-700 shadow-[0_12px_22px_rgba(160,120,50,0.12)]"
+              aria-label="Open menu filters"
+            >
+              <Menu size={18} />
+            </button>
+
+            <div className="bg-white/55 px-4 pb-24 pt-4 sm:px-5">
               <div className="space-y-3">
                 {loading ? (
                   <div className="rounded-[1.6rem] bg-white p-6 text-center text-sm text-slate-500 shadow-sm">{text.loading}</div>
@@ -668,6 +650,81 @@ const CustomerOrderPage = () => {
                 showLatestPrint={false}
                 labels={text.cartLabels}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 bg-slate-950/40 xl:hidden" onClick={() => setMobileMenuOpen(false)}>
+          <div
+            className="h-full w-[84vw] max-w-[340px] overflow-y-auto border-r border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.99)_0%,rgba(255,246,232,0.98)_100%)] p-4 shadow-[0_24px_50px_rgba(15,23,42,0.24)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-brand-500">{text.orderOnline}</p>
+                <p className="mt-1 text-[16px] font-bold text-slate-900">{MENU_PAGE_TITLE}</p>
+                <p className="mt-1 text-[12px] text-slate-500">{shop.shopName || "ASEN POS"}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex h-[58px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-[1.3rem] border border-white/80 bg-white shadow-[0_10px_22px_rgba(160,120,50,0.10)]">
+                  {shop.logo ? <img src={imageUrl(shop.logo)} alt={shop.shopName} className="h-full w-full object-cover" /> : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex h-10 w-10 items-center justify-center rounded-[1rem] border border-white/80 bg-white text-slate-600 shadow-sm"
+                  aria-label="Close menu filters"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="relative mt-4">
+              <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={text.search}
+                className="w-full rounded-[1.35rem] border border-white/80 bg-white/95 px-11 py-3.5 text-[14px] text-slate-700 outline-none shadow-[0_12px_20px_rgba(160,120,50,0.08)] transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+              />
+            </div>
+
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{text.categories}</p>
+              <div className="rounded-full border border-white/80 bg-white/90 px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm">
+                {Math.max(categoryOptions.length - 1, 0)} {language === "km" ? "ប្រភេទ" : "Categories"}
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-[1.25rem] border border-white/70 bg-white/70 p-2 shadow-[0_10px_20px_rgba(160,120,50,0.08)]">
+              <div className="grid grid-cols-2 gap-1.5">
+                {categoryOptions.map((category) => (
+                  <button
+                    key={category.key}
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory(category.key);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`rounded-[0.95rem] px-3 py-2 text-left text-[12px] font-semibold transition ${
+                      selectedCategory === category.key
+                        ? "bg-slate-900 text-white shadow-[0_10px_20px_rgba(15,23,42,0.22)]"
+                        : "border border-white/80 bg-white/95 text-slate-600 shadow-sm"
+                    }`}
+                  >
+                    <span
+                      className={`block whitespace-normal break-words text-left leading-snug ${
+                        selectedCategory === category.key ? "text-white" : localizedPrimaryTextClass(language, "text-slate-700")
+                      }`}
+                    >
+                      {getCategoryLabel(category, language)}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
