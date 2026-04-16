@@ -65,7 +65,7 @@ const PosterImageCard = ({ product, compact = false }) => (
       className={`h-full w-full ${compact ? "object-contain p-[0.2vw]" : "object-cover"}`}
     />
     <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(180deg,rgba(20,20,20,0)_0%,rgba(20,20,20,0.72)_42%,rgba(20,20,20,0.96)_100%)] p-[0.42vw] text-white">
-      <p className={`${compact ? "text-[0.84vw]" : "text-[1vw]"} line-clamp-2 font-black uppercase leading-[1.02]`}>
+      <p className={`${compact ? "text-[0.98vw]" : "text-[1.18vw]"} line-clamp-2 font-black uppercase leading-[1.02]`}>
         {product.name}
       </p>
       <div className="mt-[0.14vw]">
@@ -91,7 +91,7 @@ const ComboImageCard = ({ product, soft = false, flat = false }) => (
     </div>
     <div className="flex flex-col justify-between p-[0.36vw]">
       <div>
-        <p className="line-clamp-2 text-[0.84vw] font-black uppercase leading-[1.04] text-[#171717]">{product.name}</p>
+        <p className="line-clamp-2 text-[0.98vw] font-black uppercase leading-[1.04] text-[#171717]">{product.name}</p>
         {product.description ? (
           <p className="mt-[0.12vw] line-clamp-3 text-[0.48vw] leading-[1.14] text-slate-500">{product.description}</p>
         ) : null}
@@ -115,7 +115,7 @@ const ProductTile = ({ product, showDescription = false, largeImage = false }) =
   <div className={`h-full rounded-[0.9vw] bg-white/78 ${largeImage ? "p-[0.18vw]" : "p-[0.22vw]"} shadow-[0_8px_22px_rgba(15,23,42,0.08)]`}>
     <div className={`grid h-full items-start gap-[0.28vw] ${largeImage ? "grid-cols-[minmax(0,1fr)_7.2vw]" : "grid-cols-[minmax(0,1fr)_6vw]"}`}>
       <div className="min-w-0 self-start pt-[0.02vw]">
-        <p className="line-clamp-2 text-[0.8vw] font-extrabold leading-[1.05] text-[#151515]">
+        <p className="line-clamp-2 text-[0.98vw] font-extrabold leading-[1.05] text-[#151515]">
           {product.name}
         </p>
         {showDescription && product.description ? (
@@ -195,7 +195,7 @@ const FeatureSection = ({ title, products, brandLogo }) => {
                 <div className="flex h-full items-stretch justify-between gap-[0.34vw]">
                   <div className="min-w-0 flex-1">
                     <p className="text-[0.48vw] font-bold uppercase tracking-[0.08em] text-slate-500">{`Set ${index + 1}`}</p>
-                    <p className="mt-[0.08vw] line-clamp-2 text-[0.8vw] font-black leading-[1.05] text-[#171717]">{product.name}</p>
+                    <p className="mt-[0.08vw] line-clamp-2 text-[0.96vw] font-black leading-[1.05] text-[#171717]">{product.name}</p>
                     {product.description ? (
                       <p className="mt-[0.1vw] line-clamp-2 text-[0.46vw] leading-[1.14] text-slate-500">{product.description}</p>
                     ) : null}
@@ -249,7 +249,7 @@ const CompactSection = ({ title, products, dense = false }) => (
             <img src={imageUrl(product.image)} alt={product.name} className={`h-full w-full ${dense ? "object-contain p-[0.08vw]" : "object-cover"}`} />
           </div>
           <div className="min-w-0 self-center">
-            <p className={`line-clamp-2 ${dense ? "text-[0.7vw]" : "text-[0.76vw]"} font-extrabold leading-[1.03] text-[#171717]`}>{product.name}</p>
+            <p className={`line-clamp-2 ${dense ? "text-[0.84vw]" : "text-[0.92vw]"} font-extrabold leading-[1.03] text-[#171717]`}>{product.name}</p>
             <div className={dense ? "mt-[0.08vw]" : "mt-[0.12vw]"}>
               <ProductPrice product={product} />
             </div>
@@ -270,7 +270,7 @@ const DrinksStrip = ({ products }) => (
             <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-contain" />
           </div>
           <div className="min-w-0">
-            <p className="line-clamp-2 text-[0.68vw] font-extrabold leading-[1.03] text-[#171717]">{product.name}</p>
+            <p className="line-clamp-2 text-[0.84vw] font-extrabold leading-[1.03] text-[#171717]">{product.name}</p>
             <div className="mt-[0.04vw]">
               <ProductPrice product={product} />
             </div>
