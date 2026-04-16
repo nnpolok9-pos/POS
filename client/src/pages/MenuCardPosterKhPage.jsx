@@ -278,8 +278,8 @@ const CompactSection = ({ title, products, dense = false }) => (
 const DrinksStrip = ({ products }) => (
   <section className="flex h-full flex-col overflow-hidden rounded-[1.32vw] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(245,243,250,0.94)_100%)] px-[0.52vw] pb-[0.52vw] pt-[0.02vw] shadow-[0_14px_28px_rgba(15,23,42,0.10)]">
     <SectionHeader title="Drinks" />
-    <div className="grid flex-1 grid-cols-4 grid-rows-2 gap-[0.24vw]">
-      {products.slice(0, 8).map((product) => (
+    <div className="grid flex-1 grid-cols-5 grid-rows-2 gap-[0.24vw]">
+      {products.slice(0, 10).map((product) => (
         <div key={product.id} className="grid min-w-0 grid-cols-[26%_1fr] items-center gap-[0.2vw] rounded-[0.8vw] bg-white/82 p-[0.18vw] shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
           <div className="h-full min-h-[3.2vw] overflow-hidden rounded-[0.62vw] bg-white">
             <img src={imageUrl(product.image)} alt={getKhmerName(product)} className="h-full w-full object-contain" />
