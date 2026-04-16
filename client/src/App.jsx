@@ -20,6 +20,8 @@ import MenuCardPage from "./pages/MenuCardPage";
 import ProfilePage from "./pages/ProfilePage";
 import MenuCardPosterPage from "./pages/MenuCardPosterPage";
 import MenuCardPosterKhPage from "./pages/MenuCardPosterKhPage";
+import MenuCardA4Page from "./pages/MenuCardA4Page";
+import MenuCardA4KhPage from "./pages/MenuCardA4KhPage";
 
 const ProtectedRoute = ({ roles, children }) => {
   const { isAuthenticated, user, loading } = useAuth();
@@ -51,6 +53,8 @@ function App() {
       <Route path="/menu-card" element={<MenuCardPage />} />
       <Route path="/menu-card-poster" element={<MenuCardPosterPage />} />
       <Route path="/menu-card-poster-kh" element={<MenuCardPosterKhPage />} />
+      <Route path="/menu-card-a4" element={<MenuCardA4Page />} />
+      <Route path="/menu-card-a4-kh" element={<MenuCardA4KhPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/"
