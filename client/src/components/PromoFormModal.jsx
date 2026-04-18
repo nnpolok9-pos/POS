@@ -1,4 +1,7 @@
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const EMPTY_PROMO = {
   code: "",
@@ -35,6 +38,52 @@ const toDateTimeLocal = (value) => {
 
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
+
+const fromDateTimeLocal = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatDateTimeLocal = (date) => {
+  if (!date) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const PromoDateTimePicker = ({ label, value, onChange, minDate, maxDate }) => (
+  <label className="block min-w-0">
+    <span className="mb-2 block text-sm font-semibold text-slate-700">{label}</span>
+    <DatePicker
+      selected={fromDateTimeLocal(value)}
+      onChange={(date) => onChange(date ? formatDateTimeLocal(date) : "")}
+      showTimeSelect
+      timeIntervals={5}
+      timeCaption="Time"
+      dateFormat="dd/MM/yyyy hh:mm aa"
+      placeholderText="Select date and time"
+      minDate={minDate ? fromDateTimeLocal(minDate) : undefined}
+      maxDate={maxDate ? fromDateTimeLocal(maxDate) : undefined}
+      calendarClassName="!rounded-3xl !border !border-slate-200 !shadow-soft"
+      popperClassName="z-[70]"
+      popperPlacement="bottom-start"
+      popperProps={{ strategy: "fixed" }}
+      popperContainer={({ children }) => createPortal(children, document.body)}
+      className="input h-12 rounded-2xl border-[#d9ceb7] bg-[#fffaf0] text-sm font-medium text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+    />
+  </label>
+);
 
 const PromoFormModal = ({ open, promo, onClose, onSubmit, submitting }) => {
   const [form, setForm] = useState(EMPTY_PROMO);
@@ -139,14 +188,8 @@ const PromoFormModal = ({ open, promo, onClose, onSubmit, submitting }) => {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">Starts At</label>
-              <input className="input" type="datetime-local" value={form.startsAt} onChange={(event) => updateField("startsAt", event.target.value)} />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">Expires At</label>
-              <input className="input" type="datetime-local" value={form.expiresAt} onChange={(event) => updateField("expiresAt", event.target.value)} />
-            </div>
+            <PromoDateTimePicker label="Starts At" value={form.startsAt} onChange={(value) => updateField("startsAt", value)} maxDate={form.expiresAt || undefined} />
+            <PromoDateTimePicker label="Expires At" value={form.expiresAt} onChange={(value) => updateField("expiresAt", value)} minDate={form.startsAt || undefined} />
             <div>
               <label className="mb-2 block text-sm font-semibold text-slate-700">Daily Max Uses</label>
               <input className="input" type="number" min="0" step="1" value={form.maxUsesPerDay} onChange={(event) => updateField("maxUsesPerDay", event.target.value)} placeholder="Optional" />
