@@ -1,11 +1,46 @@
 const PROMO_DISCOUNT_TYPES = ["fixed", "percentage"];
 const PROMO_APPLIES_TO = ["all", "pos", "menu"];
+const BUSINESS_TIMEZONE_OFFSET = "+07:00";
 
 const normalizePromoCode = (value) => String(value || "").trim().toUpperCase();
 
+const parsePromoDate = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const rawValue = String(value).trim();
+  if (!rawValue) {
+    return null;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    const parsed = new Date(`${rawValue}T00:00:00${BUSINESS_TIMEZONE_OFFSET}`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(rawValue)) {
+    const normalized = rawValue.replace(" ", "T");
+    const withSeconds = normalized.length === 16 ? `${normalized}:00` : normalized;
+    const parsed = new Date(`${withSeconds}${BUSINESS_TIMEZONE_OFFSET}`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(rawValue);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const sameLocalDay = (left, right) => {
-  const leftDate = new Date(left);
-  const rightDate = new Date(right);
+  const leftDate = parsePromoDate(left);
+  const rightDate = parsePromoDate(right);
+
+  if (!leftDate || !rightDate) {
+    return false;
+  }
 
   return (
     leftDate.getFullYear() === rightDate.getFullYear() &&
@@ -15,12 +50,8 @@ const sameLocalDay = (left, right) => {
 };
 
 const serializePromoDate = (value) => {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parsePromoDate(value);
+  if (!parsed) {
     return null;
   }
 
@@ -124,8 +155,8 @@ const validatePromoForOrder = ({ promo, subtotal, source = "pos", usageStats }) 
   }
 
   const now = new Date();
-  const startsAt = promo.startsAt ? new Date(promo.startsAt) : null;
-  const expiresAt = promo.expiresAt ? new Date(promo.expiresAt) : null;
+  const startsAt = parsePromoDate(promo.startsAt);
+  const expiresAt = parsePromoDate(promo.expiresAt);
 
   if (startsAt && now < startsAt) {
     throw new Error("Promo code is not active yet");
@@ -174,6 +205,7 @@ module.exports = {
   PROMO_DISCOUNT_TYPES,
   PROMO_APPLIES_TO,
   normalizePromoCode,
+  parsePromoDate,
   normalizePromoPayload,
   buildPromoSnapshot,
   calculatePromoDiscount,

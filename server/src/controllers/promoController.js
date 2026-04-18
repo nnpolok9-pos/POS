@@ -9,6 +9,7 @@ const {
 const { buildRequestedItems, buildOrderItemsFromProducts } = require("../lib/orderPricing");
 const {
   normalizePromoCode,
+  parsePromoDate,
   normalizePromoPayload,
   getPromoUsageStats,
   validatePromoForOrder
@@ -18,8 +19,8 @@ const enrichPromo = async (promo) => {
   const orders = await getOrders({ where: "WHERE promo_code_id=:promoCodeId", params: { promoCodeId: promo.id } });
   const usageStats = getPromoUsageStats({ promoId: promo.id, orders });
   const now = new Date();
-  const startsAt = promo.startsAt ? new Date(promo.startsAt) : null;
-  const expiresAt = promo.expiresAt ? new Date(promo.expiresAt) : null;
+  const startsAt = parsePromoDate(promo.startsAt);
+  const expiresAt = parsePromoDate(promo.expiresAt);
 
   return {
     ...promo,

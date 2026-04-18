@@ -1,4 +1,4 @@
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import PromoFormModal from "../components/PromoFormModal";
@@ -18,6 +18,7 @@ const PromosPage = () => {
   const [promos, setPromos] = useState([]);
   const [selectedPromo, setSelectedPromo] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState("create");
   const [submitting, setSubmitting] = useState(false);
 
   const loadPromos = async () => {
@@ -56,16 +57,17 @@ const PromosPage = () => {
     setSubmitting(true);
 
     try {
-      if (selectedPromo) {
+      if (modalMode === "edit" && selectedPromo) {
         await promoService.updatePromo(selectedPromo.id, payload);
         toast.success("Promo updated");
       } else {
         await promoService.createPromo(payload);
-        toast.success("Promo created");
+        toast.success(modalMode === "copy" ? "Copied promo created" : "Promo created");
       }
 
       setModalOpen(false);
       setSelectedPromo(null);
+      setModalMode("create");
       await loadPromos();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to save promo");
@@ -102,6 +104,7 @@ const PromosPage = () => {
             type="button"
             onClick={() => {
               setSelectedPromo(null);
+              setModalMode("create");
               setModalOpen(true);
             }}
             className="btn-primary gap-2"
@@ -193,12 +196,25 @@ const PromosPage = () => {
                     type="button"
                     onClick={() => {
                       setSelectedPromo(promo);
+                      setModalMode("edit");
                       setModalOpen(true);
                     }}
                     className="btn-secondary gap-2"
                   >
                     <Pencil size={16} />
                     Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPromo(promo);
+                      setModalMode("copy");
+                      setModalOpen(true);
+                    }}
+                    className="btn-secondary gap-2 text-sky-700"
+                  >
+                    <Copy size={16} />
+                    Copy
                   </button>
                   <button type="button" onClick={() => handleDelete(promo)} className="btn-secondary gap-2 text-rose-600">
                     <Trash2 size={16} />
@@ -254,12 +270,25 @@ const PromosPage = () => {
                         type="button"
                         onClick={() => {
                           setSelectedPromo(promo);
+                          setModalMode("edit");
                           setModalOpen(true);
                         }}
                         className="btn-secondary gap-2"
                       >
                         <Pencil size={16} />
                         Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPromo(promo);
+                          setModalMode("copy");
+                          setModalOpen(true);
+                        }}
+                        className="btn-secondary gap-2 text-sky-700"
+                      >
+                        <Copy size={16} />
+                        Copy
                       </button>
                       <button type="button" onClick={() => handleDelete(promo)} className="btn-secondary gap-2 text-rose-600">
                         <Trash2 size={16} />
@@ -284,9 +313,11 @@ const PromosPage = () => {
       <PromoFormModal
         open={modalOpen}
         promo={selectedPromo}
+        mode={modalMode}
         onClose={() => {
           setModalOpen(false);
           setSelectedPromo(null);
+          setModalMode("create");
         }}
         onSubmit={handleSubmit}
         submitting={submitting}

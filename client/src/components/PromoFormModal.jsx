@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
+import { CalendarDays } from "lucide-react";
 import "react-datepicker/dist/react-datepicker.css";
 
 const EMPTY_PROMO = {
@@ -62,6 +63,38 @@ const formatDateTimeLocal = (date) => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+const formatDateTimeDisplay = (value) => {
+  const date = fromDateTimeLocal(value);
+  if (!date) {
+    return "Select date and time";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  }).format(date);
+};
+
+const PromoDateInput = forwardRef(({ value, onClick, placeholder }, ref) => (
+  <button
+    type="button"
+    ref={ref}
+    onClick={onClick}
+    className={`input flex h-12 items-center justify-between rounded-2xl border-[#d9ceb7] bg-[#fffaf0] text-left text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] ${
+      value ? "text-slate-700" : "text-slate-400"
+    }`}
+  >
+    <span className="truncate pr-3">{value || placeholder}</span>
+    <CalendarDays size={16} className="shrink-0 text-slate-500" />
+  </button>
+));
+
+PromoDateInput.displayName = "PromoDateInput";
+
 const PromoDateTimePicker = ({ label, value, onChange, minDate, maxDate }) => (
   <label className="block min-w-0">
     <span className="mb-2 block text-sm font-semibold text-slate-700">{label}</span>
@@ -80,12 +113,12 @@ const PromoDateTimePicker = ({ label, value, onChange, minDate, maxDate }) => (
       popperPlacement="bottom-start"
       popperProps={{ strategy: "fixed" }}
       popperContainer={({ children }) => createPortal(children, document.body)}
-      className="input h-12 rounded-2xl border-[#d9ceb7] bg-[#fffaf0] text-sm font-medium text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+      customInput={<PromoDateInput value={formatDateTimeDisplay(value)} placeholder="Select date and time" />}
     />
   </label>
 );
 
-const PromoFormModal = ({ open, promo, onClose, onSubmit, submitting }) => {
+const PromoFormModal = ({ open, promo, mode = "create", onClose, onSubmit, submitting }) => {
   const [form, setForm] = useState(EMPTY_PROMO);
 
   useEffect(() => {
@@ -96,7 +129,7 @@ const PromoFormModal = ({ open, promo, onClose, onSubmit, submitting }) => {
     setForm(
       promo
         ? {
-            code: promo.code || "",
+            code: mode === "copy" ? "" : promo.code || "",
             title: promo.title || "",
             description: promo.description || "",
             discountType: promo.discountType || "fixed",
@@ -113,7 +146,7 @@ const PromoFormModal = ({ open, promo, onClose, onSubmit, submitting }) => {
           }
         : EMPTY_PROMO
     );
-  }, [open, promo]);
+  }, [mode, open, promo]);
 
   if (!open) {
     return null;
@@ -133,6 +166,9 @@ const PromoFormModal = ({ open, promo, onClose, onSubmit, submitting }) => {
     });
   };
 
+  const modalTitle = mode === "edit" ? "Edit Promo" : mode === "copy" ? "Copy Promo" : "Add Promo";
+  const submitLabel = mode === "edit" ? "Update Promo" : mode === "copy" ? "Create Copied Promo" : "Create Promo";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 sm:p-4" onClick={onClose}>
       <div
@@ -141,8 +177,9 @@ const PromoFormModal = ({ open, promo, onClose, onSubmit, submitting }) => {
       >
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-2xl font-bold text-slate-900">{promo ? "Edit Promo" : "Add Promo"}</h2>
+            <h2 className="font-display text-2xl font-bold text-slate-900">{modalTitle}</h2>
             <p className="text-sm text-slate-500">Create time-based discount codes with usage controls for POS and menu orders.</p>
+            {mode === "copy" ? <p className="mt-1 text-xs font-medium text-slate-400">The existing promo data is copied here. Enter a new promo code before saving.</p> : null}
           </div>
           <button type="button" onClick={onClose} className="btn-secondary">
             Close
@@ -224,7 +261,7 @@ const PromoFormModal = ({ open, promo, onClose, onSubmit, submitting }) => {
 
           <div className="flex justify-end">
             <button type="submit" disabled={submitting} className="btn-primary min-w-[180px]">
-              {submitting ? "Saving..." : promo ? "Update Promo" : "Create Promo"}
+              {submitting ? "Saving..." : submitLabel}
             </button>
           </div>
         </form>
