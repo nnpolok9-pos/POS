@@ -65,6 +65,29 @@ const mysqlSchemaStatements = [
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS promo_codes (
+    id VARCHAR(36) PRIMARY KEY,
+    code VARCHAR(64) NOT NULL UNIQUE,
+    title VARCHAR(191) NOT NULL DEFAULT '',
+    description TEXT NOT NULL,
+    discount_type ENUM('fixed','percentage') NOT NULL DEFAULT 'fixed',
+    discount_value DECIMAL(12,2) NOT NULL DEFAULT 0,
+    min_order_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    max_discount_amount DECIMAL(12,2) NULL,
+    starts_at DATETIME(3) NULL,
+    expires_at DATETIME(3) NULL,
+    max_total_uses INT NULL,
+    max_uses_per_day INT NULL,
+    applies_to ENUM('all','pos','menu') NOT NULL DEFAULT 'all',
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    notes TEXT NOT NULL,
+    created_by VARCHAR(36) NULL,
+    updated_by VARCHAR(36) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    INDEX idx_promo_code (code),
+    INDEX idx_promo_active (is_active)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   `CREATE TABLE IF NOT EXISTS inventory_movements (
     id VARCHAR(36) PRIMARY KEY,
     product_id VARCHAR(36) NOT NULL,
@@ -89,11 +112,15 @@ const mysqlSchemaStatements = [
     sauce_items JSON NOT NULL,
     total DECIMAL(12,2) NOT NULL DEFAULT 0,
     subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
-    payment_method ENUM('cash','card','qr') NULL,
+    payment_method ENUM('cash','card','qr','due_on_serve') NULL,
     booking_details JSON NOT NULL,
     status ENUM('queued','food_serving','completed','void','quote_prepared','confirmed') NOT NULL DEFAULT 'food_serving',
     queue_number VARCHAR(64) NOT NULL DEFAULT '',
     source ENUM('staff','customer') NOT NULL DEFAULT 'staff',
+    promo_code_id VARCHAR(36) NULL,
+    promo_code VARCHAR(64) NULL,
+    promo_discount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    promo_snapshot JSON NULL,
     original_subtotal DECIMAL(12,2) NULL,
     original_total DECIMAL(12,2) NULL,
     staff_id VARCHAR(36) NULL,
@@ -109,7 +136,8 @@ const mysqlSchemaStatements = [
     INDEX idx_orders_staff_id (staff_id),
     INDEX idx_orders_status (status),
     INDEX idx_orders_created_at (created_at),
-    INDEX idx_orders_served_at (served_at)
+    INDEX idx_orders_served_at (served_at),
+    INDEX idx_orders_promo_code_id (promo_code_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 ];
 
@@ -159,6 +187,29 @@ const sqliteSchemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS promo_codes (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    discount_type TEXT NOT NULL DEFAULT 'fixed',
+    discount_value REAL NOT NULL DEFAULT 0,
+    min_order_amount REAL NOT NULL DEFAULT 0,
+    max_discount_amount REAL NULL,
+    starts_at TEXT NULL,
+    expires_at TEXT NULL,
+    max_total_uses INTEGER NULL,
+    max_uses_per_day INTEGER NULL,
+    applies_to TEXT NOT NULL DEFAULT 'all',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    notes TEXT NOT NULL DEFAULT '',
+    created_by TEXT NULL,
+    updated_by TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_promo_code ON promo_codes (code)`,
+  `CREATE INDEX IF NOT EXISTS idx_promo_active ON promo_codes (is_active)`,
   `CREATE TABLE IF NOT EXISTS inventory_movements (
     id TEXT PRIMARY KEY,
     product_id TEXT NOT NULL,
@@ -188,6 +239,10 @@ const sqliteSchemaStatements = [
     status TEXT NOT NULL DEFAULT 'food_serving',
     queue_number TEXT NOT NULL DEFAULT '',
     source TEXT NOT NULL DEFAULT 'staff',
+    promo_code_id TEXT NULL,
+    promo_code TEXT NULL,
+    promo_discount REAL NOT NULL DEFAULT 0,
+    promo_snapshot TEXT NULL,
     original_subtotal REAL NULL,
     original_total REAL NULL,
     staff_id TEXT NULL,
@@ -205,6 +260,7 @@ const sqliteSchemaStatements = [
   `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)`,
   `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_orders_served_at ON orders (served_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_orders_promo_code_id ON orders (promo_code_id)`,
   `CREATE TRIGGER IF NOT EXISTS trg_users_updated_at
     AFTER UPDATE ON users
     FOR EACH ROW
@@ -225,6 +281,13 @@ const sqliteSchemaStatements = [
     WHEN NEW.updated_at = OLD.updated_at
     BEGIN
       UPDATE products SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END`,
+  `CREATE TRIGGER IF NOT EXISTS trg_promo_codes_updated_at
+    AFTER UPDATE ON promo_codes
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+    BEGIN
+      UPDATE promo_codes SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END`,
   `CREATE TRIGGER IF NOT EXISTS trg_orders_updated_at
     AFTER UPDATE ON orders
@@ -262,6 +325,18 @@ const ensureMysqlColumn = async (connection, tableName, columnName, definition) 
   }
 };
 
+const ensureMysqlOrderPaymentMethodSupport = async (connection) => {
+  const [rows] = await connection.query("SHOW COLUMNS FROM `orders` LIKE 'payment_method'");
+  if (!rows.length) {
+    return;
+  }
+
+  const columnType = String(rows[0].Type || "").toLowerCase();
+  if (columnType.startsWith("enum(") && !columnType.includes("'due_on_serve'")) {
+    await connection.query("ALTER TABLE `orders` MODIFY COLUMN `payment_method` ENUM('cash','card','qr','due_on_serve') NULL");
+  }
+};
+
 const ensureMysqlDatabase = async () => {
   const basePool = createBasePool(false);
   try {
@@ -273,7 +348,14 @@ const ensureMysqlDatabase = async () => {
 
 const runSqliteStatements = (db, statements) => {
   statements.forEach((statement) => {
-    db.prepare(statement).run();
+    try {
+      db.prepare(statement).run();
+    } catch (error) {
+      if (String(error.message || "").includes("no such column")) {
+        return;
+      }
+      throw error;
+    }
   });
 };
 
@@ -331,6 +413,13 @@ const connectDB = async () => {
     sqliteDb.pragma("foreign_keys = ON");
     runSqliteStatements(sqliteDb, sqliteSchemaStatements);
     ensureSqliteColumn(sqliteDb, "users", "avatar", "avatar TEXT NOT NULL DEFAULT ''");
+    ensureSqliteColumn(sqliteDb, "orders", "promo_code_id", "promo_code_id TEXT NULL");
+    ensureSqliteColumn(sqliteDb, "orders", "promo_code", "promo_code TEXT NULL");
+    ensureSqliteColumn(sqliteDb, "orders", "promo_discount", "promo_discount REAL NOT NULL DEFAULT 0");
+    ensureSqliteColumn(sqliteDb, "orders", "promo_snapshot", "promo_snapshot TEXT NULL");
+    runSqliteStatements(sqliteDb, [
+      `CREATE INDEX IF NOT EXISTS idx_orders_promo_code_id ON orders (promo_code_id)`
+    ]);
     console.log(`SQLite connected: ${DEFAULTS.sqlitePath}`);
     return;
   }
@@ -342,6 +431,11 @@ const connectDB = async () => {
   try {
     await runMysqlSchemaStatements(connection);
     await ensureMysqlColumn(connection, "users", "avatar", "`avatar` TEXT NULL");
+    await ensureMysqlColumn(connection, "orders", "promo_code_id", "`promo_code_id` VARCHAR(36) NULL");
+    await ensureMysqlColumn(connection, "orders", "promo_code", "`promo_code` VARCHAR(64) NULL");
+    await ensureMysqlColumn(connection, "orders", "promo_discount", "`promo_discount` DECIMAL(12,2) NOT NULL DEFAULT 0");
+    await ensureMysqlColumn(connection, "orders", "promo_snapshot", "`promo_snapshot` JSON NULL");
+    await ensureMysqlOrderPaymentMethodSupport(connection);
     console.log("MySQL connected");
   } finally {
     connection.release();
@@ -527,6 +621,35 @@ const mapInventoryMovementRow = (row) => {
   };
 };
 
+const mapPromoRow = (row) => {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    _id: row.id,
+    code: row.code,
+    title: row.title || "",
+    description: row.description || "",
+    discountType: row.discount_type || "fixed",
+    discountValue: Number(row.discount_value || 0),
+    minOrderAmount: Number(row.min_order_amount || 0),
+    maxDiscountAmount: row.max_discount_amount === null ? null : Number(row.max_discount_amount),
+    startsAt: row.starts_at,
+    expiresAt: row.expires_at,
+    maxTotalUses: row.max_total_uses === null ? null : Number(row.max_total_uses),
+    maxUsesPerDay: row.max_uses_per_day === null ? null : Number(row.max_uses_per_day),
+    appliesTo: row.applies_to || "all",
+    isActive: Boolean(row.is_active),
+    notes: row.notes || "",
+    createdBy: row.created_by || null,
+    updatedBy: row.updated_by || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+};
+
 const mapOrderRow = (row) => {
   if (!row) {
     return null;
@@ -545,6 +668,10 @@ const mapOrderRow = (row) => {
     status: row.status,
     queueNumber: row.queue_number || "",
     source: row.source || "staff",
+    promoCodeId: row.promo_code_id || null,
+    promoCode: row.promo_code || null,
+    promoDiscount: Number(row.promo_discount || 0),
+    promoSnapshot: parseJson(row.promo_snapshot, null),
     originalSubtotal: row.original_subtotal === null ? null : Number(row.original_subtotal),
     originalTotal: row.original_total === null ? null : Number(row.original_total),
     staff: row.staff_id,
@@ -573,6 +700,7 @@ module.exports = {
   mapShopSettingsRow,
   mapProductRow,
   mapInventoryMovementRow,
+  mapPromoRow,
   mapOrderRow,
   createId: () => randomUUID()
 };

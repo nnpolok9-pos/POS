@@ -1,7 +1,8 @@
+import { CreditCard, QrCode, Wallet } from "lucide-react";
 import { Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { imageUrl } from "../utils/format";
+import { formatPaymentMethodLabel, imageUrl } from "../utils/format";
 
 const stockUnitLabel = (unit) =>
   ({
@@ -10,8 +11,24 @@ const stockUnitLabel = (unit) =>
     teaspoon: "Tea Spoon"
   })[unit] || "Piece";
 
-const ServeOrderModal = ({ open, order, sauces = [], onClose, onConfirm, loading }) => {
+const paymentMethodMeta = {
+  cash: {
+    label: "Cash",
+    icon: Wallet
+  },
+  card: {
+    label: "Card",
+    icon: CreditCard
+  },
+  qr: {
+    label: "QR",
+    icon: QrCode
+  }
+};
+
+const ServeOrderModal = ({ open, order, sauces = [], onClose, onConfirm, loading, requiresPaymentMethod = false }) => {
   const [quantities, setQuantities] = useState({});
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
 
   useEffect(() => {
     if (!open) {
@@ -23,6 +40,7 @@ const ServeOrderModal = ({ open, order, sauces = [], onClose, onConfirm, loading
       initialQuantities[sauce.id] = "";
     });
     setQuantities(initialQuantities);
+    setSelectedPaymentMethod("");
   }, [open, sauces]);
 
   const sauceItems = useMemo(
@@ -67,6 +85,11 @@ const ServeOrderModal = ({ open, order, sauces = [], onClose, onConfirm, loading
             <p className="text-sm text-slate-500">
               {order.orderId} - Select how much sauce is being provided with this order.
             </p>
+            {requiresPaymentMethod ? (
+              <p className="mt-2 text-sm font-medium text-amber-700">
+                Payment is marked as {formatPaymentMethodLabel(order.paymentMethod, "Unpaid")}. Choose the final payment method before serving.
+              </p>
+            ) : null}
           </div>
           <button type="button" onClick={onClose} className="btn-secondary">
             Close
@@ -157,6 +180,43 @@ const ServeOrderModal = ({ open, order, sauces = [], onClose, onConfirm, loading
           )}
         </div>
 
+        {requiresPaymentMethod ? (
+          <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Payment On Serve</p>
+            <p className="mt-1 text-sm text-amber-900">Select how this unpaid order is being collected now.</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {Object.entries(paymentMethodMeta).map(([method, meta]) => {
+                const Icon = meta.icon;
+                return (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setSelectedPaymentMethod(method)}
+                    className={`rounded-2xl border px-4 py-3 text-left transition ${
+                      selectedPaymentMethod === method
+                        ? "border-brand-300 bg-brand-50 text-brand-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-brand-200"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100">
+                        <Icon size={18} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">{meta.label}</p>
+                        <p className="text-xs text-slate-500">Collect on serve</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            {!selectedPaymentMethod ? (
+              <p className="mt-3 text-xs font-semibold text-rose-600">Select the payment method before confirming this serve action.</p>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
           Sauce items selected: <span className="font-semibold text-slate-900">{sauceItems.length}</span>
         </div>
@@ -165,7 +225,17 @@ const ServeOrderModal = ({ open, order, sauces = [], onClose, onConfirm, loading
           <button type="button" onClick={onClose} className="btn-secondary">
             Cancel
           </button>
-          <button type="button" onClick={() => onConfirm(sauceItems)} disabled={loading} className="btn-primary">
+          <button
+            type="button"
+            onClick={() =>
+              onConfirm({
+                sauceItems,
+                paymentMethod: requiresPaymentMethod ? selectedPaymentMethod : null
+              })
+            }
+            disabled={loading || (requiresPaymentMethod && !selectedPaymentMethod)}
+            className="btn-primary"
+          >
             {loading ? "Serving..." : "Confirm Serve"}
           </button>
         </div>

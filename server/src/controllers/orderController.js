@@ -1,50 +1,31 @@
 const generateOrderId = require("../utils/generateOrderId");
 const {
-  getAllProducts,
   getOrders: getAllOrders,
   getOrderById: getStoredOrderById,
   saveOrder,
   getUsersByIds,
-  deleteOrderById
+  deleteOrderById,
+  getPromoByCode,
+  getOrders: queryOrders
 } = require("../lib/dataStore");
-const { isCompositeProductType, isBaseProductType, inferProductType, saveProduct } = require("../lib/productLogic");
+const {
+  normalizeOrderItems,
+  buildRequestedItems,
+  buildOrderItemsFromProducts,
+  applyInventoryForItems,
+  restoreInventoryForOrderItems,
+  buildSauceItems,
+  buildSeasoningItems
+} = require("../lib/orderPricing");
+const { normalizePromoCode, getPromoUsageStats, validatePromoForOrder } = require("../lib/promoLogic");
 
 const buildLocalDayRange = (dateValue, endOfDay = false) => {
   const suffix = endOfDay ? "T23:59:59.999" : "T00:00:00.000";
   return new Date(`${dateValue}${suffix}`);
 };
-
-const normalizeOrderItems = (items = []) =>
-  items.map((item) => ({
-    product: item.product,
-    name: item.name,
-    price: Number(item.price || 0),
-    quantity: Number(item.quantity || 0),
-    productType: item.productType || "raw",
-    components: (item.components || []).map((component) => ({
-      product: component.product,
-      name: component.name,
-      quantity: Number(component.quantity || 0)
-    })),
-    selectedAlternatives: (item.selectedAlternatives || []).map((alternative) => ({
-      sourceProduct: alternative.sourceProduct,
-      sourceName: alternative.sourceName,
-      selectedProduct: alternative.selectedProduct,
-      selectedName: alternative.selectedName,
-      priceAdjustment: Number(alternative.priceAdjustment || 0)
-    })),
-    subtotal: Number(item.subtotal || 0)
-  }));
-
-const normalizeSauceItems = (items = []) =>
-  items
-    .map((item) => ({
-      product: item.product,
-      name: item.name,
-      quantity: Number(item.quantity || 0),
-      stockUnit: item.stockUnit || "pieces"
-    }))
-    .filter((item) => item.product && item.quantity > 0);
+const COLLECTED_PAYMENT_METHODS = ["cash", "card", "qr"];
+const ALLOWED_PAYMENT_METHODS = [...COLLECTED_PAYMENT_METHODS, "due_on_serve"];
+const hasCollectedPayment = (paymentMethod) => COLLECTED_PAYMENT_METHODS.includes(paymentMethod);
 
 const normalizeBookingDetails = (bookingDetails = {}) => ({
   customerName: bookingDetails.customerName?.trim() || bookingDetails.leadTravelerName?.trim() || "",
@@ -53,7 +34,6 @@ const normalizeBookingDetails = (bookingDetails = {}) => ({
 });
 
 const buildQueueNumber = (orderId = "") => orderId.split("-").pop() || orderId;
-const isFoodServingStatus = (status) => status === "food_serving" || status === "quote_prepared";
 const isCompletedStatus = (status) => status === "completed" || status === "confirmed";
 const isQueuedStatus = (status) => status === "queued";
 const getDeleteOrderPin = () => String(process.env.ORDER_DELETE_PIN || process.env.FORCE_STOCK_PIN || "4422").trim();
@@ -109,348 +89,41 @@ const buildItemChangeLog = (previousItems = [], nextItems = []) => {
   return changes;
 };
 
-const normalizeSelectedAlternativesInput = (selectedAlternatives = []) =>
-  (Array.isArray(selectedAlternatives) ? selectedAlternatives : [])
-    .map((alternative) => ({
-      sourceProductId: String(alternative.sourceProductId || ""),
-      selectedProductId: String(alternative.selectedProductId || ""),
-      priceAdjustment: Number(alternative.priceAdjustment || 0)
-    }))
-    .filter((alternative) => alternative.sourceProductId && alternative.selectedProductId);
+const resolvePromoForOrder = async ({ promoCode, subtotal, source, excludeOrderId = null }) => {
+  const normalizedPromoCode = normalizePromoCode(promoCode);
 
-const buildRequestedItems = (items) => {
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new Error("Order items are required");
-  }
-
-  return items.map((item) => {
-    if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-      throw new Error("Each item quantity must be at least 1");
-    }
-
+  if (!normalizedPromoCode) {
     return {
-      productId: String(item.productId),
-      quantity: item.quantity,
-      selectedAlternatives: normalizeSelectedAlternativesInput(item.selectedAlternatives)
+      promoCodeId: null,
+      promoCode: null,
+      promoDiscount: 0,
+      promoSnapshot: null
     };
-  });
-};
-
-const buildProductComponents = (product, quantity, productMap, selectedAlternativeMap = new Map(), trail = new Set()) => {
-  const productId = String(product.id || product._id);
-
-  if (!isCompositeProductType(product.productType)) {
-    return [
-      {
-        product: product.id || product._id,
-        name: product.name,
-        quantity,
-        productType: product.productType || "raw"
-      }
-    ];
   }
 
-  if (!product.comboItems?.length) {
-    throw new Error(`${product.name} combo has no item composition assigned`);
+  const promo = await getPromoByCode(normalizedPromoCode);
+
+  if (!promo) {
+    throw new Error("Promo code not found");
   }
 
-  if (trail.has(productId)) {
-    throw new Error(`${product.name} has a circular combo composition`);
-  }
-
-  const nextTrail = new Set(trail);
-  nextTrail.add(productId);
-  const componentMap = new Map();
-
-  for (const comboItem of product.comboItems) {
-    const sourceProductId = String(comboItem.product?.id || comboItem.product?._id || comboItem.product);
-    const replacementProductId = comboItem.changeable ? selectedAlternativeMap.get(sourceProductId) : null;
-
-    if (replacementProductId) {
-      const allowedAlternativeIds = (comboItem.alternativeProducts || []).map((alternativeProduct) =>
-        String(alternativeProduct.product?.id || alternativeProduct.product?._id || alternativeProduct.product || alternativeProduct.id || alternativeProduct)
-      );
-
-      if (!allowedAlternativeIds.includes(String(replacementProductId))) {
-        throw new Error(`${product.name} contains an invalid replacement selection`);
-      }
-    }
-
-    const linkedProduct = productMap.get(replacementProductId || sourceProductId);
-    if (!linkedProduct) {
-      throw new Error(`${product.name} combo contains an invalid item`);
-    }
-
-    const nestedComponents = buildProductComponents(
-      linkedProduct,
-      Number(comboItem.quantity || 0) * quantity,
-      productMap,
-      selectedAlternativeMap,
-      nextTrail
-    );
-
-    nestedComponents.forEach((component) => {
-      const key = String(component.product);
-      const existing = componentMap.get(key);
-
-      if (existing) {
-        existing.quantity += component.quantity;
-      } else {
-        componentMap.set(key, { ...component });
-      }
-    });
-  }
-
-  return [...componentMap.values()];
-};
-
-const buildOrderItemsFromProducts = async (requestedItems) => {
-  const products = await getAllProducts();
-  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
-  const orderItems = [];
-  let subtotal = 0;
-  const rawRequirements = new Map();
-
-  for (const requestItem of requestedItems) {
-    const { productId, quantity, selectedAlternatives = [] } = requestItem;
-    const product = productMap.get(productId);
-
-    if (!product) {
-      throw new Error("One or more products no longer exist");
-    }
-
-    let linePriceAdjustment = 0;
-
-    if (isCompositeProductType(product.productType)) {
-      const selectedAlternativeMap = new Map();
-      const selectedAlternativeDetails = [];
-
-      selectedAlternatives.forEach((alternative) => {
-        const sourceProduct = productMap.get(alternative.sourceProductId);
-        const selectedProduct = productMap.get(alternative.selectedProductId);
-
-        if (!sourceProduct || !selectedProduct) {
-          throw new Error(`${product.name} has an invalid alternative selection`);
-        }
-
-        const sourceComboItem = (product.comboItems || []).find(
-          (comboItem) => String(comboItem.product?.id || comboItem.product?._id || comboItem.product) === alternative.sourceProductId
-        );
-
-        const alternativeProductConfig = (sourceComboItem?.alternativeProducts || []).find(
-          (alternativeProduct) =>
-            String(
-              alternativeProduct.product?.id ||
-                alternativeProduct.product?._id ||
-                alternativeProduct.product ||
-                alternativeProduct.id ||
-                alternativeProduct
-            ) === alternative.selectedProductId
-        );
-
-        if (!sourceComboItem || !alternativeProductConfig) {
-          throw new Error(`${product.name} has an invalid alternative selection`);
-        }
-
-        const priceAdjustment = Number(alternativeProductConfig.priceAdjustment || 0);
-        linePriceAdjustment += priceAdjustment;
-        selectedAlternativeMap.set(alternative.sourceProductId, alternative.selectedProductId);
-        selectedAlternativeDetails.push({
-          sourceProduct: sourceProduct.id || sourceProduct._id,
-          sourceName: sourceProduct.name,
-          selectedProduct: selectedProduct.id || selectedProduct._id,
-          selectedName: selectedProduct.name,
-          priceAdjustment
-        });
-      });
-
-      const lineSubtotal = (Number(product.price || 0) + linePriceAdjustment) * quantity;
-      subtotal += lineSubtotal;
-
-      const components = buildProductComponents(product, quantity, productMap, selectedAlternativeMap).map((component) => {
-        const rawKey = String(component.product);
-        rawRequirements.set(rawKey, (rawRequirements.get(rawKey) || 0) + component.quantity);
-
-        return {
-          product: component.product,
-          name: component.name,
-          quantity: component.quantity
-        };
-      });
-
-      orderItems.push({
-        product: product.id || product._id,
-        name: product.name,
-        price: Number(product.price || 0) + linePriceAdjustment,
-        quantity,
-        productType: product.productType,
-        components,
-        selectedAlternatives: selectedAlternativeDetails,
-        subtotal: lineSubtotal
-      });
-      continue;
-    }
-
-    const lineSubtotal = Number(product.price || 0) * quantity;
-    subtotal += lineSubtotal;
-    orderItems.push({
-      product: product.id || product._id,
-      name: product.name,
-      price: Number(product.price || 0),
-      quantity,
-      productType: inferProductType(product),
-      components: [],
-      selectedAlternatives: [],
-      subtotal: lineSubtotal
-    });
-    rawRequirements.set(productId, (rawRequirements.get(productId) || 0) + quantity);
-  }
-
-  const rawProductMap = productMap;
-  for (const [rawId, requiredQuantity] of rawRequirements.entries()) {
-    const rawProduct = rawProductMap.get(rawId);
-
-    if (!rawProduct || !isBaseProductType(rawProduct)) {
-      throw new Error("One or more raw items no longer exist");
-    }
-
-    if (!rawProduct.isActive || Number(rawProduct.stock || 0) === 0) {
-      throw new Error(`${rawProduct.name} is out of stock`);
-    }
-
-    if (requiredQuantity > Number(rawProduct.stock || 0)) {
-      throw new Error(`Only ${rawProduct.stock} units left for ${rawProduct.name}`);
-    }
-  }
-
-  return { orderItems, subtotal, total: subtotal };
-};
-
-const buildRawRequirements = (orderItems, sauceItems = []) => {
-  const rawRequirements = new Map();
-
-  orderItems.forEach((item) => {
-    if (isCompositeProductType(item.productType)) {
-      item.components.forEach((component) => {
-        const key = String(component.product);
-        rawRequirements.set(key, (rawRequirements.get(key) || 0) + Number(component.quantity || 0));
-      });
-      return;
-    }
-
-    const key = String(item.product);
-    rawRequirements.set(key, (rawRequirements.get(key) || 0) + Number(item.quantity || 0));
+  const promoOrders = await queryOrders({
+    where: "WHERE promo_code_id=:promoCodeId",
+    params: { promoCodeId: promo.id }
   });
 
-  sauceItems.forEach((item) => {
-    const key = String(item.product);
-    rawRequirements.set(key, (rawRequirements.get(key) || 0) + Number(item.quantity || 0));
+  const usageStats = getPromoUsageStats({
+    promoId: promo.id,
+    orders: promoOrders,
+    excludeOrderId
   });
 
-  return rawRequirements;
-};
-
-const applyInventoryForItems = async (orderItems, sauceItems = []) => {
-  const rawRequirements = buildRawRequirements(orderItems, sauceItems);
-  const products = await getAllProducts();
-  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
-  const appliedUpdates = [];
-
-  try {
-    for (const [productId, quantity] of rawRequirements.entries()) {
-      const product = productMap.get(productId);
-
-      if (!product) {
-        throw new Error("One or more products no longer exist");
-      }
-
-      if (!product.isActive || Number(product.stock || 0) === 0) {
-        throw new Error(`${product.name} is out of stock`);
-      }
-
-      if (quantity > Number(product.stock || 0)) {
-        throw new Error(`Only ${product.stock} units left for ${product.name}`);
-      }
-
-      const previousStock = Number(product.stock || 0);
-      product.stock = previousStock - quantity;
-      product.isActive = product.stock > 0;
-      await saveProduct(product);
-      appliedUpdates.push({ product, previousStock, quantity });
-    }
-  } catch (error) {
-    for (const update of appliedUpdates) {
-      update.product.stock = update.previousStock;
-      update.product.isActive = true;
-      await saveProduct(update.product);
-    }
-    throw error;
-  }
-
-  return { appliedUpdates };
-};
-
-const restoreInventoryForOrderItems = async (items, sauceItems = []) => {
-  const rawRequirements = buildRawRequirements(items, sauceItems);
-  const products = await getAllProducts();
-  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
-
-  for (const [productId, quantity] of rawRequirements.entries()) {
-    const product = productMap.get(productId);
-    if (!product) {
-      continue;
-    }
-    product.stock = Number(product.stock || 0) + quantity;
-    product.isActive = true;
-    await saveProduct(product);
-  }
-};
-
-const buildSauceItems = async (items = []) => {
-  const mergedSauces = new Map();
-  items.forEach((item) => {
-    const quantity = Number(item.quantity || 0);
-    if (item.product && quantity > 0) {
-      mergedSauces.set(String(item.product), (mergedSauces.get(String(item.product)) || 0) + quantity);
-    }
+  return validatePromoForOrder({
+    promo,
+    subtotal,
+    source,
+    usageStats
   });
-
-  if (!mergedSauces.size) {
-    return [];
-  }
-
-  const products = await getAllProducts();
-  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
-
-  return [...mergedSauces.entries()].map(([productId, quantity]) => {
-    const sauce = productMap.get(productId);
-    if (!sauce) {
-      throw new Error("One or more sauce items no longer exist");
-    }
-    if (sauce.productType !== "sauce") {
-      throw new Error(`${sauce.name} is not a Sauce product type`);
-    }
-
-    return {
-      product: sauce.id || sauce._id,
-      name: sauce.name,
-      quantity,
-      stockUnit: sauce.stockUnit || "pieces"
-    };
-  });
-};
-
-const buildSeasoningItems = async () => {
-  const products = await getAllProducts();
-  return products
-    .filter((product) => product.productType === "seasoning" && product.isActive)
-    .map((seasoning) => ({
-      product: seasoning.id || seasoning._id,
-      name: seasoning.name,
-      quantity: Number(seasoning.seasoningPerOrderConsumption || 0),
-      stockUnit: seasoning.stockUnit || "gram"
-    }))
-    .filter((seasoning) => seasoning.quantity > 0);
 };
 
 const hydrateOrders = async (orders) => {
@@ -486,16 +159,23 @@ const hydrateOrders = async (orders) => {
   }));
 };
 
+
 const createOrder = async (req, res) => {
   const { items, paymentMethod, bookingDetails } = req.body;
 
-  if (!paymentMethod) {
-    return res.status(400).json({ message: "Payment method is required" });
+  if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
+    return res.status(400).json({ message: "A valid payment method is required" });
   }
 
   try {
     const requestedItems = buildRequestedItems(items);
-    const { orderItems, subtotal, total } = await buildOrderItemsFromProducts(requestedItems);
+    const { orderItems, subtotal } = await buildOrderItemsFromProducts(requestedItems);
+    const appliedPromo = await resolvePromoForOrder({
+      promoCode: req.body?.promoCode,
+      subtotal,
+      source: "pos"
+    });
+    const total = Number((subtotal - appliedPromo.promoDiscount).toFixed(2));
     const orderId = generateOrderId();
     const order = await saveOrder({
       orderId,
@@ -504,6 +184,10 @@ const createOrder = async (req, res) => {
       sauceItems: [],
       subtotal,
       total,
+      promoCodeId: appliedPromo.promoCodeId,
+      promoCode: appliedPromo.promoCode,
+      promoDiscount: appliedPromo.promoDiscount,
+      promoSnapshot: appliedPromo.promoSnapshot,
       paymentMethod,
       bookingDetails: normalizeBookingDetails(bookingDetails),
       staff: req.user.id,
@@ -524,7 +208,13 @@ const createPublicOrder = async (req, res) => {
 
   try {
     const requestedItems = buildRequestedItems(items);
-    const { orderItems, subtotal, total } = await buildOrderItemsFromProducts(requestedItems);
+    const { orderItems, subtotal } = await buildOrderItemsFromProducts(requestedItems);
+    const appliedPromo = await resolvePromoForOrder({
+      promoCode: req.body?.promoCode,
+      subtotal,
+      source: "menu"
+    });
+    const total = Number((subtotal - appliedPromo.promoDiscount).toFixed(2));
     const orderId = generateOrderId();
     const order = await saveOrder({
       orderId,
@@ -533,6 +223,10 @@ const createPublicOrder = async (req, res) => {
       sauceItems: [],
       subtotal,
       total,
+      promoCodeId: appliedPromo.promoCodeId,
+      promoCode: appliedPromo.promoCode,
+      promoDiscount: appliedPromo.promoDiscount,
+      promoSnapshot: appliedPromo.promoSnapshot,
       paymentMethod: null,
       bookingDetails: {},
       staff: null,
@@ -547,8 +241,10 @@ const createPublicOrder = async (req, res) => {
       queueNumber: order.queueNumber,
       status: order.status,
       createdAt: order.createdAt,
-      total: order.total,
-      subtotal: order.subtotal,
+      total,
+      subtotal,
+      promoCode: appliedPromo.promoCode,
+      promoDiscount: appliedPromo.promoDiscount,
       items: order.items
     });
   } catch (error) {
@@ -556,7 +252,7 @@ const createPublicOrder = async (req, res) => {
   }
 };
 
-const getOrders = async (req, res) => {
+const getOrdersHandler = async (req, res) => {
   const { from, to } = req.query;
   let orders = await getAllOrders();
 
@@ -629,9 +325,10 @@ const getOrderById = async (req, res) => {
 
 const updateOrder = async (req, res) => {
   const { items, paymentMethod, bookingDetails } = req.body;
+  const requestedPromoCode = normalizePromoCode(req.body?.promoCode);
 
-  if (!paymentMethod) {
-    return res.status(400).json({ message: "Payment method is required" });
+  if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
+    return res.status(400).json({ message: "A valid payment method is required" });
   }
 
   const order = await getStoredOrderById(req.params.id);
@@ -647,12 +344,27 @@ const updateOrder = async (req, res) => {
     return res.status(403).json({ message: "Only admin can edit completed orders" });
   }
 
+  if (isCompletedStatus(order.status) && !hasCollectedPayment(paymentMethod)) {
+    return res.status(400).json({ message: "Completed orders must use cash, card, or QR" });
+  }
+
+  if (order.source === "customer") {
+    const existingPromoCode = normalizePromoCode(order.promoCode);
+    const triesToApplyNewPromo = Boolean(requestedPromoCode) && requestedPromoCode !== existingPromoCode;
+
+    if (triesToApplyNewPromo) {
+      return res.status(400).json({ message: "Customer queue promos can only be applied from the menu page" });
+    }
+  }
+
   try {
     const requestedItems = buildRequestedItems(items);
     const previousItems = normalizeOrderItems(order.items);
-    const previousSubtotal = order.subtotal;
-    const previousTotal = order.total;
+    const previousSubtotal = Number(order.subtotal || 0);
+    const previousTotal = Number(order.total || 0);
     const previousPaymentMethod = order.paymentMethod;
+    const previousPromoCode = order.promoCode || null;
+    const previousPromoDiscount = Number(order.promoDiscount || 0);
     const isQueuedOrder = isQueuedStatus(order.status);
     let nextOrderState;
     let inventoryRestored = false;
@@ -671,6 +383,15 @@ const updateOrder = async (req, res) => {
       nextOrderState = await buildOrderItemsFromProducts(requestedItems);
     }
 
+    const appliedPromo = await resolvePromoForOrder({
+      promoCode: requestedPromoCode,
+      subtotal: nextOrderState.subtotal,
+      source: order.source === "customer" ? "menu" : "pos",
+      excludeOrderId: order.id
+    });
+
+    nextOrderState.total = Number((nextOrderState.subtotal - appliedPromo.promoDiscount).toFixed(2));
+
     const difference = Number((nextOrderState.total - previousTotal).toFixed(2));
     let adjustmentType = "none";
     let adjustmentAmount = 0;
@@ -684,14 +405,16 @@ const updateOrder = async (req, res) => {
       adjustmentAmount = Math.abs(difference);
     }
 
-    if (!isQueuedOrder && adjustmentType !== "none" && !adjustmentMethod) {
+    const requiresImmediateAdjustment = !isQueuedOrder && hasCollectedPayment(previousPaymentMethod);
+
+    if (requiresImmediateAdjustment && adjustmentType !== "none" && !adjustmentMethod) {
       if (inventoryRestored) {
         await applyInventoryForItems(order.items, order.sauceItems || []);
       }
       return res.status(400).json({ message: "Adjustment method is required when the total changes" });
     }
 
-    if (adjustmentType === "none" || isQueuedOrder) {
+    if (adjustmentType === "none" || !requiresImmediateAdjustment) {
       adjustmentMethod = null;
     }
 
@@ -700,6 +423,14 @@ const updateOrder = async (req, res) => {
 
     if (previousPaymentMethod !== paymentMethod) {
       changes.push(`Payment method: ${previousPaymentMethod} -> ${paymentMethod}`);
+    }
+
+    if (previousPromoCode !== (appliedPromo.promoCode || null)) {
+      changes.push(`Promo code: ${previousPromoCode || "none"} -> ${appliedPromo.promoCode || "none"}`);
+    }
+
+    if (previousPromoDiscount !== Number(appliedPromo.promoDiscount || 0)) {
+      changes.push(`Promo discount: ${previousPromoDiscount} -> ${Number(appliedPromo.promoDiscount || 0)}`);
     }
 
     if (isQueuedOrder) {
@@ -723,6 +454,10 @@ const updateOrder = async (req, res) => {
       items: nextOrderState.orderItems,
       subtotal: nextOrderState.subtotal,
       total: nextOrderState.total,
+      promoCodeId: appliedPromo.promoCodeId,
+      promoCode: appliedPromo.promoCode,
+      promoDiscount: appliedPromo.promoDiscount,
+      promoSnapshot: appliedPromo.promoSnapshot,
       paymentMethod,
       bookingDetails: normalizeBookingDetails(bookingDetails),
       staff: req.user.id,
@@ -743,6 +478,10 @@ const updateOrder = async (req, res) => {
           adjustmentMethod,
           oldPaymentMethod: previousPaymentMethod,
           newPaymentMethod: paymentMethod,
+          oldPromoCode: previousPromoCode,
+          newPromoCode: appliedPromo.promoCode || null,
+          oldPromoDiscount: previousPromoDiscount,
+          newPromoDiscount: Number(appliedPromo.promoDiscount || 0),
           oldItems: previousItems,
           newItems: nextItems,
           changes
@@ -776,12 +515,15 @@ const voidOrder = async (req, res) => {
 
   const previousStatus = order.status;
   const previousItems = normalizeOrderItems(order.items);
-  const previousSubtotal = order.subtotal;
-  const previousTotal = order.total;
+  const previousSubtotal = Number(order.subtotal || 0);
+  const previousTotal = Number(order.total || 0);
   const previousPaymentMethod = order.paymentMethod;
+  const previousPromoCode = order.promoCode || null;
+  const previousPromoDiscount = Number(order.promoDiscount || 0);
   const refundAmount = Number(previousTotal || 0);
+  const requiresRefundMethod = refundAmount > 0 && !isQueuedStatus(order.status) && hasCollectedPayment(previousPaymentMethod);
 
-  if (refundAmount > 0 && !refundMethod && !isQueuedStatus(order.status)) {
+  if (requiresRefundMethod && !refundMethod) {
     return res.status(400).json({ message: "Refund method is required when voiding a booking" });
   }
 
@@ -807,16 +549,20 @@ const voidOrder = async (req, res) => {
       newSubtotal: 0,
       oldTotal: previousTotal,
       newTotal: 0,
-      adjustmentType: refundAmount > 0 && !isQueuedStatus(previousStatus) ? "void" : "none",
-      adjustmentAmount: isQueuedStatus(previousStatus) ? 0 : refundAmount,
-      adjustmentMethod: refundAmount > 0 && !isQueuedStatus(previousStatus) ? refundMethod : null,
+      adjustmentType: requiresRefundMethod ? "void" : "none",
+      adjustmentAmount: requiresRefundMethod ? refundAmount : 0,
+      adjustmentMethod: requiresRefundMethod ? refundMethod : null,
       oldPaymentMethod: previousPaymentMethod,
       newPaymentMethod: previousPaymentMethod,
+      oldPromoCode: previousPromoCode,
+      newPromoCode: previousPromoCode,
+      oldPromoDiscount: previousPromoDiscount,
+      newPromoDiscount: previousPromoDiscount,
       oldItems: previousItems,
       newItems: [],
       changes: [
         isQueuedStatus(previousStatus) ? "Customer queue order canceled" : "Order voided",
-        ...(refundAmount > 0 && !isQueuedStatus(previousStatus) ? [`Refunded ${refundAmount.toFixed(2)} via ${refundMethod}`] : ["No refund amount"])
+        ...(requiresRefundMethod ? [`Refunded ${refundAmount.toFixed(2)} via ${refundMethod}`] : ["No refund amount"])
       ]
     }
   ];
@@ -839,7 +585,7 @@ const editVoidOrder = async (req, res) => {
   }
 
   const refundAmount = Number(order.originalTotal ?? 0);
-  const requiresRefundMethod = refundAmount > 0 && Boolean(order.paymentMethod);
+  const requiresRefundMethod = refundAmount > 0 && hasCollectedPayment(order.paymentMethod);
 
   if (requiresRefundMethod && !refundMethod) {
     return res.status(400).json({ message: "Refund method is required for correcting this void sale" });
@@ -869,6 +615,10 @@ const editVoidOrder = async (req, res) => {
       previousAdjustmentMethod: currentVoidAdjustment.method || null,
       oldPaymentMethod: order.paymentMethod,
       newPaymentMethod: order.paymentMethod,
+      oldPromoCode: order.promoCode || null,
+      newPromoCode: order.promoCode || null,
+      oldPromoDiscount: Number(order.promoDiscount || 0),
+      newPromoDiscount: Number(order.promoDiscount || 0),
       oldItems: [],
       newItems: [],
       changes: [
@@ -899,15 +649,54 @@ const serveOrder = async (req, res) => {
   }
 
   try {
+    const previousPaymentMethod = order.paymentMethod || null;
+    const requiresServePaymentMethod = !hasCollectedPayment(previousPaymentMethod);
+    const nextPaymentMethod = req.body?.paymentMethod || null;
+
+    if (requiresServePaymentMethod && !hasCollectedPayment(nextPaymentMethod)) {
+      return res.status(400).json({ message: "Select the payment method before serving unpaid orders" });
+    }
+
     const sauceItems = await buildSauceItems(req.body?.sauceItems || []);
     const seasoningItems = await buildSeasoningItems();
     const servedAuxiliaryItems = [...sauceItems, ...seasoningItems];
     await applyInventoryForItems(order.items, servedAuxiliaryItems);
 
     order.status = "completed";
+    order.paymentMethod = requiresServePaymentMethod ? nextPaymentMethod : previousPaymentMethod;
     order.sauceItems = servedAuxiliaryItems;
     order.servedAt = new Date();
     order.servedBy = req.user.id;
+
+    if (previousPaymentMethod !== order.paymentMethod) {
+      const currentItems = normalizeOrderItems(order.items);
+      order.editedAt = new Date();
+      order.editedBy = req.user.id;
+      order.editHistory = [
+        ...(order.editHistory || []),
+        {
+          editedBy: req.user.id,
+          editedAt: new Date(),
+          oldSubtotal: Number(order.subtotal || 0),
+          newSubtotal: Number(order.subtotal || 0),
+          oldTotal: Number(order.total || 0),
+          newTotal: Number(order.total || 0),
+          adjustmentType: "payment_update",
+          adjustmentAmount: 0,
+          adjustmentMethod: null,
+          oldPaymentMethod: previousPaymentMethod,
+          newPaymentMethod: order.paymentMethod,
+          oldPromoCode: order.promoCode || null,
+          newPromoCode: order.promoCode || null,
+          oldPromoDiscount: Number(order.promoDiscount || 0),
+          newPromoDiscount: Number(order.promoDiscount || 0),
+          oldItems: currentItems,
+          newItems: currentItems,
+          changes: [`Payment collected on serve: ${previousPaymentMethod || "unpaid"} -> ${order.paymentMethod}`]
+        }
+      ];
+    }
+
     await saveOrder(order);
 
     const [hydrated] = await hydrateOrders([await getStoredOrderById(order.id)]);
@@ -936,7 +725,7 @@ const deleteOrder = async (req, res) => {
 module.exports = {
   createOrder,
   createPublicOrder,
-  getOrders,
+  getOrders: getOrdersHandler,
   getEditedOrders,
   getOrderById,
   updateOrder,

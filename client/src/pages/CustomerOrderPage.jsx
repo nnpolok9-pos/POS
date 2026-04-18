@@ -1,10 +1,11 @@
 import { Menu, Search, ShoppingBag, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import CartPanel from "../components/CartPanel";
 import ProductCard from "../components/ProductCard";
 import { orderService } from "../services/orderService";
 import { productService } from "../services/productService";
+import { promoService } from "../services/promoService";
 import { shopSettingsService } from "../services/shopSettingsService";
 import { currency, currencyParts, imageUrl } from "../utils/format";
 
@@ -188,6 +189,26 @@ const getCartTotal = (cart) =>
     return sum + item.quantity * (Number(item.price) + adjustmentTotal);
   }, 0);
 
+const normalizePromoValue = (value) => String(value || "").trim().toUpperCase();
+
+const buildOrderRequestItems = (cart) =>
+  cart.map((item) => ({
+    productId: item.id,
+    quantity: item.quantity,
+    selectedAlternatives: (item.selectedAlternatives || []).map((selectedAlternative) => {
+      const sourceComboItem = (item.comboItems || []).find((comboItem) => comboItem.product === selectedAlternative.sourceProductId);
+      const selectedProduct = (sourceComboItem?.alternativeProducts || []).find(
+        (alternativeProduct) => alternativeProduct.id === selectedAlternative.selectedProductId
+      );
+
+      return {
+        sourceProductId: selectedAlternative.sourceProductId,
+        selectedProductId: selectedAlternative.selectedProductId,
+        priceAdjustment: Number(selectedProduct?.priceAdjustment || selectedAlternative.priceAdjustment || 0)
+      };
+    })
+  }));
+
 const CustomerOrderPage = () => {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
@@ -200,10 +221,104 @@ const CustomerOrderPage = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [shop, setShop] = useState({ shopName: "ASEN POS", address: "", logo: "" });
   const [language, setLanguage] = useState(() => localStorage.getItem("customer-language") || "km");
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoApplying, setPromoApplying] = useState(false);
+  const promoRequestIdRef = useRef(0);
+
+  const resetPromoState = () => {
+    promoRequestIdRef.current += 1;
+    setPromoCode("");
+    setAppliedPromo(null);
+  };
+
+  const handlePromoCodeChange = (value) => {
+    const normalizedValue = normalizePromoValue(value);
+    setPromoCode(normalizedValue);
+
+    if (normalizePromoValue(appliedPromo?.code) !== normalizedValue) {
+      setAppliedPromo(null);
+    }
+  };
+
+  const previewPromo = async ({ nextCart = cart, nextPromoCode = promoCode, silent = false } = {}) => {
+    const normalizedPromoCode = normalizePromoValue(nextPromoCode);
+    const requestId = ++promoRequestIdRef.current;
+
+    if (!normalizedPromoCode) {
+      setAppliedPromo(null);
+      return null;
+    }
+
+    if (!nextCart.length) {
+      setAppliedPromo(null);
+      return null;
+    }
+
+    if (!silent) {
+      setPromoApplying(true);
+    }
+
+    try {
+      const preview = await promoService.previewPromo({
+        promoCode: normalizedPromoCode,
+        source: "menu",
+        items: buildOrderRequestItems(nextCart)
+      });
+
+      const normalizedPreview = {
+        code: preview.code,
+        discount: Number(preview.discount || 0),
+        subtotal: Number(preview.subtotal || 0),
+        total: Number(preview.total || 0),
+        promo: preview.promo || null
+      };
+
+      if (requestId !== promoRequestIdRef.current) {
+        return null;
+      }
+
+      setPromoCode(normalizedPromoCode);
+      setAppliedPromo(normalizedPreview);
+
+      if (!silent) {
+        toast.success(`Promo ${normalizedPromoCode} applied`);
+      }
+
+      return normalizedPreview;
+    } catch (error) {
+      if (requestId !== promoRequestIdRef.current) {
+        return null;
+      }
+
+      setAppliedPromo(null);
+      if (!silent) {
+        toast.error(error.response?.data?.message || "Failed to apply promo");
+      }
+      return null;
+    } finally {
+      if (!silent) {
+        setPromoApplying(false);
+      }
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem("customer-language", language);
   }, [language]);
+
+  useEffect(() => {
+    const shouldLockBody = cartOpen || mobileMenuOpen;
+    const previousOverflow = document.body.style.overflow;
+
+    if (shouldLockBody) {
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [cartOpen, mobileMenuOpen]);
 
   useEffect(() => {
     document.title = MENU_PAGE_TITLE;
@@ -281,7 +396,7 @@ const CustomerOrderPage = () => {
     [filteredProducts, language]
   );
   const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
-  const cartTotal = useMemo(() => getCartTotal(cart), [cart]);
+  const cartTotal = useMemo(() => Number((getCartTotal(cart) - Number(appliedPromo?.discount || 0)).toFixed(2)), [appliedPromo?.discount, cart]);
 
   useEffect(() => {
     setCart((current) =>
@@ -298,6 +413,37 @@ const CustomerOrderPage = () => {
       })
     );
   }, [language, products]);
+
+  useEffect(() => {
+    if (!appliedPromo || !promoCode.trim()) {
+      return;
+    }
+
+    if (!cart.length) {
+      setAppliedPromo(null);
+      return;
+    }
+
+    let active = true;
+
+    const refreshPromo = async () => {
+      const preview = await previewPromo({ nextCart: cart, nextPromoCode: promoCode, silent: true });
+
+      if (!active) {
+        return;
+      }
+
+      if (!preview && appliedPromo) {
+        toast.error("Promo code was removed because this cart no longer qualifies");
+      }
+    };
+
+    refreshPromo();
+
+    return () => {
+      active = false;
+    };
+  }, [appliedPromo, cart, promoCode]);
 
   const addToCart = (product) => {
     setCart((current) => {
@@ -350,16 +496,22 @@ const CustomerOrderPage = () => {
 
     setSubmitting(true);
     try {
+      const normalizedPromoCode = normalizePromoValue(promoCode);
+
+      if (normalizedPromoCode && (!appliedPromo || normalizePromoValue(appliedPromo.code) !== normalizedPromoCode)) {
+        toast.error("Apply the promo code before getting the queue number");
+        setSubmitting(false);
+        return;
+      }
+
       const order = await orderService.createPublicQueueOrder({
-        items: cart.map((item) => ({
-          productId: item.id,
-          quantity: item.quantity,
-          selectedAlternatives: item.selectedAlternatives || []
-        }))
+        items: buildOrderRequestItems(cart),
+        promoCode: normalizedPromoCode || null
       });
 
       setQueueOrder(order);
       setCart([]);
+      resetPromoState();
       setCartOpen(true);
       toast.success(`${text.queueCreatedToast} #${order.queueNumber}`);
     } catch (error) {
@@ -482,13 +634,23 @@ const CustomerOrderPage = () => {
             title={text.yourOrder}
             description={text.yourOrderDescription}
             checkoutLabel={submitting ? text.creatingQueue : text.getQueueNumber}
-            onClearQueue={() => setCart([])}
+            onClearQueue={() => {
+              setCart([]);
+              resetPromoState();
+            }}
             onUpdateAlternatives={updateItemAlternatives}
             allowItemCustomization
             showPaymentSection={false}
+            showPromoSection
             latestOrderLabel={text.queueCreated}
             showLatestPrint={false}
             labels={text.cartLabels}
+            promoCode={promoCode}
+            onPromoCodeChange={handlePromoCodeChange}
+            onApplyPromo={() => previewPromo({ silent: false })}
+            onRemovePromo={resetPromoState}
+            appliedPromo={appliedPromo}
+            promoApplying={promoApplying}
           />
         </div>
 
@@ -614,9 +776,9 @@ const CustomerOrderPage = () => {
       </button>
 
       {cartOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/45 p-3 sm:p-4" onClick={() => setCartOpen(false)}>
-          <div className="flex min-h-full items-center justify-end" onClick={(event) => event.stopPropagation()}>
-            <div className="relative w-full max-w-[440px]">
+        <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-slate-950/45 p-3 sm:p-4" onClick={() => setCartOpen(false)}>
+          <div className="flex min-h-full items-end justify-center sm:items-center sm:justify-end" onClick={(event) => event.stopPropagation()}>
+            <div className="relative w-full max-w-[440px] max-h-[calc(100vh-1.5rem)] overflow-hidden rounded-[2rem] sm:max-h-[calc(100vh-2rem)]">
               <button
                 type="button"
                 onClick={() => setCartOpen(false)}
@@ -624,27 +786,39 @@ const CustomerOrderPage = () => {
               >
                 <X size={18} />
               </button>
-              <CartPanel
-                cart={cart}
-                paymentMethod="cash"
-                onPaymentChange={() => {}}
-                onIncrease={(id) => updateCartItem(id, (item) => ({ ...item, quantity: item.quantity + 1 }))}
-                onDecrease={(id) => updateCartItem(id, (item) => ({ ...item, quantity: item.quantity - 1 }))}
-                onRemove={(id) => setCart((current) => current.filter((item) => item.id !== id))}
-                onCheckout={submitQueue}
-                latestOrder={queueOrder}
-                onPrintLatest={() => {}}
-                title={text.yourCartTitle}
-                description={text.yourOrderDescription}
-                checkoutLabel={submitting ? text.creatingQueue : text.getQueueNumber}
-                onClearQueue={() => setCart([])}
-                onUpdateAlternatives={updateItemAlternatives}
-                allowItemCustomization
-                showPaymentSection={false}
-                latestOrderLabel={text.queueCreated}
-                showLatestPrint={false}
-                labels={text.cartLabels}
-              />
+              <div className="max-h-[calc(100vh-1.5rem)] overflow-y-auto overscroll-contain sm:max-h-[calc(100vh-2rem)]">
+                <CartPanel
+                  cart={cart}
+                  paymentMethod="cash"
+                  onPaymentChange={() => {}}
+                  onIncrease={(id) => updateCartItem(id, (item) => ({ ...item, quantity: item.quantity + 1 }))}
+                  onDecrease={(id) => updateCartItem(id, (item) => ({ ...item, quantity: item.quantity - 1 }))}
+                  onRemove={(id) => setCart((current) => current.filter((item) => item.id !== id))}
+                  onCheckout={submitQueue}
+                  latestOrder={queueOrder}
+                  onPrintLatest={() => {}}
+                  title={text.yourCartTitle}
+                  description={text.yourOrderDescription}
+                  checkoutLabel={submitting ? text.creatingQueue : text.getQueueNumber}
+                  onClearQueue={() => {
+                    setCart([]);
+                    resetPromoState();
+                  }}
+                  onUpdateAlternatives={updateItemAlternatives}
+                  allowItemCustomization
+                  showPaymentSection={false}
+                  showPromoSection
+                  latestOrderLabel={text.queueCreated}
+                  showLatestPrint={false}
+                  labels={text.cartLabels}
+                  promoCode={promoCode}
+                  onPromoCodeChange={handlePromoCodeChange}
+                  onApplyPromo={() => previewPromo({ silent: false })}
+                  onRemovePromo={resetPromoState}
+                  appliedPromo={appliedPromo}
+                  promoApplying={promoApplying}
+                />
+              </div>
             </div>
           </div>
         </div>

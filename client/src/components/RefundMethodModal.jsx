@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { currency } from "../utils/format";
+import { currency, formatPaymentMethodLabel } from "../utils/format";
 
 const RefundMethodModal = ({
   open,
@@ -20,7 +20,7 @@ const RefundMethodModal = ({
   }
 
   const refundAmount = Number(refundAmountOverride ?? order.total ?? 0);
-  const collectionMethod = order.paymentMethod || "Unpaid queue";
+  const collectionMethod = formatPaymentMethodLabel(order.paymentMethod, "Unpaid queue");
 
   return createPortal(
     <div className="fixed inset-0 z-[95] overflow-y-auto bg-slate-950/55 p-4 sm:p-6" onClick={onClose}>
@@ -46,9 +46,9 @@ const RefundMethodModal = ({
               </div>
               <div className="rounded-3xl bg-amber-50 p-4">
                 <p className="text-sm text-amber-700">Collected By</p>
-                <p className="mt-1 text-2xl font-bold capitalize text-amber-950">{collectionMethod}</p>
+                <p className="mt-1 text-2xl font-bold text-amber-950">{collectionMethod}</p>
                 <p className="mt-1 text-xs text-amber-700">
-                  {requiresRefundMethod ? "Original order payment method" : "No payment was collected for this queue order"}
+                  {requiresRefundMethod ? "Original order payment method" : "No payment was collected for this unpaid order"}
                 </p>
               </div>
             </div>

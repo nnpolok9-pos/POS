@@ -97,6 +97,15 @@ export const printReceipt = async (order, shopProfile = {}) => {
     order.status === "void"
       ? `<p class="muted">Status: VOID</p><p class="muted">Original Total: ${currency(order.originalTotal ?? 0)}</p>`
       : `<p class="muted">Status: ${statusLabels[order.status] || "COMPLETED"}</p>`;
+  const promoLine =
+    Number(order.promoDiscount || 0) > 0
+      ? `
+          <div class="line-item">
+            <span>Promo ${order.promoCode || ""}</span>
+            <span>-${currency(order.promoDiscount)}</span>
+          </div>
+        `
+      : "";
 
   receiptWindow.document.write(`
     <!doctype html>
@@ -132,6 +141,7 @@ export const printReceipt = async (order, shopProfile = {}) => {
           <div class="divider"></div>
           ${itemsHtml}
           <div class="divider"></div>
+          ${promoLine}
           <div class="total-row">
             <span>Total</span>
             <span>${currency(order.total)}</span>

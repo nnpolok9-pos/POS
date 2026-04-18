@@ -3,6 +3,7 @@ const {
   queryTx,
   mapUserRow,
   mapProductRow,
+  mapPromoRow,
   mapOrderRow,
   mapInventoryMovementRow,
   mapShopSettingsRow,
@@ -21,10 +22,17 @@ const productColumns = `
   created_at, updated_at
 `;
 
+const promoColumns = `
+  id, code, title, description, discount_type, discount_value, min_order_amount,
+  max_discount_amount, starts_at, expires_at, max_total_uses, max_uses_per_day,
+  applies_to, is_active, notes, created_by, updated_by, created_at, updated_at
+`;
+
 const orderColumns = `
   id, order_id, items, sauce_items, total, subtotal, payment_method, booking_details, status,
-  queue_number, source, original_subtotal, original_total, staff_id, voided_at, voided_by,
-  edited_at, edited_by, edit_history, served_at, served_by, created_at, updated_at
+  queue_number, source, promo_code_id, promo_code, promo_discount, promo_snapshot,
+  original_subtotal, original_total, staff_id, voided_at, voided_by, edited_at, edited_by,
+  edit_history, served_at, served_by, created_at, updated_at
 `;
 
 const movementColumns = `
@@ -260,6 +268,81 @@ const saveInventoryMovement = async (movement) => {
   );
 };
 
+const getAllPromos = async () => {
+  const rows = await query(`SELECT ${promoColumns} FROM promo_codes ORDER BY created_at DESC`);
+  return rows.map(mapPromoRow);
+};
+
+const getPromoById = async (id) => {
+  const rows = await query(`SELECT ${promoColumns} FROM promo_codes WHERE id=:id LIMIT 1`, { id });
+  return mapPromoRow(rows[0]);
+};
+
+const getPromoByCode = async (code) => {
+  const rows = await query(`SELECT ${promoColumns} FROM promo_codes WHERE code=:code LIMIT 1`, { code });
+  return mapPromoRow(rows[0]);
+};
+
+const savePromo = async (promo) => {
+  const params = {
+    id: promo.id || createId(),
+    code: promo.code,
+    title: promo.title || "",
+    description: promo.description || "",
+    discountType: promo.discountType || "fixed",
+    discountValue: Number(promo.discountValue || 0),
+    minOrderAmount: Number(promo.minOrderAmount || 0),
+    maxDiscountAmount: promo.maxDiscountAmount === null || promo.maxDiscountAmount === undefined || promo.maxDiscountAmount === ""
+      ? null
+      : Number(promo.maxDiscountAmount),
+    startsAt: promo.startsAt || null,
+    expiresAt: promo.expiresAt || null,
+    maxTotalUses: promo.maxTotalUses === null || promo.maxTotalUses === undefined || promo.maxTotalUses === ""
+      ? null
+      : Number(promo.maxTotalUses),
+    maxUsesPerDay: promo.maxUsesPerDay === null || promo.maxUsesPerDay === undefined || promo.maxUsesPerDay === ""
+      ? null
+      : Number(promo.maxUsesPerDay),
+    appliesTo: promo.appliesTo || "all",
+    isActive: boolToInt(promo.isActive ?? true),
+    notes: promo.notes || "",
+    createdBy: promo.createdBy || null,
+    updatedBy: promo.updatedBy || null
+  };
+
+  if (promo.id) {
+    await query(
+      `UPDATE promo_codes
+       SET code=:code, title=:title, description=:description, discount_type=:discountType,
+           discount_value=:discountValue, min_order_amount=:minOrderAmount, max_discount_amount=:maxDiscountAmount,
+           starts_at=:startsAt, expires_at=:expiresAt, max_total_uses=:maxTotalUses, max_uses_per_day=:maxUsesPerDay,
+           applies_to=:appliesTo, is_active=:isActive, notes=:notes, updated_by=:updatedBy
+       WHERE id=:id`,
+      params
+    );
+    return getPromoById(promo.id);
+  }
+
+  await query(
+    `INSERT INTO promo_codes (
+      id, code, title, description, discount_type, discount_value, min_order_amount,
+      max_discount_amount, starts_at, expires_at, max_total_uses, max_uses_per_day,
+      applies_to, is_active, notes, created_by, updated_by
+    ) VALUES (
+      :id, :code, :title, :description, :discountType, :discountValue, :minOrderAmount,
+      :maxDiscountAmount, :startsAt, :expiresAt, :maxTotalUses, :maxUsesPerDay,
+      :appliesTo, :isActive, :notes, :createdBy, :updatedBy
+    )`,
+    params
+  );
+
+  return getPromoById(params.id);
+};
+
+const deletePromoById = async (id) => {
+  await query(`DELETE FROM promo_codes WHERE id=:id`, { id });
+};
+
 const getInventoryMovements = async ({ movementType = null, from = null, to = null, limit = null } = {}) => {
   const conditions = [];
   const params = {};
@@ -320,6 +403,10 @@ const saveOrder = async (order, connection = null) => {
     status: order.status,
     queueNumber: order.queueNumber || "",
     source: order.source || "staff",
+    promoCodeId: order.promoCodeId || null,
+    promoCode: order.promoCode || null,
+    promoDiscount: Number(order.promoDiscount || 0),
+    promoSnapshot: stringifyJson(order.promoSnapshot, null),
     originalSubtotal: order.originalSubtotal ?? null,
     originalTotal: order.originalTotal ?? null,
     staffId: typeof order.staff === "object" ? order.staff?.id || order.staff?._id || null : order.staff || null,
@@ -339,8 +426,9 @@ const saveOrder = async (order, connection = null) => {
       `UPDATE orders
        SET order_id=:orderId, items=:items, sauce_items=:sauceItems, total=:total, subtotal=:subtotal,
            payment_method=:paymentMethod, booking_details=:bookingDetails, status=:status, queue_number=:queueNumber,
-           source=:source, original_subtotal=:originalSubtotal, original_total=:originalTotal, staff_id=:staffId,
-           voided_at=:voidedAt, voided_by=:voidedBy, edited_at=:editedAt, edited_by=:editedBy,
+           source=:source, promo_code_id=:promoCodeId, promo_code=:promoCode, promo_discount=:promoDiscount,
+           promo_snapshot=:promoSnapshot, original_subtotal=:originalSubtotal, original_total=:originalTotal,
+           staff_id=:staffId, voided_at=:voidedAt, voided_by=:voidedBy, edited_at=:editedAt, edited_by=:editedBy,
            edit_history=:editHistory, served_at=:servedAt, served_by=:servedBy
        WHERE id=:id`,
       params
@@ -351,11 +439,13 @@ const saveOrder = async (order, connection = null) => {
   await runner(
     `INSERT INTO orders (
       id, order_id, items, sauce_items, total, subtotal, payment_method, booking_details, status,
-      queue_number, source, original_subtotal, original_total, staff_id, voided_at, voided_by,
+      queue_number, source, promo_code_id, promo_code, promo_discount, promo_snapshot,
+      original_subtotal, original_total, staff_id, voided_at, voided_by,
       edited_at, edited_by, edit_history, served_at, served_by
     ) VALUES (
       :id, :orderId, :items, :sauceItems, :total, :subtotal, :paymentMethod, :bookingDetails, :status,
-      :queueNumber, :source, :originalSubtotal, :originalTotal, :staffId, :voidedAt, :voidedBy,
+      :queueNumber, :source, :promoCodeId, :promoCode, :promoDiscount, :promoSnapshot,
+      :originalSubtotal, :originalTotal, :staffId, :voidedAt, :voidedBy,
       :editedAt, :editedBy, :editHistory, :servedAt, :servedBy
     )`,
     params
@@ -388,6 +478,11 @@ module.exports = {
   deleteProductById,
   saveInventoryMovement,
   getInventoryMovements,
+  getAllPromos,
+  getPromoById,
+  getPromoByCode,
+  savePromo,
+  deletePromoById,
   getOrders,
   getOrderById,
   getOrderByPublicId,

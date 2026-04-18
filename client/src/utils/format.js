@@ -1,4 +1,10 @@
 const USD_TO_KHR = 4000;
+const PAYMENT_METHOD_LABELS = {
+  cash: "Cash",
+  card: "Card",
+  qr: "QR",
+  due_on_serve: "Due on Serve"
+};
 
 const usdFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -28,6 +34,14 @@ export const currency = (value) => {
   const parts = currencyParts(value);
 
   return `${parts.khr} (${parts.usd})`;
+};
+
+export const formatPaymentMethodLabel = (value, fallback = "Unpaid") => {
+  if (!value) {
+    return fallback;
+  }
+
+  return PAYMENT_METHOD_LABELS[value] || value.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 };
 
 export const formatDate = (value) =>

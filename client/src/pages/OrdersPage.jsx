@@ -13,7 +13,7 @@ import { useShopSettings } from "../context/ShopSettingsContext";
 import { orderService } from "../services/orderService";
 import { productService } from "../services/productService";
 import { getLocalDateInputValue } from "../utils/date";
-import { currency, formatDate, formatServeTime } from "../utils/format";
+import { currency, formatDate, formatPaymentMethodLabel, formatServeTime } from "../utils/format";
 import { printReceipt } from "../utils/printReceipt";
 import { exportReportToExcel, exportReportToPdf } from "../utils/reportExport";
 
@@ -45,14 +45,16 @@ const statusFilterStyles = {
 
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
 const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
+const hasCollectedPayment = (order) => ["cash", "card", "qr"].includes(order?.paymentMethod || "");
+const isDueOnServeOrder = (order) => order?.paymentMethod === "due_on_serve";
 const getOrderStatusLabel = (order) =>
   order.status === "void" ? "Void" : order.status === "queued" ? "Queued" : order.status === "food_serving" ? "Food Serving" : "Completed";
-const requiresVoidRefundMethod = (order) => Number(order?.total || 0) > 0 && Boolean(order?.paymentMethod);
+const requiresVoidRefundMethod = (order) => Number(order?.total || 0) > 0 && hasCollectedPayment(order);
 const getCurrentVoidRefundMethod = (order) =>
   [...(order?.editHistory || [])]
     .reverse()
     .find((entry) => ["void_edit", "void"].includes(entry?.adjustmentType))?.adjustmentMethod || "";
-const requiresVoidEditRefundMethod = (order) => Number(order?.originalTotal || 0) > 0 && Boolean(order?.paymentMethod);
+const requiresVoidEditRefundMethod = (order) => Number(order?.originalTotal || 0) > 0 && hasCollectedPayment(order);
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -166,14 +168,14 @@ const OrdersPage = () => {
     }
   };
 
-  const handleServe = async (sauceItems = []) => {
+  const handleServe = async ({ sauceItems = [], paymentMethod = null } = {}) => {
     if (!servingOrder) {
       return;
     }
 
     setServeSubmitting(true);
     try {
-      const updated = await orderService.serveOrder(servingOrder.id, { sauceItems });
+      const updated = await orderService.serveOrder(servingOrder.id, { sauceItems, paymentMethod });
       toast.success(`Order ${updated.orderId} marked as completed`);
       setSelectedOrder(null);
       setServingOrder(null);
@@ -223,7 +225,7 @@ const OrdersPage = () => {
     date: formatDate(order.createdAt),
     serveTime: getServeTimeLabel(order),
     staff: order.staff?.name || "Staff",
-    paymentMethod: order.paymentMethod?.toUpperCase() || "-",
+    paymentMethod: formatPaymentMethodLabel(order.paymentMethod, "-"),
     items: order.items.length,
     saleAmount: Number(order.total || 0).toFixed(2),
     status: getOrderStatusLabel(order)
@@ -443,7 +445,9 @@ const OrdersPage = () => {
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-900">{order.orderId}</p>
                   {order.source === "customer" && order.queueNumber ? <p className="mt-1 text-xs font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
-                  <p className="mt-1 text-xs capitalize text-slate-500">{order.paymentMethod || "unpaid queue"}</p>
+                  <p className={`mt-1 text-xs ${isDueOnServeOrder(order) ? "font-bold text-red-600" : "text-slate-500"}`}>
+                    {formatPaymentMethodLabel(order.paymentMethod, "Unpaid Queue")}
+                  </p>
                 </div>
                 <span
                   className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
@@ -574,7 +578,9 @@ const OrdersPage = () => {
                   <td className="py-3 pr-4">
                     <p className="font-semibold text-slate-900">{order.orderId}</p>
                     {order.source === "customer" && order.queueNumber ? <p className="text-xs font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
-                    <p className="text-xs capitalize text-slate-500">{order.paymentMethod || "unpaid queue"}</p>
+                    <p className={`text-xs ${isDueOnServeOrder(order) ? "font-bold text-red-600" : "text-slate-500"}`}>
+                      {formatPaymentMethodLabel(order.paymentMethod, "Unpaid Queue")}
+                    </p>
                     {order.editHistory?.length > 0 && (
                       <button type="button" onClick={() => setHistoryOrder(order)} className="mt-2 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
                         Edited {order.editHistory.length} time{order.editHistory.length > 1 ? "s" : ""}
@@ -700,6 +706,7 @@ const OrdersPage = () => {
         onClose={() => setServingOrder(null)}
         onConfirm={handleServe}
         loading={serveSubmitting}
+        requiresPaymentMethod={Boolean(servingOrder) && !hasCollectedPayment(servingOrder)}
       />
       <ForceStockPinModal
         open={Boolean(deletingOrder)}

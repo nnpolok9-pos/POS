@@ -26,6 +26,12 @@ const ReceiptPreview = ({ order }) => {
           </div>
         ))}
         <div className="my-4 border-t border-dashed border-black" />
+        {Number(order.promoDiscount || 0) > 0 && (
+          <p className="mb-2 flex justify-between text-sm">
+            <span>Promo {order.promoCode || ""}</span>
+            <span>-{currency(order.promoDiscount)}</span>
+          </p>
+        )}
         <p className="flex justify-between font-bold">
           <span>Total</span>
           <span>{currency(order.total)}</span>

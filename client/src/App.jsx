@@ -14,6 +14,7 @@ import SalesTransactionPage from "./pages/SalesTransactionPage";
 import ProductSalesReportPage from "./pages/ProductSalesReportPage";
 import UsersPage from "./pages/UsersPage";
 import EditedListPage from "./pages/EditedListPage";
+import PromosPage from "./pages/PromosPage";
 import ShopProfilePage from "./pages/ShopProfilePage";
 import CustomerOrderPage from "./pages/CustomerOrderPage";
 import MenuCardPage from "./pages/MenuCardPage";
@@ -81,6 +82,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="pos-next" element={<Navigate to="/pos" replace />} />
         <Route
           path="orders"
           element={
@@ -142,6 +144,14 @@ function App() {
           element={
             <ProtectedRoute roles={["master_admin", "admin", "checker"]}>
               <EditedListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="promos"
+          element={
+            <ProtectedRoute roles={["master_admin", "admin"]}>
+              <PromosPage />
             </ProtectedRoute>
           }
         />

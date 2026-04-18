@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import CartPanel from "../components/CartPanel";
+import CartPanelNext from "../components/CartPanelNext";
 import CustomerInfoModal from "../components/CustomerInfoModal";
+import PaymentMethodPromptModal from "../components/PaymentMethodPromptModal";
 import ProductCard from "../components/ProductCard";
 import { useShopSettings } from "../context/ShopSettingsContext";
 import { orderService } from "../services/orderService";
 import { productService } from "../services/productService";
+import { promoService } from "../services/promoService";
 import { printReceipt } from "../utils/printReceipt";
 
 const getItemAdjustmentTotal = (item) =>
@@ -19,8 +21,7 @@ const getItemAdjustmentTotal = (item) =>
     return sum + Number(selectedProduct?.priceAdjustment || selectedAlternative.priceAdjustment || 0);
   }, 0);
 
-const getCartTotal = (cart) =>
-  cart.reduce((sum, item) => sum + item.quantity * (Number(item.price) + getItemAdjustmentTotal(item)), 0);
+const getCartTotal = (cart) => cart.reduce((sum, item) => sum + item.quantity * (Number(item.price) + getItemAdjustmentTotal(item)), 0);
 
 const moveDrinksCategoryToEnd = (categories) => {
   const nonDrinks = [];
@@ -51,6 +52,26 @@ const buildCategoryOptions = (products) => [
   )
 ];
 
+const normalizePromoValue = (value) => String(value || "").trim().toUpperCase();
+
+const buildOrderRequestItems = (cart) =>
+  cart.map((item) => ({
+    productId: item.id,
+    quantity: item.quantity,
+    selectedAlternatives: (item.selectedAlternatives || []).map((selectedAlternative) => {
+      const sourceComboItem = (item.comboItems || []).find((comboItem) => comboItem.product === selectedAlternative.sourceProductId);
+      const selectedProduct = (sourceComboItem?.alternativeProducts || []).find(
+        (alternativeProduct) => alternativeProduct.id === selectedAlternative.selectedProductId
+      );
+
+      return {
+        sourceProductId: selectedAlternative.sourceProductId,
+        selectedProductId: selectedAlternative.selectedProductId,
+        priceAdjustment: Number(selectedProduct?.priceAdjustment || selectedAlternative.priceAdjustment || 0)
+      };
+    })
+  }));
+
 const PosPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -58,13 +79,18 @@ const PosPage = () => {
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [loading, setLoading] = useState(true);
   const [latestOrder, setLatestOrder] = useState(null);
   const [editingOrder, setEditingOrder] = useState(null);
   const [adjustmentMethod, setAdjustmentMethod] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoApplying, setPromoApplying] = useState(false);
+  const [paymentMethodError, setPaymentMethodError] = useState(false);
+  const [paymentPromptOpen, setPaymentPromptOpen] = useState(false);
   const [customerInfo, setCustomerInfo] = useState({
     customerName: "",
     customerPhone: "",
@@ -72,15 +98,125 @@ const PosPage = () => {
   });
   const [customerInfoOpen, setCustomerInfoOpen] = useState(false);
   const previousEditDifferenceRef = useRef(0);
+  const promoRequestIdRef = useRef(0);
   const allowItemCustomization = !editingOrder || ["queued", "food_serving", "quote_prepared"].includes(editingOrder.status);
+  const promoSource = editingOrder?.source === "customer" ? "menu" : "pos";
+  const promoLocked = Boolean(editingOrder?.source === "customer");
+  const promoLockedMessage = promoLocked
+    ? "Customer queue promos must stay from the menu order. Editing items will still re-check the original promo."
+    : "";
+
+  const resetPromoState = () => {
+    promoRequestIdRef.current += 1;
+    setPromoCode("");
+    setAppliedPromo(null);
+  };
+
+  const handlePaymentMethodChange = (value) => {
+    setPaymentMethod(value);
+    setPaymentMethodError(false);
+  };
+
+  const handlePromoCodeChange = (value) => {
+    if (promoLocked) {
+      return;
+    }
+
+    const normalizedValue = normalizePromoValue(value);
+    setPromoCode(normalizedValue);
+
+    if (normalizePromoValue(appliedPromo?.code) !== normalizedValue) {
+      setAppliedPromo(null);
+    }
+  };
+
+  const previewPromo = async ({ nextCart = cart, nextPromoCode = promoCode, silent = false } = {}) => {
+    const normalizedPromoCode = normalizePromoValue(nextPromoCode);
+    const requestId = ++promoRequestIdRef.current;
+
+    if (!normalizedPromoCode) {
+      setAppliedPromo(null);
+      return null;
+    }
+
+    if (!nextCart.length) {
+      setAppliedPromo(null);
+      return null;
+    }
+
+    if (!silent) {
+      setPromoApplying(true);
+    }
+
+    try {
+      const preview = await promoService.previewPromo({
+        promoCode: normalizedPromoCode,
+        source: promoSource,
+        orderId: editingOrder?.id || null,
+        items: buildOrderRequestItems(nextCart)
+      });
+
+      const normalizedPreview = {
+        code: preview.code,
+        discount: Number(preview.discount || 0),
+        subtotal: Number(preview.subtotal || 0),
+        total: Number(preview.total || 0),
+        promo: preview.promo || null
+      };
+
+      if (requestId !== promoRequestIdRef.current) {
+        return null;
+      }
+
+      setPromoCode(normalizedPromoCode);
+      setAppliedPromo(normalizedPreview);
+
+      if (!silent) {
+        toast.success(`Promo ${normalizedPromoCode} applied`);
+      }
+
+      return normalizedPreview;
+    } catch (error) {
+      if (requestId !== promoRequestIdRef.current) {
+        return null;
+      }
+
+      if (promoLocked) {
+        setPromoCode("");
+      }
+      setAppliedPromo(null);
+      if (!silent) {
+        toast.error(error.response?.data?.message || "Failed to apply promo");
+      }
+      return null;
+    } finally {
+      if (!silent) {
+        setPromoApplying(false);
+      }
+    }
+  };
+
   const editingDifference = useMemo(() => {
     if (!editingOrder || editingOrder.status === "queued") {
       return 0;
     }
 
-    return Number((getCartTotal(cart) - Number(editingOrder.total || 0)).toFixed(2));
-  }, [cart, editingOrder]);
-  const requiresAdjustmentMethod = Boolean(editingOrder && editingOrder.status !== "queued" && editingDifference !== 0);
+    return Number(((getCartTotal(cart) - Number(appliedPromo?.discount || 0)) - Number(editingOrder.total || 0)).toFixed(2));
+  }, [appliedPromo?.discount, cart, editingOrder]);
+
+  const editingHasCollectedPayment = ["cash", "card", "qr"].includes(editingOrder?.paymentMethod || "");
+  const requiresAdjustmentMethod = Boolean(editingOrder && editingOrder.status !== "queued" && editingHasCollectedPayment && editingDifference !== 0);
+  const paymentMethodOptions = useMemo(() => {
+    if (editingOrder?.status === "completed") {
+      return ["cash", "card", "qr"];
+    }
+
+    if (editingOrder && editingOrder.paymentMethod && editingOrder.paymentMethod !== "due_on_serve" && editingOrder.status !== "queued") {
+      return ["cash", "card", "qr"];
+    }
+
+    return ["cash", "card", "qr", "due_on_serve"];
+  }, [editingOrder]);
 
   useEffect(() => {
     const initPage = async () => {
@@ -94,8 +230,10 @@ const PosPage = () => {
         if (!editOrderId) {
           setEditingOrder(null);
           setCart([]);
-          setPaymentMethod("cash");
+          setPaymentMethod("");
+          setPaymentMethodError(false);
           setAdjustmentMethod("");
+          resetPromoState();
           setCustomerInfo({
             customerName: "",
             customerPhone: "",
@@ -112,8 +250,21 @@ const PosPage = () => {
         }
 
         setEditingOrder(order);
-        setPaymentMethod(order.paymentMethod || "cash");
+        setPaymentMethod(order.paymentMethod || "");
+        setPaymentMethodError(false);
         setAdjustmentMethod("");
+        setPromoCode(order.promoCode || "");
+        setAppliedPromo(
+          order.promoCode
+            ? {
+                code: order.promoCode,
+                discount: Number(order.promoDiscount || 0),
+                subtotal: Number(order.subtotal || 0),
+                total: Number(order.total || 0),
+                promo: order.promoSnapshot || null
+              }
+            : null
+        );
         setCustomerInfo({
           customerName: order.bookingDetails?.customerName || "",
           customerPhone: order.bookingDetails?.customerPhone || "",
@@ -134,7 +285,7 @@ const PosPage = () => {
               price: basePrice,
               regularPrice: product?.regularPrice ?? basePrice,
               promotionalPrice: product?.promotionalPrice ?? basePrice,
-              stock: baseStock + item.quantity,
+              stock: baseStock + (existingOrderMap.get(String(item.product)) || 0),
               quantity: item.quantity,
               image: product?.image || "",
               productType: product?.productType || item.productType,
@@ -169,6 +320,37 @@ const PosPage = () => {
       previousEditDifferenceRef.current = editingDifference;
     }
   }, [editingDifference, editingOrder]);
+
+  useEffect(() => {
+    if (!appliedPromo || !promoCode.trim()) {
+      return;
+    }
+
+    if (!cart.length) {
+      setAppliedPromo(null);
+      return;
+    }
+
+    let active = true;
+
+    const refreshPromo = async () => {
+      const preview = await previewPromo({ nextCart: cart, nextPromoCode: promoCode, silent: true });
+
+      if (!active) {
+        return;
+      }
+
+      if (!preview && appliedPromo) {
+        toast.error("Promo code was removed because this cart no longer qualifies");
+      }
+    };
+
+    refreshPromo();
+
+    return () => {
+      active = false;
+    };
+  }, [appliedPromo, cart, editingOrder?.id, promoCode]);
 
   const productsForSale = useMemo(() => {
     if (!editingOrder) {
@@ -232,11 +414,7 @@ const PosPage = () => {
   };
 
   const updateCartItem = (id, updater) => {
-    setCart((current) =>
-      current
-        .map((item) => (item.id === id ? updater(item) : item))
-        .filter((item) => item.quantity > 0)
-    );
+    setCart((current) => current.map((item) => (item.id === id ? updater(item) : item)).filter((item) => item.quantity > 0));
   };
 
   const increaseItem = (id) => {
@@ -251,52 +429,48 @@ const PosPage = () => {
   };
 
   const updateItemAlternatives = (id, selectedAlternatives) => {
-    setCart((current) =>
-      current.map((item) => (item.id === id ? { ...item, selectedAlternatives } : item))
-    );
+    setCart((current) => current.map((item) => (item.id === id ? { ...item, selectedAlternatives } : item)));
   };
 
-  const checkout = async () => {
+  const submitCheckout = async (selectedPaymentMethod = paymentMethod) => {
     try {
-      const payload = {
-        items: cart.map((item) => ({
-          productId: item.id,
-          quantity: item.quantity,
-          selectedAlternatives: (item.selectedAlternatives || []).map((selectedAlternative) => {
-            const sourceComboItem = (item.comboItems || []).find((comboItem) => comboItem.product === selectedAlternative.sourceProductId);
-            const selectedProduct = (sourceComboItem?.alternativeProducts || []).find(
-              (alternativeProduct) => alternativeProduct.id === selectedAlternative.selectedProductId
-            );
+      const normalizedPromoCode = promoLocked ? normalizePromoValue(appliedPromo?.code) : normalizePromoValue(promoCode);
 
-            return {
-              sourceProductId: selectedAlternative.sourceProductId,
-              selectedProductId: selectedAlternative.selectedProductId,
-              priceAdjustment: Number(selectedProduct?.priceAdjustment || selectedAlternative.priceAdjustment || 0)
-            };
-          })
-        })),
-        paymentMethod,
-        bookingDetails: customerInfo,
-        adjustmentMethod: editingOrder ? adjustmentMethod || null : null
-      };
-
-      if (editingOrder && editingOrder.status !== "queued") {
-        if (editingDifference !== 0 && !adjustmentMethod) {
-          toast.error(editingDifference > 0 ? "Select how the extra amount was collected" : "Select how the refund was made");
-          return;
-        }
+      if (normalizedPromoCode && (!appliedPromo || normalizePromoValue(appliedPromo.code) !== normalizedPromoCode)) {
+        toast.error("Apply the promo code before completing the order");
+        return;
       }
 
-      const order = editingOrder
-        ? await orderService.updateOrder(editingOrder.id, payload)
-        : await orderService.createOrder(payload);
+      const payload = {
+        items: buildOrderRequestItems(cart),
+        paymentMethod: selectedPaymentMethod,
+        bookingDetails: customerInfo,
+        adjustmentMethod: editingOrder ? adjustmentMethod || null : null,
+        promoCode: normalizedPromoCode || null
+      };
+
+      if (!selectedPaymentMethod) {
+        setPaymentMethodError(true);
+        setPaymentPromptOpen(true);
+        return;
+      }
+
+      if (requiresAdjustmentMethod && !adjustmentMethod) {
+        toast.error(editingDifference > 0 ? "Select how the extra amount was collected" : "Select how the refund was made");
+        return;
+      }
+
+      const order = editingOrder ? await orderService.updateOrder(editingOrder.id, payload) : await orderService.createOrder(payload);
 
       toast.success(editingOrder ? `Order ${order.orderId} updated` : `Order ${order.orderId} sent to food serving`);
       setLatestOrder(order);
       setCart([]);
       setEditingOrder(null);
-      setPaymentMethod("cash");
+      setPaymentMethod("");
+      setPaymentMethodError(false);
+      setPaymentPromptOpen(false);
       setAdjustmentMethod("");
+      resetPromoState();
       setCustomerInfo({
         customerName: "",
         customerPhone: "",
@@ -316,11 +490,25 @@ const PosPage = () => {
     }
   };
 
+  const checkout = async () => {
+    await submitCheckout(paymentMethod);
+  };
+
+  const handlePaymentPromptSelect = async (method) => {
+    setPaymentMethod(method);
+    setPaymentMethodError(false);
+    setPaymentPromptOpen(false);
+    await submitCheckout(method);
+  };
+
   const cancelEdit = () => {
     setEditingOrder(null);
     setCart([]);
-    setPaymentMethod("cash");
+    setPaymentMethod("");
+    setPaymentMethodError(false);
+    setPaymentPromptOpen(false);
     setAdjustmentMethod("");
+    resetPromoState();
     setCustomerInfo({
       customerName: "",
       customerPhone: "",
@@ -331,7 +519,10 @@ const PosPage = () => {
 
   const clearQueue = () => {
     setCart([]);
+    setPaymentMethodError(false);
+    setPaymentPromptOpen(false);
     setAdjustmentMethod("");
+    resetPromoState();
     setCustomerInfo({
       customerName: "",
       customerPhone: "",
@@ -342,38 +533,33 @@ const PosPage = () => {
 
   return (
     <>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_440px]">
-        <section className="glass-card flex flex-col p-4 md:p-5 xl:max-h-[calc(100vh-2rem)]">
-          <div className="rounded-[30px] bg-gradient-to-r from-amber-100 via-white to-orange-50 p-3 shadow-soft">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-col gap-2 xl:min-w-0 xl:flex-1 xl:flex-row xl:items-center xl:gap-3">
-                <h1 className="font-display text-xl font-bold text-slate-900 xl:shrink-0">POS Terminal</h1>
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search products by name..."
-                  className="input xl:max-w-[360px]"
-                />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_440px] 2xl:grid-cols-[minmax(0,1fr)_470px]">
+        <section className="glass-card flex flex-col p-3 md:p-4 xl:max-h-[calc(100vh-2rem)]">
+          <div className="rounded-[30px] bg-gradient-to-r from-amber-100 via-white to-orange-50 p-2.5 shadow-soft">
+            <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-2 xl:min-w-0 xl:flex-1 xl:flex-row xl:items-center xl:gap-2.5">
+                <h1 className="font-display text-lg font-bold text-slate-900 xl:shrink-0">POS Terminal</h1>
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products by name..." className="input py-2.5 xl:max-w-[340px]" />
               </div>
-              <div className="grid grid-cols-3 gap-2 sm:w-auto xl:shrink-0">
-                <div className="rounded-2xl bg-white/90 px-3 py-2">
+              <div className="grid grid-cols-3 gap-1.5 sm:w-auto xl:shrink-0">
+                <div className="rounded-2xl bg-white/90 px-3 py-1.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Visible</p>
                   <p className="mt-0.5 text-base font-bold text-slate-900">{visibleProductCount}</p>
                 </div>
-                <div className="rounded-2xl bg-white/90 px-3 py-2">
+                <div className="rounded-2xl bg-white/90 px-3 py-1.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Cart</p>
                   <p className="mt-0.5 text-base font-bold text-slate-900">{totalCartItems}</p>
                 </div>
-                <div className="rounded-2xl bg-white/90 px-3 py-2">
+                <div className="rounded-2xl bg-white/90 px-3 py-1.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Category</p>
                   <p className="mt-0.5 text-[13px] font-bold text-slate-900">{selectedCategory === "All" ? "All" : selectedCategory}</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-3">
-              <div className="rounded-[1.35rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,248,238,0.92))] p-3 shadow-[0_12px_24px_rgba(160,120,50,0.07)]">
-                <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="mt-2.5">
+              <div className="rounded-[1.35rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,248,238,0.92))] p-2.5 shadow-[0_12px_24px_rgba(160,120,50,0.07)]">
+                <div className="mb-1.5 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Categories</p>
                   </div>
@@ -381,36 +567,32 @@ const PosPage = () => {
                     {Math.max(categoryOptions.length - 1, 0)} Categories
                   </div>
                 </div>
-                <div className="max-h-[148px] overflow-y-auto pr-1">
+                <div className="max-h-[132px] overflow-y-auto pr-1">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                  {categoryOptions.map((category) => (
-                    <button
-                      key={category.key}
-                      type="button"
-                      onClick={() => setSelectedCategory(category.key)}
-                      className={`group rounded-[0.95rem] border px-3 py-2.5 text-left text-[13px] font-semibold transition ${
-                        selectedCategory === category.key
-                          ? "border-slate-900 bg-slate-900 text-white shadow-[0_14px_24px_rgba(15,23,42,0.22)]"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-[#f3c38d] hover:bg-[#fff3e2] hover:text-slate-900"
-                      }`}
-                    >
-                      <span className="flex items-start justify-between gap-2">
-                        <span className="block min-w-0 flex-1 whitespace-normal break-words text-left leading-snug">{category.label}</span>
-                        <span
-                          className={`h-2 w-2 shrink-0 rounded-full transition ${
-                            selectedCategory === category.key ? "bg-white" : "bg-slate-200 group-hover:bg-brand-300"
-                          }`}
-                        />
-                      </span>
-                    </button>
-                  ))}
+                    {categoryOptions.map((category) => (
+                      <button
+                        key={category.key}
+                        type="button"
+                        onClick={() => setSelectedCategory(category.key)}
+                        className={`group rounded-[0.95rem] border px-3 py-2.5 text-left text-[13px] font-semibold transition ${
+                          selectedCategory === category.key
+                            ? "border-slate-900 bg-slate-900 text-white shadow-[0_14px_24px_rgba(15,23,42,0.22)]"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-[#f3c38d] hover:bg-[#fff3e2] hover:text-slate-900"
+                        }`}
+                      >
+                        <span className="flex items-start justify-between gap-2">
+                          <span className="block min-w-0 flex-1 whitespace-normal break-words text-left leading-snug">{category.label}</span>
+                          <span className={`h-2 w-2 shrink-0 rounded-full transition ${selectedCategory === category.key ? "bg-white" : "bg-slate-200 group-hover:bg-brand-300"}`} />
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-5 min-h-[360px] flex-1 overflow-y-auto pr-1 xl:min-h-0">
+          <div className="mt-4 min-h-[360px] flex-1 overflow-y-auto pr-1 xl:min-h-0">
             <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
               {loading ? (
                 <div className="rounded-3xl bg-white p-6 text-slate-500">Loading products...</div>
@@ -425,10 +607,10 @@ const PosPage = () => {
           </div>
         </section>
 
-        <CartPanel
+        <CartPanelNext
           cart={cart}
           paymentMethod={paymentMethod}
-          onPaymentChange={setPaymentMethod}
+          onPaymentChange={handlePaymentMethodChange}
           onIncrease={increaseItem}
           onDecrease={(id) => updateCartItem(id, (item) => ({ ...item, quantity: item.quantity - 1 }))}
           onRemove={(id) => setCart((current) => current.filter((item) => item.id !== id))}
@@ -453,8 +635,26 @@ const PosPage = () => {
           onUpdateAlternatives={updateItemAlternatives}
           allowItemCustomization={allowItemCustomization}
           checkoutDisabled={requiresAdjustmentMethod && !adjustmentMethod}
+          showPaymentMethodError={paymentMethodError}
           customerInfo={customerInfo}
           onOpenCustomerInfo={() => setCustomerInfoOpen(true)}
+          promoCode={promoCode}
+          onPromoCodeChange={handlePromoCodeChange}
+          onApplyPromo={() => {
+            if (!promoLocked) {
+              previewPromo({ silent: false });
+            }
+          }}
+          onRemovePromo={() => {
+            if (!promoLocked) {
+              resetPromoState();
+            }
+          }}
+          appliedPromo={appliedPromo}
+          promoApplying={promoApplying}
+          promoLocked={promoLocked}
+          promoLockedMessage={promoLockedMessage}
+          paymentMethods={paymentMethodOptions}
         />
       </div>
       <CustomerInfoModal
@@ -466,6 +666,12 @@ const PosPage = () => {
           setCustomerInfoOpen(false);
           toast.success("Customer info saved");
         }}
+      />
+      <PaymentMethodPromptModal
+        open={paymentPromptOpen}
+        onClose={() => setPaymentPromptOpen(false)}
+        onSelect={handlePaymentPromptSelect}
+        methods={paymentMethodOptions}
       />
     </>
   );

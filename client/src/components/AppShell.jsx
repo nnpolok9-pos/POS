@@ -1,4 +1,4 @@
-import { Archive, BarChart3, FilePenLine, LayoutDashboard, LogOut, Menu, PackagePlus, PackageSearch, ReceiptText, ShoppingCart, Store, Users, X } from "lucide-react";
+import { Archive, BadgePercent, BarChart3, FilePenLine, LayoutDashboard, LogOut, Menu, PackagePlus, PackageSearch, ReceiptText, ShoppingCart, Store, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -13,6 +13,7 @@ const navItems = [
   { to: "/stocks", label: "Stocks", icon: PackagePlus, roles: ["master_admin", "admin", "checker", "staff"] },
   { to: "/inventory", label: "Inventory", icon: Archive, roles: ["master_admin", "admin", "checker", "staff"] },
   { to: "/edited-list", label: "Edited List", icon: FilePenLine, roles: ["master_admin", "admin", "checker"] },
+  { to: "/promos", label: "Promos", icon: BadgePercent, roles: ["master_admin", "admin"] },
   { to: "/reports/sales", label: "Reports", icon: BarChart3, roles: ["master_admin", "admin", "checker"] },
   { to: "/users", label: "Users", icon: Users, roles: ["master_admin", "admin"] },
   { to: "/shop-profile", label: "Shop Profile", icon: Store, roles: ["master_admin"] }

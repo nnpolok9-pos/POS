@@ -1,7 +1,7 @@
 import { CheckCircle2, X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { currency, formatDate } from "../utils/format";
+import { currency, formatDate, formatPaymentMethodLabel } from "../utils/format";
 
 const statusStyles = {
   queued: "bg-violet-100 text-violet-700",
@@ -75,7 +75,7 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
               </div>
               <div className="rounded-3xl bg-slate-50 p-4">
                 <p className="text-sm text-slate-500">Payment</p>
-                <p className="mt-1 text-2xl font-bold capitalize text-slate-900">{order.paymentMethod || "Unpaid Queue"}</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">{formatPaymentMethodLabel(order.paymentMethod, "Unpaid Queue")}</p>
               </div>
               <div className="rounded-3xl bg-slate-50 p-4">
                 <p className="text-sm text-slate-500">Items</p>
@@ -126,7 +126,7 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
               <div className="mt-4 rounded-3xl bg-rose-50 p-4 text-sm text-rose-800">
                 <p>Current void amount: {currency(order.total)}</p>
                 <p>Original sale amount: {currency(order.originalTotal ?? 0)}</p>
-                <p>Refunded by: <span className="font-semibold capitalize">{currentVoidRefundMethod || "not recorded"}</span></p>
+                <p>Refunded by: <span className="font-semibold">{formatPaymentMethodLabel(currentVoidRefundMethod, "not recorded")}</span></p>
               </div>
             )}
 

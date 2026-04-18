@@ -5,6 +5,7 @@ const REPORT_TIMEZONE = process.env.REPORT_TIMEZONE || process.env.TZ || "Asia/B
 const COMPLETED_STATUSES = ["completed", "confirmed"];
 const PAYMENT_METHODS = ["cash", "card", "qr"];
 const isVoidHistoryEntry = (entry) => ["void", "void_edit"].includes(entry?.adjustmentType);
+const hasCollectedPayment = (paymentMethod) => PAYMENT_METHODS.includes(paymentMethod);
 
 const buildDateRange = (from, to) => {
   const now = new Date();
@@ -40,13 +41,13 @@ const getInitialPaymentTransaction = (order) => {
   if (order?.source === "customer" && firstEdit?.oldPaymentMethod == null && firstEdit?.newPaymentMethod) {
     return {
       amount: Number(firstEdit?.oldTotal ?? order.originalTotal ?? order.total ?? 0),
-      method: firstEdit.newPaymentMethod
+      method: hasCollectedPayment(firstEdit.newPaymentMethod) ? firstEdit.newPaymentMethod : null
     };
   }
 
   return {
     amount: Number(firstEdit?.oldTotal ?? order.originalTotal ?? order.total ?? 0),
-    method: firstEdit?.oldPaymentMethod || order.paymentMethod || null
+    method: hasCollectedPayment(firstEdit?.oldPaymentMethod) ? firstEdit.oldPaymentMethod : hasCollectedPayment(order.paymentMethod) ? order.paymentMethod : null
   };
 };
 
@@ -367,7 +368,7 @@ const getCashPositionReport = async (req, res) => {
       existing.cardAmount += Number(order.total || 0);
     } else if (order.paymentMethod === "qr") {
       existing.qrAmount += Number(order.total || 0);
-    } else {
+    } else if (order.paymentMethod === "cash") {
       existing.cashAmount += Number(order.total || 0);
     }
     grouped.set(date, existing);
