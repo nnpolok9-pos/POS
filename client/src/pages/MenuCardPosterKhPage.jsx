@@ -53,20 +53,18 @@ const groupProductsByCategory = (products) => {
 
 const findSectionIndex = (sections, matcher) => sections.findIndex((section) => matcher((section.category || "").toLowerCase()));
 const normalizeCategoryName = (value) => (value || "").toLowerCase().trim();
+const getPosterPrice = (product) => product.regularPrice ?? product.price ?? product.promotionalPrice ?? 0;
 
 const ProductPrice = ({ product, big = false }) => {
-  const promo = currencyParts(product.promotionalPrice ?? product.price ?? 0);
-  const regular = currencyParts(product.regularPrice ?? product.price ?? 0);
-  const hasDiscount = Number(product.promotionalPrice ?? product.price ?? 0) < Number(product.regularPrice ?? product.price ?? 0);
+  const regular = currencyParts(getPosterPrice(product));
 
   return (
     <div className="space-y-0.5">
       <div className={`${big ? "text-[1.15vw]" : "text-[0.82vw]"} font-extrabold leading-none text-[#161616]`}>
-        {promo.khr}
+        {regular.khr}
       </div>
       <div className="flex items-center gap-2">
-        {hasDiscount ? <span className={`${big ? "text-[0.62vw]" : "text-[0.55vw]"} font-semibold text-slate-400 line-through`}>{regular.khr}</span> : null}
-        <span className={`${big ? "text-[0.64vw]" : "text-[0.56vw]"} font-semibold text-slate-500`}>{promo.usd}</span>
+        <span className={`${big ? "text-[0.64vw]" : "text-[0.56vw]"} font-semibold text-slate-500`}>{regular.usd}</span>
       </div>
     </div>
   );
@@ -85,10 +83,10 @@ const PosterImageCard = ({ product, compact = false }) => (
       </p>
       <div className="mt-[0.14vw]">
         <div className={`${compact ? "text-[0.92vw]" : "text-[1.02vw]"} font-extrabold leading-none text-[#fde047]`}>
-          {currencyParts(product.promotionalPrice ?? product.price ?? 0).khr}
+          {currencyParts(getPosterPrice(product)).khr}
         </div>
         <div className="text-[0.54vw] font-semibold text-white/80">
-          {currencyParts(product.promotionalPrice ?? product.price ?? 0).usd}
+          {currencyParts(getPosterPrice(product)).usd}
         </div>
       </div>
     </div>
@@ -240,8 +238,8 @@ const FeatureSection = ({ title, products, brandLogo }) => {
             </p>
             <div className="mt-[0.28vw]">
               <div className="space-y-0.5">
-                <div className="text-[1.16vw] font-extrabold leading-none text-[#fde047]">{currencyParts(featured.promotionalPrice ?? featured.price ?? 0).khr}</div>
-                <div className="text-[0.58vw] font-semibold text-white/80">{currencyParts(featured.promotionalPrice ?? featured.price ?? 0).usd}</div>
+                <div className="text-[1.16vw] font-extrabold leading-none text-[#fde047]">{currencyParts(getPosterPrice(featured)).khr}</div>
+                <div className="text-[0.58vw] font-semibold text-white/80">{currencyParts(getPosterPrice(featured)).usd}</div>
               </div>
             </div>
           </div>
