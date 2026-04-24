@@ -21,7 +21,8 @@ const getItemAdjustmentTotal = (item) =>
     return sum + Number(selectedProduct?.priceAdjustment || selectedAlternative.priceAdjustment || 0);
   }, 0);
 
-const getCartTotal = (cart) => cart.reduce((sum, item) => sum + item.quantity * (Number(item.price) + getItemAdjustmentTotal(item)), 0);
+const getCartTotal = (cart) =>
+  cart.reduce((sum, item) => sum + item.quantity * (Number(item.price) + (item.customPriced ? 0 : getItemAdjustmentTotal(item))), 0);
 
 const moveDrinksCategoryToEnd = (categories) => {
   const nonDrinks = [];
@@ -54,10 +55,17 @@ const buildCategoryOptions = (products) => [
 
 const normalizePromoValue = (value) => String(value || "").trim().toUpperCase();
 
+const PARTNER_METHODS = ["foodpanda", "grab"];
+const isPartnerMethod = (value) => PARTNER_METHODS.includes(value);
+const isPartnerSource = (value) => PARTNER_METHODS.includes(value);
+const getDefaultProductPrice = (product, partnerMode = false) =>
+  Number(partnerMode ? product.regularPrice ?? product.price ?? 0 : product.promotionalPrice ?? product.price ?? 0);
+
 const buildOrderRequestItems = (cart) =>
   cart.map((item) => ({
     productId: item.id,
     quantity: item.quantity,
+    unitPrice: item.customPriced ? Number(item.price || 0) : undefined,
     selectedAlternatives: (item.selectedAlternatives || []).map((selectedAlternative) => {
       const sourceComboItem = (item.comboItems || []).find((comboItem) => comboItem.product === selectedAlternative.sourceProductId);
       const selectedProduct = (sourceComboItem?.alternativeProducts || []).find(
@@ -72,7 +80,7 @@ const buildOrderRequestItems = (cart) =>
     })
   }));
 
-const PosPage = () => {
+const PosPage = ({ mode = "counter" }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { settings: shopSettings } = useShopSettings();
@@ -99,7 +107,10 @@ const PosPage = () => {
   const [customerInfoOpen, setCustomerInfoOpen] = useState(false);
   const previousEditDifferenceRef = useRef(0);
   const promoRequestIdRef = useRef(0);
+  const isPartnerMode = mode === "partner";
   const allowItemCustomization = !editingOrder || ["queued", "food_serving", "quote_prepared"].includes(editingOrder.status);
+  const partnerEditingOrder = isPartnerSource(editingOrder?.source);
+  const partnerOrderContext = isPartnerMode || partnerEditingOrder;
   const promoSource = editingOrder?.source === "customer" ? "menu" : "pos";
   const promoLocked = Boolean(editingOrder?.source === "customer");
   const promoLockedMessage = promoLocked
@@ -204,9 +215,13 @@ const PosPage = () => {
     return Number(((getCartTotal(cart) - Number(appliedPromo?.discount || 0)) - Number(editingOrder.total || 0)).toFixed(2));
   }, [appliedPromo?.discount, cart, editingOrder]);
 
-  const editingHasCollectedPayment = ["cash", "card", "qr"].includes(editingOrder?.paymentMethod || "");
+  const editingHasCollectedPayment = ["cash", "card", "qr", ...PARTNER_METHODS].includes(editingOrder?.paymentMethod || "");
   const requiresAdjustmentMethod = Boolean(editingOrder && editingOrder.status !== "queued" && editingHasCollectedPayment && editingDifference !== 0);
   const paymentMethodOptions = useMemo(() => {
+    if (partnerOrderContext) {
+      return PARTNER_METHODS;
+    }
+
     if (editingOrder?.status === "completed") {
       return ["cash", "card", "qr"];
     }
@@ -216,7 +231,7 @@ const PosPage = () => {
     }
 
     return ["cash", "card", "qr", "due_on_serve"];
-  }, [editingOrder]);
+  }, [editingOrder, partnerOrderContext]);
 
   useEffect(() => {
     const initPage = async () => {
@@ -243,6 +258,17 @@ const PosPage = () => {
         }
 
         const order = await orderService.getOrderById(editOrderId);
+
+        if (isPartnerSource(order.source) && !isPartnerMode) {
+          navigate(`/partner-pos?editOrder=${order.id}`, { replace: true, state: location.state });
+          return;
+        }
+
+        if (!isPartnerSource(order.source) && order.source !== "customer" && isPartnerMode) {
+          navigate(`/pos?editOrder=${order.id}`, { replace: true, state: location.state });
+          return;
+        }
+
         if (order.status === "void") {
           toast.error("Void sales cannot be edited");
           navigate("/orders", { replace: true });
@@ -276,15 +302,17 @@ const PosPage = () => {
             const product = data.find((entry) => entry.id === item.product);
             const baseStock = product?.stock ?? 0;
             const selectedAlternatives = item.selectedAlternatives || [];
-            const basePrice =
-              Number(item.price) -
-              selectedAlternatives.reduce((sum, selectedAlternative) => sum + Number(selectedAlternative.priceAdjustment || 0), 0);
+            const basePrice = isPartnerSource(order.source)
+              ? Number(item.price || 0)
+              : Number(item.price) -
+                selectedAlternatives.reduce((sum, selectedAlternative) => sum + Number(selectedAlternative.priceAdjustment || 0), 0);
             return {
               id: item.product,
               name: item.name,
               price: basePrice,
               regularPrice: product?.regularPrice ?? basePrice,
               promotionalPrice: product?.promotionalPrice ?? basePrice,
+              customPriced: isPartnerSource(order.source),
               stock: baseStock + (existingOrderMap.get(String(item.product)) || 0),
               quantity: item.quantity,
               image: product?.image || "",
@@ -307,7 +335,7 @@ const PosPage = () => {
     };
 
     initPage();
-  }, [navigate, searchParams]);
+  }, [isPartnerMode, location.state, navigate, searchParams]);
 
   useEffect(() => {
     if (!editingOrder || editingOrder.status === "queued") {
@@ -399,9 +427,10 @@ const PosPage = () => {
         {
           id: product.id,
           name: product.name,
-          price: product.promotionalPrice ?? product.price,
+          price: getDefaultProductPrice(product, partnerOrderContext),
           regularPrice: product.regularPrice ?? product.price,
           promotionalPrice: product.promotionalPrice ?? product.price,
+          customPriced: partnerOrderContext,
           stock: product.stock,
           quantity: 1,
           image: product.image || "",
@@ -432,9 +461,26 @@ const PosPage = () => {
     setCart((current) => current.map((item) => (item.id === id ? { ...item, selectedAlternatives } : item)));
   };
 
+  const updateItemPrice = (id, nextValue) => {
+    const trimmedValue = String(nextValue ?? "").trim();
+    const numericValue = Number(trimmedValue);
+
+    setCart((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              price: trimmedValue === "" ? item.price : Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : item.price,
+              customPriced: true
+            }
+          : item
+      )
+    );
+  };
+
   const submitCheckout = async (selectedPaymentMethod = paymentMethod) => {
     try {
-      const normalizedPromoCode = promoLocked ? normalizePromoValue(appliedPromo?.code) : normalizePromoValue(promoCode);
+      const normalizedPromoCode = partnerOrderContext ? "" : promoLocked ? normalizePromoValue(appliedPromo?.code) : normalizePromoValue(promoCode);
 
       if (normalizedPromoCode && (!appliedPromo || normalizePromoValue(appliedPromo.code) !== normalizedPromoCode)) {
         toast.error("Apply the promo code before completing the order");
@@ -538,7 +584,7 @@ const PosPage = () => {
           <div className="rounded-[30px] bg-gradient-to-r from-amber-100 via-white to-orange-50 p-2.5 shadow-soft">
             <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-col gap-2 xl:min-w-0 xl:flex-1 xl:flex-row xl:items-center xl:gap-2.5">
-                <h1 className="font-display text-lg font-bold text-slate-900 xl:shrink-0">POS Terminal</h1>
+                <h1 className="font-display text-lg font-bold text-slate-900 xl:shrink-0">{partnerOrderContext ? "Delivery Partner POS" : "POS Terminal"}</h1>
                 <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products by name..." className="input py-2.5 xl:max-w-[340px]" />
               </div>
               <div className="grid grid-cols-3 gap-1.5 sm:w-auto xl:shrink-0">
@@ -601,7 +647,14 @@ const PosPage = () => {
                   No products match this search or category.
                 </div>
               ) : (
-                filteredProducts.map((product) => <ProductCard key={product.id} product={product} onSelect={addToCart} />)
+                filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onSelect={addToCart}
+                    priceMode={partnerOrderContext ? "regular" : "offer"}
+                  />
+                ))
               )}
             </div>
           </div>
@@ -617,13 +670,17 @@ const PosPage = () => {
           onCheckout={checkout}
           latestOrder={latestOrder}
           onPrintLatest={() => printReceipt(latestOrder, shopSettings)}
-          title={editingOrder ? `Editing ${editingOrder.orderId}` : "Current Order"}
+          title={editingOrder ? `Editing ${editingOrder.orderId}` : partnerOrderContext ? "Delivery Partner Order" : "Current Order"}
           description={
             editingOrder
               ? editingOrder.status === "queued"
                 ? "This queue order came from customer self-order. Confirm payment and send it to the kitchen."
-                : "This order was loaded from history. Update it here and save the changes."
-              : "Fast selection with live stock validation"
+                : partnerOrderContext
+                  ? "This delivery partner order was loaded from history. Update partner source, prices, and items here."
+                  : "This order was loaded from history. Update it here and save the changes."
+              : partnerOrderContext
+                ? "Use regular prices for Grab and Foodpanda orders, then adjust any unit price before saving."
+                : "Fast selection with live stock validation"
           }
           checkoutLabel={editingOrder ? "Update Order" : "Place Order"}
           isEditing={Boolean(editingOrder)}
@@ -633,6 +690,8 @@ const PosPage = () => {
           adjustmentMethod={adjustmentMethod}
           onAdjustmentMethodChange={setAdjustmentMethod}
           onUpdateAlternatives={updateItemAlternatives}
+          allowPriceEdit={partnerOrderContext}
+          onUpdatePrice={updateItemPrice}
           allowItemCustomization={allowItemCustomization}
           checkoutDisabled={requiresAdjustmentMethod && !adjustmentMethod}
           showPaymentMethodError={paymentMethodError}
@@ -652,6 +711,7 @@ const PosPage = () => {
           }}
           appliedPromo={appliedPromo}
           promoApplying={promoApplying}
+          showPromoSection={!partnerOrderContext}
           promoLocked={promoLocked}
           promoLockedMessage={promoLockedMessage}
           paymentMethods={paymentMethodOptions}

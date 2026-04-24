@@ -1,7 +1,7 @@
 import { CheckCircle2, X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { currency, formatDate, formatPaymentMethodLabel } from "../utils/format";
+import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel } from "../utils/format";
 
 const statusStyles = {
   queued: "bg-violet-100 text-violet-700",
@@ -80,6 +80,19 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
               <div className="rounded-3xl bg-slate-50 p-4">
                 <p className="text-sm text-slate-500">Items</p>
                 <p className="mt-1 text-2xl font-bold text-slate-900">{order.items.length}</p>
+              </div>
+              <div className="rounded-3xl bg-slate-50 p-4">
+                <p className="text-sm text-slate-500">Order From</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">{formatOrderSourceLabel(order.source)}</p>
+              </div>
+              <div className="rounded-3xl bg-slate-50 p-4 sm:col-span-2">
+                <p className="text-sm text-slate-500">Promo Used</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">{order.promoCode || "No promo"}</p>
+                {order.promoCode ? (
+                  <p className="mt-1 text-sm font-medium text-emerald-700">
+                    Discount {currency(order.promoDiscount || 0)}
+                  </p>
+                ) : null}
               </div>
             </div>
 

@@ -3,7 +3,16 @@ const PAYMENT_METHOD_LABELS = {
   cash: "Cash",
   card: "Card",
   qr: "QR",
-  due_on_serve: "Due on Serve"
+  due_on_serve: "Due on Serve",
+  grab: "Grab",
+  foodpanda: "Foodpanda"
+};
+
+const ORDER_SOURCE_LABELS = {
+  staff: "Counter POS",
+  customer: "Customer Menu",
+  grab: "Grab",
+  foodpanda: "Foodpanda"
 };
 
 const usdFormatter = new Intl.NumberFormat("en-US", {
@@ -42,6 +51,14 @@ export const formatPaymentMethodLabel = (value, fallback = "Unpaid") => {
   }
 
   return PAYMENT_METHOD_LABELS[value] || value.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
+};
+
+export const formatOrderSourceLabel = (value, fallback = "Counter POS") => {
+  if (!value) {
+    return fallback;
+  }
+
+  return ORDER_SOURCE_LABELS[value] || value.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 };
 
 export const formatDate = (value) =>

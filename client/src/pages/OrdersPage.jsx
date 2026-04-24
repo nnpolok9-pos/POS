@@ -13,7 +13,7 @@ import { useShopSettings } from "../context/ShopSettingsContext";
 import { orderService } from "../services/orderService";
 import { productService } from "../services/productService";
 import { getLocalDateInputValue } from "../utils/date";
-import { currency, formatDate, formatPaymentMethodLabel, formatServeTime } from "../utils/format";
+import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel, formatServeTime } from "../utils/format";
 import { printReceipt } from "../utils/printReceipt";
 import { exportReportToExcel, exportReportToPdf } from "../utils/reportExport";
 
@@ -25,6 +25,7 @@ const orderHistoryColumns = [
   { header: "Date", key: "date" },
   { header: "Serve Time", key: "serveTime" },
   { header: "Staff", key: "staff" },
+  { header: "Order From", key: "orderFrom" },
   { header: "Payment Method", key: "paymentMethod" },
   { header: "Items", key: "items" },
   { header: "Sale Amount", key: "saleAmount" },
@@ -45,8 +46,10 @@ const statusFilterStyles = {
 
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
 const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
-const hasCollectedPayment = (order) => ["cash", "card", "qr"].includes(order?.paymentMethod || "");
+const isPartnerSource = (order) => ["grab", "foodpanda"].includes(order?.source || "");
+const hasCollectedPayment = (order) => ["cash", "card", "qr", "grab", "foodpanda"].includes(order?.paymentMethod || "");
 const isDueOnServeOrder = (order) => order?.paymentMethod === "due_on_serve";
+const getOrderEditPath = (order) => (isPartnerSource(order) ? "/partner-pos" : "/pos");
 const getOrderStatusLabel = (order) =>
   order.status === "void" ? "Void" : order.status === "queued" ? "Queued" : order.status === "food_serving" ? "Food Serving" : "Completed";
 const requiresVoidRefundMethod = (order) => Number(order?.total || 0) > 0 && hasCollectedPayment(order);
@@ -225,6 +228,7 @@ const OrdersPage = () => {
     date: formatDate(order.createdAt),
     serveTime: getServeTimeLabel(order),
     staff: order.staff?.name || "Staff",
+    orderFrom: formatOrderSourceLabel(order.source),
     paymentMethod: formatPaymentMethodLabel(order.paymentMethod, "-"),
     items: order.items.length,
     saleAmount: Number(order.total || 0).toFixed(2),
@@ -445,6 +449,7 @@ const OrdersPage = () => {
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-900">{order.orderId}</p>
                   {order.source === "customer" && order.queueNumber ? <p className="mt-1 text-xs font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
+                  <p className="mt-1 text-xs font-semibold text-slate-500">From {formatOrderSourceLabel(order.source)}</p>
                   <p className={`mt-1 text-xs ${isDueOnServeOrder(order) ? "font-bold text-red-600" : "text-slate-500"}`}>
                     {formatPaymentMethodLabel(order.paymentMethod, "Unpaid Queue")}
                   </p>
@@ -486,6 +491,10 @@ const OrdersPage = () => {
                   <p className="mt-1 font-medium text-slate-700">{order.staff?.name || "Staff"}</p>
                 </div>
                 <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Order From</p>
+                  <p className="mt-1 font-medium text-slate-700">{formatOrderSourceLabel(order.source)}</p>
+                </div>
+                <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Items</p>
                   <p className="mt-1 font-medium text-slate-700">{order.items.length}</p>
                 </div>
@@ -502,7 +511,7 @@ const OrdersPage = () => {
                 {canEditOrder(order) && (
                   <button
                     type="button"
-                    onClick={() => navigate(`/pos?editOrder=${order.id}`, { state: { returnTo: "/orders" } })}
+                    onClick={() => navigate(`${getOrderEditPath(order)}?editOrder=${order.id}`, { state: { returnTo: "/orders" } })}
                     className="btn-secondary h-10 gap-2 px-3 text-sm"
                   >
                     <Pencil size={16} />
@@ -578,6 +587,7 @@ const OrdersPage = () => {
                   <td className="py-3 pr-4">
                     <p className="font-semibold text-slate-900">{order.orderId}</p>
                     {order.source === "customer" && order.queueNumber ? <p className="text-xs font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
+                    <p className="text-xs font-semibold text-slate-500">From {formatOrderSourceLabel(order.source)}</p>
                     <p className={`text-xs ${isDueOnServeOrder(order) ? "font-bold text-red-600" : "text-slate-500"}`}>
                       {formatPaymentMethodLabel(order.paymentMethod, "Unpaid Queue")}
                     </p>
@@ -616,7 +626,7 @@ const OrdersPage = () => {
                     {canEditOrder(order) && (
                       <button
                         type="button"
-                        onClick={() => navigate(`/pos?editOrder=${order.id}`, { state: { returnTo: "/orders" } })}
+                        onClick={() => navigate(`${getOrderEditPath(order)}?editOrder=${order.id}`, { state: { returnTo: "/orders" } })}
                         className="btn-secondary h-10 gap-2 px-3 text-sm"
                         >
                           <Pencil size={16} />
@@ -672,7 +682,7 @@ const OrdersPage = () => {
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
         onPrint={() => printReceipt(selectedOrder, shopSettings)}
-        onEdit={() => navigate(`/pos?editOrder=${selectedOrder.id}`, { state: { returnTo: "/orders" } })}
+        onEdit={() => navigate(`${getOrderEditPath(selectedOrder)}?editOrder=${selectedOrder.id}`, { state: { returnTo: "/orders" } })}
         onServe={() => openServeDialog(selectedOrder)}
         onVoid={() => openVoidDialog(selectedOrder)}
         onEditVoid={() => openVoidEditDialog(selectedOrder)}

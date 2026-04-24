@@ -42,9 +42,19 @@ const buildRequestedItems = (items) => {
       throw new Error("Each item quantity must be at least 1");
     }
 
+    const unitPrice =
+      item.unitPrice === undefined || item.unitPrice === null || item.unitPrice === ""
+        ? null
+        : Number(item.unitPrice);
+
+    if (unitPrice !== null && (!Number.isFinite(unitPrice) || unitPrice < 0)) {
+      throw new Error("Each custom item price must be zero or more");
+    }
+
     return {
       productId: String(item.productId),
       quantity: item.quantity,
+      unitPrice,
       selectedAlternatives: normalizeSelectedAlternativesInput(item.selectedAlternatives)
     };
   });
@@ -126,7 +136,7 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
   const rawRequirements = new Map();
 
   for (const requestItem of requestedItems) {
-    const { productId, quantity, selectedAlternatives = [] } = requestItem;
+    const { productId, quantity, unitPrice, selectedAlternatives = [] } = requestItem;
     const product = productMap.get(productId);
 
     if (!product) {
@@ -178,7 +188,9 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
         });
       });
 
-      const lineSubtotal = (Number(product.price || 0) + linePriceAdjustment) * quantity;
+      const defaultUnitPrice = Number(product.price || 0) + linePriceAdjustment;
+      const finalUnitPrice = unitPrice !== null ? unitPrice : defaultUnitPrice;
+      const lineSubtotal = finalUnitPrice * quantity;
       subtotal += lineSubtotal;
 
       const components = buildProductComponents(product, quantity, productMap, selectedAlternativeMap).map((component) => {
@@ -195,7 +207,7 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
       orderItems.push({
         product: product.id || product._id,
         name: product.name,
-        price: Number(product.price || 0) + linePriceAdjustment,
+        price: finalUnitPrice,
         quantity,
         productType: product.productType,
         components,
@@ -205,12 +217,13 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
       continue;
     }
 
-    const lineSubtotal = Number(product.price || 0) * quantity;
+    const finalUnitPrice = unitPrice !== null ? unitPrice : Number(product.price || 0);
+    const lineSubtotal = finalUnitPrice * quantity;
     subtotal += lineSubtotal;
     orderItems.push({
       product: product.id || product._id,
       name: product.name,
-      price: Number(product.price || 0),
+      price: finalUnitPrice,
       quantity,
       productType: inferProductType(product),
       components: [],

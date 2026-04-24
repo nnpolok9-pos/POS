@@ -1,9 +1,12 @@
 import StatusBadge from "./StatusBadge";
 import { currencyParts, imageUrl } from "../utils/format";
 
-const ProductCard = ({ product, onSelect, language = "en", showStatusBadge = true, showStockQuantity = true }) => {
+const ProductCard = ({ product, onSelect, language = "en", showStatusBadge = true, showStockQuantity = true, priceMode = "offer" }) => {
   const isKhmer = language === "km";
-  const promoParts = currencyParts(product.promotionalPrice ?? product.price);
+  const promotionalPrice = Number(product.promotionalPrice ?? product.price ?? 0);
+  const regularPrice = Number(product.regularPrice ?? product.price ?? promotionalPrice);
+  const activePrice = priceMode === "regular" ? regularPrice : promotionalPrice;
+  const activeParts = currencyParts(activePrice);
   const regularParts = currencyParts(product.regularPrice ?? product.price);
 
   return (
@@ -33,13 +36,13 @@ const ProductCard = ({ product, onSelect, language = "en", showStatusBadge = tru
         </div>
         <div className="mt-auto flex items-end justify-between gap-3">
           <div className="flex flex-col">
-            {Number(product.regularPrice ?? product.price) > Number(product.promotionalPrice ?? product.price) && (
+            {priceMode !== "regular" && regularPrice > promotionalPrice && (
               <span className={`text-[12px] line-through ${isKhmer ? "text-black" : "text-slate-400"}`}>
                 {regularParts.khr} <span className={`text-[11px] ${isKhmer ? "text-black" : "text-slate-300"}`}>({regularParts.usd})</span>
               </span>
             )}
-            <span className="text-[18px] font-bold text-brand-600">{promoParts.khr}</span>
-            <span className={`text-[11px] ${isKhmer ? "text-black" : "text-slate-400"}`}>{promoParts.usd}</span>
+            <span className="text-[18px] font-bold text-brand-600">{activeParts.khr}</span>
+            <span className={`text-[11px] ${isKhmer ? "text-black" : "text-slate-400"}`}>{activeParts.usd}</span>
           </div>
           {showStockQuantity ? <span className={`text-[13px] font-medium ${isKhmer ? "text-black" : "text-slate-500"}`}>Stock: {product.stock}</span> : null}
         </div>

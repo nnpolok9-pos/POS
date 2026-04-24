@@ -7,6 +7,7 @@ import { imageUrl } from "../utils/format";
 
 const navItems = [
   { to: "/pos", label: "POS", icon: ShoppingCart, roles: ["master_admin", "admin", "staff"] },
+  { to: "/partner-pos", label: "Delivery Partner POS", icon: ShoppingCart, roles: ["master_admin", "admin", "staff"] },
   { to: "/orders", label: "Orders", icon: ReceiptText, roles: ["master_admin", "admin", "checker", "staff"] },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["master_admin", "admin", "checker"] },
   { to: "/products", label: "Product List", icon: PackageSearch, roles: ["master_admin", "admin", "checker", "staff"] },

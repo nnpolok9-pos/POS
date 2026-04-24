@@ -5,6 +5,7 @@ import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import OrdersPage from "./pages/OrdersPage";
 import PosPage from "./pages/PosPage";
+import DeliveryPartnerPosPage from "./pages/DeliveryPartnerPosPage";
 import ProductListPage from "./pages/ProductListPage";
 import InventoryPage from "./pages/InventoryPage";
 import StocksPage from "./pages/StocksPage";
@@ -79,6 +80,14 @@ function App() {
           element={
             <ProtectedRoute roles={["master_admin", "admin", "staff"]}>
               <PosPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="partner-pos"
+          element={
+            <ProtectedRoute roles={["master_admin", "admin", "staff"]}>
+              <DeliveryPartnerPosPage />
             </ProtectedRoute>
           }
         />

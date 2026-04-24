@@ -23,9 +23,13 @@ const buildLocalDayRange = (dateValue, endOfDay = false) => {
   const suffix = endOfDay ? "T23:59:59.999" : "T00:00:00.000";
   return new Date(`${dateValue}${suffix}`);
 };
-const COLLECTED_PAYMENT_METHODS = ["cash", "card", "qr"];
+const PARTNER_PAYMENT_METHODS = ["grab", "foodpanda"];
+const COLLECTED_PAYMENT_METHODS = ["cash", "card", "qr", ...PARTNER_PAYMENT_METHODS];
 const ALLOWED_PAYMENT_METHODS = [...COLLECTED_PAYMENT_METHODS, "due_on_serve"];
 const hasCollectedPayment = (paymentMethod) => COLLECTED_PAYMENT_METHODS.includes(paymentMethod);
+const isPartnerPaymentMethod = (paymentMethod) => PARTNER_PAYMENT_METHODS.includes(paymentMethod);
+const deriveSourceFromPaymentMethod = (paymentMethod, fallback = "staff") =>
+  isPartnerPaymentMethod(paymentMethod) ? paymentMethod : fallback;
 
 const normalizeBookingDetails = (bookingDetails = {}) => ({
   customerName: bookingDetails.customerName?.trim() || bookingDetails.leadTravelerName?.trim() || "",
@@ -162,21 +166,27 @@ const hydrateOrders = async (orders) => {
 
 const createOrder = async (req, res) => {
   const { items, paymentMethod, bookingDetails } = req.body;
+  const requestedPromoCode = normalizePromoCode(req.body?.promoCode);
 
   if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
     return res.status(400).json({ message: "A valid payment method is required" });
+  }
+
+  if (isPartnerPaymentMethod(paymentMethod) && requestedPromoCode) {
+    return res.status(400).json({ message: "Promo codes are not available for delivery partner orders" });
   }
 
   try {
     const requestedItems = buildRequestedItems(items);
     const { orderItems, subtotal } = await buildOrderItemsFromProducts(requestedItems);
     const appliedPromo = await resolvePromoForOrder({
-      promoCode: req.body?.promoCode,
+      promoCode: requestedPromoCode,
       subtotal,
       source: "pos"
     });
     const total = Number((subtotal - appliedPromo.promoDiscount).toFixed(2));
     const orderId = generateOrderId();
+    const source = deriveSourceFromPaymentMethod(paymentMethod, "staff");
     const order = await saveOrder({
       orderId,
       queueNumber: buildQueueNumber(orderId),
@@ -192,7 +202,7 @@ const createOrder = async (req, res) => {
       bookingDetails: normalizeBookingDetails(bookingDetails),
       staff: req.user.id,
       status: "food_serving",
-      source: "staff",
+      source,
       editHistory: []
     });
 
@@ -331,6 +341,10 @@ const updateOrder = async (req, res) => {
     return res.status(400).json({ message: "A valid payment method is required" });
   }
 
+  if (isPartnerPaymentMethod(paymentMethod) && requestedPromoCode) {
+    return res.status(400).json({ message: "Promo codes are not available for delivery partner orders" });
+  }
+
   const order = await getStoredOrderById(req.params.id);
   if (!order) {
     return res.status(404).json({ message: "Order not found" });
@@ -363,6 +377,7 @@ const updateOrder = async (req, res) => {
     const previousSubtotal = Number(order.subtotal || 0);
     const previousTotal = Number(order.total || 0);
     const previousPaymentMethod = order.paymentMethod;
+    const previousSource = order.source || "staff";
     const previousPromoCode = order.promoCode || null;
     const previousPromoDiscount = Number(order.promoDiscount || 0);
     const isQueuedOrder = isQueuedStatus(order.status);
@@ -425,6 +440,13 @@ const updateOrder = async (req, res) => {
       changes.push(`Payment method: ${previousPaymentMethod} -> ${paymentMethod}`);
     }
 
+    const nextSource =
+      order.source === "customer" ? "customer" : deriveSourceFromPaymentMethod(paymentMethod, "staff");
+
+    if (previousSource !== nextSource) {
+      changes.push(`Order source: ${previousSource} -> ${nextSource}`);
+    }
+
     if (previousPromoCode !== (appliedPromo.promoCode || null)) {
       changes.push(`Promo code: ${previousPromoCode || "none"} -> ${appliedPromo.promoCode || "none"}`);
     }
@@ -459,6 +481,7 @@ const updateOrder = async (req, res) => {
       promoDiscount: appliedPromo.promoDiscount,
       promoSnapshot: appliedPromo.promoSnapshot,
       paymentMethod,
+      source: nextSource,
       bookingDetails: normalizeBookingDetails(bookingDetails),
       staff: req.user.id,
       status: isQueuedOrder ? "food_serving" : order.status,

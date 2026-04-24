@@ -34,7 +34,9 @@ const getSelectedAlternativeAdjustments = (item) =>
     })
     .filter(Boolean);
 
-const getUnitPrice = (item) => item.price + getSelectedAlternativeAdjustments(item).reduce((sum, entry) => sum + entry.priceAdjustment, 0);
+const getUnitPrice = (item) =>
+  Number(item.price || 0) +
+  (item.customPriced ? 0 : getSelectedAlternativeAdjustments(item).reduce((sum, entry) => sum + entry.priceAdjustment, 0));
 const getDisplayRegularPrice = (item) => Number(item.regularPrice ?? item.promotionalPrice ?? item.price);
 
 const CartPanelNext = ({
@@ -75,7 +77,9 @@ const CartPanelNext = ({
   showPaymentMethodError = false,
   promoLocked = false,
   promoLockedMessage = "",
-  paymentMethods = ["cash", "card", "qr"]
+  paymentMethods = ["cash", "card", "qr"],
+  allowPriceEdit = false,
+  onUpdatePrice
 }) => {
   const text = {
     emptyCart: "Add products from the grid to start an order.",
@@ -113,7 +117,8 @@ const CartPanelNext = ({
   const hasCustomerInfo = Boolean(customerInfo?.customerName || customerInfo?.customerPhone || customerInfo?.customerDateOfBirth);
   const hasAppliedPromo = Boolean(appliedPromo?.code);
   const [promoExpanded, setPromoExpanded] = useState(false);
-  const paymentMethodGridClass = paymentMethods.length > 3 ? "grid-cols-4" : "grid-cols-3";
+  const paymentMethodGridClass =
+    paymentMethods.length <= 2 ? "grid-cols-2" : paymentMethods.length === 4 ? "grid-cols-4" : paymentMethods.length >= 5 ? "grid-cols-5" : "grid-cols-3";
 
   useEffect(() => {
     if (!hasAppliedPromo && !promoCode.trim()) {
@@ -180,7 +185,7 @@ const CartPanelNext = ({
                             <div className="min-w-0">
                               <p className="truncate text-[1.02rem] font-bold leading-tight text-slate-900">{item.name}</p>
                               <div className="mt-1 flex flex-col gap-0.5">
-                                {displayRegularPrice > unitPrice ? (
+                                {!allowPriceEdit && displayRegularPrice > unitPrice ? (
                                   <span className="text-[12px] text-slate-400 line-through">
                                     {regularPriceParts.khr} <span className="text-[11px] text-slate-300">({regularPriceParts.usd})</span> each
                                   </span>
@@ -188,6 +193,21 @@ const CartPanelNext = ({
                                 <span className="text-[14px] font-semibold text-slate-600">{unitPriceParts.khr} each</span>
                                 <span className="text-[12px] text-slate-400">{unitPriceParts.usd}</span>
                               </div>
+                              {allowPriceEdit ? (
+                                <div className="mt-3 max-w-[230px]">
+                                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Unit Price (KHR)</label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={item.price}
+                                    onFocus={(event) => event.target.select()}
+                                    onChange={(event) => onUpdatePrice?.(item.id, event.target.value)}
+                                    className="input h-11 rounded-2xl py-2 text-[14px] font-semibold"
+                                  />
+                                  <p className="mt-1 text-[11px] text-slate-400">{unitPriceParts.usd}</p>
+                                </div>
+                              ) : null}
                             </div>
 
                             <button type="button" onClick={() => onRemove(item.id)} className="rounded-2xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-500">
@@ -451,8 +471,8 @@ const CartPanelNext = ({
         {showPaymentSection && needsAdjustment ? (
           <div>
             <label className="mb-2 block text-[13px] font-semibold text-slate-600">{adjustmentLabel}</label>
-            <div className="grid grid-cols-3 gap-2">
-              {["cash", "card", "qr"].map((method) => (
+            <div className="grid grid-cols-5 gap-2">
+              {["cash", "card", "qr", "grab", "foodpanda"].map((method) => (
                 <button
                   key={method}
                   type="button"

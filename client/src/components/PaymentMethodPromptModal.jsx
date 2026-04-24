@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { Clock3, CreditCard, QrCode, Wallet, X } from "lucide-react";
+import { Bike, Clock3, CreditCard, QrCode, Wallet, X } from "lucide-react";
 import { formatPaymentMethodLabel } from "../utils/format";
 
 const methodMeta = {
@@ -15,6 +15,14 @@ const methodMeta = {
     label: "QR",
     icon: QrCode
   },
+  grab: {
+    label: "Grab",
+    icon: Bike
+  },
+  foodpanda: {
+    label: "Foodpanda",
+    icon: Bike
+  },
   due_on_serve: {
     label: "Due on Serve",
     icon: Clock3
@@ -25,6 +33,9 @@ const PaymentMethodPromptModal = ({ open, onClose, onSelect, methods = ["cash", 
   if (!open) {
     return null;
   }
+
+  const gridClass =
+    methods.length <= 2 ? "sm:grid-cols-2" : methods.length === 4 ? "sm:grid-cols-4" : "sm:grid-cols-3";
 
   return createPortal(
     <div className="fixed inset-0 z-[95] overflow-y-auto bg-slate-950/55 p-4 sm:p-6" onClick={onClose}>
@@ -45,7 +56,7 @@ const PaymentMethodPromptModal = ({ open, onClose, onSelect, methods = ["cash", 
           </div>
 
           <div className="space-y-5 p-4 sm:p-5">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className={`grid grid-cols-1 gap-3 ${gridClass}`}>
               {methods.map((key) => {
                 const meta = methodMeta[key];
                 if (!meta) {
@@ -69,7 +80,7 @@ const PaymentMethodPromptModal = ({ open, onClose, onSelect, methods = ["cash", 
             </div>
 
             <div className="rounded-3xl bg-amber-50 p-4 text-sm text-amber-900">
-              Select the collection method first, or choose Due on Serve to collect payment later when the order is served.
+              Select the collection method first so the order can be recorded under the correct payment or delivery partner account.
             </div>
 
             <div className="flex justify-end">

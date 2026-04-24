@@ -21,6 +21,8 @@ const RefundMethodModal = ({
 
   const refundAmount = Number(refundAmountOverride ?? order.total ?? 0);
   const collectionMethod = formatPaymentMethodLabel(order.paymentMethod, "Unpaid queue");
+  const refundMethodOptions = ["cash", "card", "qr", "grab", "foodpanda"];
+  const refundGridClass = refundMethodOptions.length > 3 ? "grid-cols-5" : "grid-cols-3";
 
   return createPortal(
     <div className="fixed inset-0 z-[95] overflow-y-auto bg-slate-950/55 p-4 sm:p-6" onClick={onClose}>
@@ -56,17 +58,17 @@ const RefundMethodModal = ({
             {requiresRefundMethod ? (
               <div>
                 <p className="mb-2 text-sm font-semibold text-slate-700">Refunded by</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {["cash", "card", "qr"].map((method) => (
+                <div className={`grid gap-2 ${refundGridClass}`}>
+                  {refundMethodOptions.map((method) => (
                     <button
                       key={method}
                       type="button"
                       onClick={() => onRefundMethodChange(method)}
-                      className={`rounded-2xl px-4 py-3 text-sm font-semibold capitalize transition ${
+                      className={`rounded-2xl px-3 py-3 text-sm font-semibold transition ${
                         refundMethod === method ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
-                      {method}
+                      {formatPaymentMethodLabel(method)}
                     </button>
                   ))}
                 </div>
