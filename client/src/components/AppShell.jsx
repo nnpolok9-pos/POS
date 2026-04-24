@@ -1,6 +1,6 @@
 import { Archive, BadgePercent, BarChart3, FilePenLine, LayoutDashboard, LogOut, Menu, PackagePlus, PackageSearch, ReceiptText, ShoppingCart, Store, Users, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useShopSettings } from "../context/ShopSettingsContext";
 import { imageUrl } from "../utils/format";
@@ -12,8 +12,13 @@ const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["master_admin", "admin", "checker"] },
   { to: "/products", label: "Product List", icon: PackageSearch, roles: ["master_admin", "admin", "checker", "staff"] },
   { to: "/stocks", label: "Stocks", icon: PackagePlus, roles: ["master_admin", "admin", "checker", "staff"] },
-  { to: "/inventory", label: "Inventory", icon: Archive, roles: ["master_admin", "admin", "checker", "staff"] },
-  { to: "/edited-list", label: "Edited List", icon: FilePenLine, roles: ["master_admin", "admin", "checker"] },
+  {
+    to: "/inventory",
+    label: "Inventory",
+    icon: Archive,
+    roles: ["master_admin", "admin", "checker", "staff"],
+    children: [{ to: "/edited-list", label: "Edited List", icon: FilePenLine, roles: ["master_admin", "admin", "checker"] }],
+  },
   { to: "/promos", label: "Promos", icon: BadgePercent, roles: ["master_admin", "admin"] },
   { to: "/reports/sales", label: "Reports", icon: BarChart3, roles: ["master_admin", "admin", "checker"] },
   { to: "/users", label: "Users", icon: Users, roles: ["master_admin", "admin"] },
@@ -24,11 +29,17 @@ const AppShell = () => {
   const { logout, user } = useAuth();
   const { settings } = useShopSettings();
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
 
-  const visibleNavItems = navItems.filter((item) => item.roles.includes(user?.role));
+  const visibleNavItems = navItems
+    .filter((item) => item.roles.includes(user?.role))
+    .map((item) => ({
+      ...item,
+      children: item.children?.filter((child) => child.roles.includes(user?.role)) ?? [],
+    }));
   const shopName = settings?.shopName || "ASEN POS";
   const hasLogo = Boolean(settings?.logo);
   const logoSrc = useMemo(() => {
@@ -56,6 +67,9 @@ const AppShell = () => {
   useEffect(() => {
     setAvatarFailed(false);
   }, [user?.avatar]);
+
+  const isNavSectionActive = (item) =>
+    location.pathname.startsWith(item.to) || item.children.some((child) => location.pathname.startsWith(child.to));
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(245,146,63,0.35),_transparent_32%),linear-gradient(180deg,#fff7ed_0%,#fffbeb_100%)]">
@@ -135,28 +149,56 @@ const AppShell = () => {
             <div className="flex flex-col gap-1">
               {visibleNavItems.map((item) => {
                 const Icon = item.icon;
+                const itemActive = isNavSectionActive(item);
+                const showChildren = item.children.length > 0 && itemActive;
+
                 return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setMobileNavOpen(false)}
-                    className={({ isActive }) =>
-                      `group flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[15px] font-semibold transition ${
-                        isActive
-                          ? "bg-gradient-to-r from-brand-500 to-[#f08a2a] text-white shadow-[0_10px_22px_rgba(240,138,42,0.28)]"
-                          : "text-slate-600 hover:bg-[#fff4e4] hover:text-slate-900"
-                      }`
-                    }
+                  <div key={item.to} className="space-y-1">
+                    <NavLink
+                      to={item.to}
+                      onClick={() => setMobileNavOpen(false)}
+                      className={() =>
+                        `group flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[15px] font-semibold transition ${
+                          itemActive
+                            ? "bg-gradient-to-r from-brand-500 to-[#f08a2a] text-white shadow-[0_10px_22px_rgba(240,138,42,0.28)]"
+                            : "text-slate-600 hover:bg-[#fff4e4] hover:text-slate-900"
+                        }`
+                      }
                     >
-                      <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-2xl transition ${
-                        item.to ? "bg-black/0" : ""
-                      } group-hover:bg-white/70`}
-                    >
-                      <Icon size={17} />
-                    </span>
-                    <span>{item.label}</span>
-                  </NavLink>
+                      <span className="flex h-8 w-8 items-center justify-center rounded-2xl transition group-hover:bg-white/70">
+                        <Icon size={17} />
+                      </span>
+                      <span>{item.label}</span>
+                    </NavLink>
+
+                    {showChildren ? (
+                      <div className="ml-7 flex flex-col gap-1">
+                        {item.children.map((child) => {
+                          const ChildIcon = child.icon;
+
+                          return (
+                            <NavLink
+                              key={child.to}
+                              to={child.to}
+                              onClick={() => setMobileNavOpen(false)}
+                              className={({ isActive }) =>
+                                `group flex items-center gap-3 rounded-[0.95rem] px-3 py-2 text-sm font-semibold transition ${
+                                  isActive
+                                    ? "bg-orange-100 text-orange-600"
+                                    : "text-slate-500 hover:bg-[#fff7ed] hover:text-slate-900"
+                                }`
+                              }
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-white">
+                                <ChildIcon size={15} />
+                              </span>
+                              <span>{child.label}</span>
+                            </NavLink>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
