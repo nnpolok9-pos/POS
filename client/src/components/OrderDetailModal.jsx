@@ -1,4 +1,4 @@
-import { CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, ListOrdered, X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel, imageUrl } from "../utils/format";
@@ -22,7 +22,7 @@ const getCurrentVoidRefundMethod = (order) =>
     .reverse()
     .find((entry) => ["void_edit", "void"].includes(entry?.adjustmentType))?.adjustmentMethod || null;
 
-const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEditVoid, onServe, canEdit, canVoid, canEditVoid, canServe }) => {
+const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEditVoid, onServe, onViewItems, canEdit, canVoid, canEditVoid, canServe }) => {
   useEffect(() => {
     if (!open) {
       return undefined;
@@ -176,6 +176,12 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
               <button type="button" onClick={onPrint} className="btn-secondary">
                 Print Order
               </button>
+              {onViewItems ? (
+                <button type="button" onClick={onViewItems} className="btn-secondary gap-2">
+                  <ListOrdered size={16} />
+                  Item List
+                </button>
+              ) : null}
               {canEdit && (
                 <button type="button" onClick={onEdit} className="btn-secondary">
                   {isCustomerQueue ? "Retrieve Order" : "Edit Order"}

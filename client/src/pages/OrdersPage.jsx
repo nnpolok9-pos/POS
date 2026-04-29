@@ -1,10 +1,11 @@
-import { CalendarRange, CheckCircle2, Download, Eye, FileSpreadsheet, Pencil, Printer, ReceiptText, Trash2, WalletCards } from "lucide-react";
+import { CalendarRange, CheckCircle2, Download, Eye, FileSpreadsheet, ListOrdered, Pencil, Printer, ReceiptText, Trash2, WalletCards } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import OrderDetailModal from "../components/OrderDetailModal";
 import EditHistoryModal from "../components/EditHistoryModal";
 import ForceStockPinModal from "../components/ForceStockPinModal";
+import OrderItemListModal from "../components/OrderItemListModal";
 import RefundMethodModal from "../components/RefundMethodModal";
 import ReportDatePicker from "../components/ReportDatePicker";
 import ServeOrderModal from "../components/ServeOrderModal";
@@ -85,6 +86,7 @@ const OrdersPage = () => {
   const [deletingOrder, setDeletingOrder] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [sauceProducts, setSauceProducts] = useState([]);
+  const [itemListOrder, setItemListOrder] = useState(null);
 
   const loadSauces = async () => {
     const products = await productService.getAdminProducts();
@@ -508,6 +510,10 @@ const OrdersPage = () => {
                   <Eye size={16} />
                   View
                 </button>
+                <button type="button" onClick={() => setItemListOrder(order)} className="btn-secondary h-10 gap-2 px-3 text-sm">
+                  <ListOrdered size={16} />
+                  Item List
+                </button>
                 {canEditOrder(order) && (
                   <button
                     type="button"
@@ -623,6 +629,10 @@ const OrdersPage = () => {
                         <Eye size={16} />
                         View
                       </button>
+                    <button type="button" onClick={() => setItemListOrder(order)} className="btn-secondary h-10 gap-2 px-3 text-sm">
+                      <ListOrdered size={16} />
+                      Item List
+                    </button>
                     {canEditOrder(order) && (
                       <button
                         type="button"
@@ -686,11 +696,16 @@ const OrdersPage = () => {
         onServe={() => openServeDialog(selectedOrder)}
         onVoid={() => openVoidDialog(selectedOrder)}
         onEditVoid={() => openVoidEditDialog(selectedOrder)}
+        onViewItems={() => {
+          setSelectedOrder(null);
+          setItemListOrder(selectedOrder);
+        }}
         canEdit={selectedOrder ? canEditOrder(selectedOrder) : false}
         canServe={canMutateOrders && selectedOrder?.status === "food_serving"}
         canVoid={canMutateOrders && (canVoidCompleted || ["food_serving", "queued"].includes(selectedOrder?.status))}
         canEditVoid={selectedOrder ? canEditVoidOrder(selectedOrder) : false}
       />
+      <OrderItemListModal open={Boolean(itemListOrder)} order={itemListOrder} onClose={() => setItemListOrder(null)} />
       <RefundMethodModal
         open={Boolean(voidingOrder)}
         order={voidingOrder}
