@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { createPortal } from "react-dom";
+import { imageUrl } from "../utils/format";
 
 const VISIBLE_PRODUCT_TYPES = new Set(["raw", "combo"]);
 const CONTAINER_TYPES = new Set(["combo_type"]);
@@ -29,7 +30,8 @@ const aggregatePreparationItems = (order, productCatalog = []) => {
     itemMap.set(key, {
       key,
       name,
-      quantity
+      quantity,
+      image: entry?.image || ""
     });
   };
 
@@ -65,7 +67,8 @@ const aggregatePreparationItems = (order, productCatalog = []) => {
       pushItem({
         product: product.id || product._id,
         name: product.name,
-        quantity
+        quantity,
+        image: product.image || ""
       });
     }
   };
@@ -119,6 +122,11 @@ const OrderItemListModal = ({ open, order, productCatalog = [], onClose }) => {
                         <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white">
                           {index + 1}
                         </span>
+                        <img
+                          src={imageUrl(item.image)}
+                          alt={item.name}
+                          className="h-12 w-12 rounded-2xl border border-slate-100 bg-slate-50 object-cover"
+                        />
                         <p className="text-base font-semibold text-slate-900">{item.name}</p>
                       </div>
                       <span className="rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600">x{item.quantity}</span>
