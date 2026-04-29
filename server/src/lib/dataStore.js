@@ -46,6 +46,38 @@ const settingsColumns = `
 
 const boolToInt = (value) => (value ? 1 : 0);
 
+const hydrateOrderItemImages = async (orders) => {
+  const normalizedOrders = Array.isArray(orders) ? orders.filter(Boolean) : [];
+  if (!normalizedOrders.length) {
+    return normalizedOrders;
+  }
+
+  const productIds = [
+    ...new Set(
+      normalizedOrders.flatMap((order) =>
+        (order.items || [])
+          .filter((item) => item?.product)
+          .map((item) => String(item.product))
+      )
+    )
+  ];
+
+  if (!productIds.length) {
+    return normalizedOrders;
+  }
+
+  const products = await getProductsByIds(productIds);
+  const imageMap = new Map(products.map((product) => [String(product.id || product._id), product.image || ""]));
+
+  return normalizedOrders.map((order) => ({
+    ...order,
+    items: (order.items || []).map((item) => ({
+      ...item,
+      image: item.image || imageMap.get(String(item.product)) || ""
+    }))
+  }));
+};
+
 const saveUser = async (user) => {
   if (user.id) {
     await query(
@@ -373,17 +405,19 @@ const getInventoryMovements = async ({ movementType = null, from = null, to = nu
 
 const getOrders = async ({ where = "", params = {}, orderBy = "created_at DESC" } = {}) => {
   const rows = await query(`SELECT ${orderColumns} FROM orders ${where} ORDER BY ${orderBy}`, params);
-  return rows.map(mapOrderRow);
+  return hydrateOrderItemImages(rows.map(mapOrderRow));
 };
 
 const getOrderById = async (id) => {
   const rows = await query(`SELECT ${orderColumns} FROM orders WHERE id=:id LIMIT 1`, { id });
-  return mapOrderRow(rows[0]);
+  const [order] = await hydrateOrderItemImages([mapOrderRow(rows[0])]);
+  return order || null;
 };
 
 const getOrderByPublicId = async (id) => {
   const rows = await query(`SELECT ${orderColumns} FROM orders WHERE order_id=:id LIMIT 1`, { id });
-  return mapOrderRow(rows[0]);
+  const [order] = await hydrateOrderItemImages([mapOrderRow(rows[0])]);
+  return order || null;
 };
 
 const deleteOrderById = async (id) => {
