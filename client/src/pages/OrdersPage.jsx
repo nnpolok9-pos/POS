@@ -64,6 +64,7 @@ const OrdersPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { settings: shopSettings } = useShopSettings();
+  const initialDateRange = { from: todayString(), to: todayString() };
   const canUseDateRange = ["master_admin", "admin", "checker"].includes(user?.role);
   const canMutateOrders = ["master_admin", "admin", "staff"].includes(user?.role);
   const canVoidCompleted = ["master_admin", "admin"].includes(user?.role);
@@ -72,11 +73,11 @@ const OrdersPage = () => {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [historyOrder, setHistoryOrder] = useState(null);
-  const [from, setFrom] = useState(todayString());
-  const [to, setTo] = useState(todayString());
+  const [from, setFrom] = useState(initialDateRange.from);
+  const [to, setTo] = useState(initialDateRange.to);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [appliedDateRange, setAppliedDateRange] = useState(null);
+  const [appliedDateRange, setAppliedDateRange] = useState(initialDateRange);
   const [voidingOrder, setVoidingOrder] = useState(null);
   const [voidDialogMode, setVoidDialogMode] = useState("void");
   const [refundMethod, setRefundMethod] = useState("");
@@ -108,7 +109,8 @@ const OrdersPage = () => {
   };
 
   useEffect(() => {
-    loadOrders();
+    setAppliedDateRange(initialDateRange);
+    loadOrders(initialDateRange);
   }, []);
 
   useEffect(() => {
@@ -124,8 +126,8 @@ const OrdersPage = () => {
   }, []);
 
   const handleGenerate = async () => {
-    const filters = canUseDateRange ? { from, to } : {};
-    setAppliedDateRange(canUseDateRange ? { from, to } : null);
+    const filters = { from, to };
+    setAppliedDateRange(filters);
     await loadOrders(filters);
   };
 
@@ -167,7 +169,7 @@ const OrdersPage = () => {
       setVoidDialogMode("void");
       setRefundMethod("");
       setStatusFilter("all");
-      await loadOrders(canUseDateRange && appliedDateRange ? appliedDateRange : {});
+      await loadOrders(appliedDateRange || initialDateRange);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to void sale");
     } finally {
@@ -187,7 +189,7 @@ const OrdersPage = () => {
       setSelectedOrder(null);
       setServingOrder(null);
       setStatusFilter("all");
-      await loadOrders(canUseDateRange && appliedDateRange ? appliedDateRange : {});
+      await loadOrders(appliedDateRange || initialDateRange);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to serve order");
     } finally {
@@ -209,7 +211,7 @@ const OrdersPage = () => {
       setVoidingOrder((current) => (current?.id === deletingOrder.id ? null : current));
       setServingOrder((current) => (current?.id === deletingOrder.id ? null : current));
       setDeletingOrder(null);
-      await loadOrders(canUseDateRange && appliedDateRange ? appliedDateRange : {});
+      await loadOrders(appliedDateRange || initialDateRange);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to delete order");
     } finally {
@@ -330,11 +332,7 @@ const OrdersPage = () => {
             <div className="rounded-full border border-[#cbbba5] bg-[#fffaf0] px-4 py-2.5 shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Visible Date Range</p>
               <p className="mt-1 text-[13px] font-semibold text-slate-800">
-                {canUseDateRange
-                  ? appliedDateRange
-                    ? `${appliedDateRange.from} to ${appliedDateRange.to}`
-                    : "All dates"
-                  : "Current history"}
+                {appliedDateRange ? `${appliedDateRange.from} to ${appliedDateRange.to}` : "Today"}
               </p>
             </div>
           </div>
@@ -431,11 +429,7 @@ const OrdersPage = () => {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Visible Sales</p>
               <p className="mt-2 text-2xl font-bold">{currency(totalSales)}</p>
               <p className="mt-1 text-xs text-slate-300">
-                {canUseDateRange
-                  ? appliedDateRange
-                    ? `${appliedDateRange.from} to ${appliedDateRange.to}`
-                    : "All dates"
-                  : "Current history"}
+                {appliedDateRange ? `${appliedDateRange.from} to ${appliedDateRange.to}` : "Today"}
               </p>
             </div>
             <div className="rounded-full bg-white/10 p-3 text-white">
