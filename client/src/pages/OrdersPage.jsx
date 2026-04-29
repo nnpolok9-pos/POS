@@ -46,8 +46,8 @@ const statusFilterStyles = {
 
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
 const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
-const isPartnerSource = (order) => ["grab", "foodpanda"].includes(order?.source || "");
-const hasCollectedPayment = (order) => ["cash", "card", "qr", "grab", "foodpanda"].includes(order?.paymentMethod || "");
+const isPartnerSource = (order) => ["grab", "foodpanda", "e_gates", "wownow"].includes(order?.source || "");
+const hasCollectedPayment = (order) => ["cash", "card", "qr", "grab", "foodpanda", "e_gates", "wownow"].includes(order?.paymentMethod || "");
 const isDueOnServeOrder = (order) => order?.paymentMethod === "due_on_serve";
 const getOrderEditPath = (order) => (isPartnerSource(order) ? "/partner-pos" : "/pos");
 const getOrderStatusLabel = (order) =>

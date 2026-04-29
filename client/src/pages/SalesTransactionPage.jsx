@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarRange, CreditCard, Download, Eye, FileSpreadsheet, QrCode, WalletCards } from "lucide-react";
+import { Bike, CalendarRange, CreditCard, Download, Eye, FileSpreadsheet, QrCode, WalletCards } from "lucide-react";
 import toast from "react-hot-toast";
 import EditHistoryModal from "../components/EditHistoryModal";
 import OrderDetailModal from "../components/OrderDetailModal";
@@ -24,6 +24,8 @@ const transactionColumns = [
   { header: "Card Out", key: "cardOut" },
   { header: "QR In", key: "qrIn" },
   { header: "QR Out", key: "qrOut" },
+  { header: "Delivery In", key: "deliveryIn" },
+  { header: "Delivery Out", key: "deliveryOut" },
   { header: "Edit Count", key: "editCount" },
   { header: "Status", key: "status" },
   { header: "Serve Time", key: "serveTime" }
@@ -72,6 +74,8 @@ const SalesTransactionPage = () => {
     cardOut: summary.cardOut ? Number(summary.cardOut).toFixed(2) : "",
     qrIn: summary.qrIn ? Number(summary.qrIn).toFixed(2) : "",
     qrOut: summary.qrOut ? Number(summary.qrOut).toFixed(2) : "",
+    deliveryIn: summary.deliveryIn ? Number(summary.deliveryIn).toFixed(2) : "",
+    deliveryOut: summary.deliveryOut ? Number(summary.deliveryOut).toFixed(2) : "",
     editCount: summary.editCount || "",
     status: summary.status,
     serveTime: summary.serveTime
@@ -116,7 +120,9 @@ const SalesTransactionPage = () => {
   const cardOutTotal = summaries.reduce((sum, order) => sum + Number(order.cardOut || 0), 0);
   const qrInTotal = summaries.reduce((sum, order) => sum + Number(order.qrIn || 0), 0);
   const qrOutTotal = summaries.reduce((sum, order) => sum + Number(order.qrOut || 0), 0);
-  const balanceTotal = cashInTotal - cashOutTotal + cardInTotal - cardOutTotal + qrInTotal - qrOutTotal;
+  const deliveryInTotal = summaries.reduce((sum, order) => sum + Number(order.deliveryIn || 0), 0);
+  const deliveryOutTotal = summaries.reduce((sum, order) => sum + Number(order.deliveryOut || 0), 0);
+  const balanceTotal = cashInTotal - cashOutTotal + cardInTotal - cardOutTotal + qrInTotal - qrOutTotal + deliveryInTotal - deliveryOutTotal;
 
   return (
     <div className="space-y-6">
@@ -165,7 +171,7 @@ const SalesTransactionPage = () => {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <div className={`${statCardClass} border border-[#d9e0eb] bg-[#e8eef7]`}>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -199,6 +205,18 @@ const SalesTransactionPage = () => {
               </div>
               <div className="rounded-full bg-white/55 p-3 text-violet-600">
                 <QrCode size={18} />
+              </div>
+            </div>
+          </div>
+          <div className={`${statCardClass} border border-[#f0e2d6] bg-[#fff4ec]`}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Delivery Flow</p>
+                <p className="mt-2 text-lg font-bold text-slate-900">In {currency(deliveryInTotal)}</p>
+                <p className="mt-2 text-lg font-bold text-slate-900">Out {currency(deliveryOutTotal)}</p>
+              </div>
+              <div className="rounded-full bg-white/55 p-3 text-orange-500">
+                <Bike size={18} />
               </div>
             </div>
           </div>
@@ -270,6 +288,10 @@ const SalesTransactionPage = () => {
                       <p className="mt-1 text-slate-700">{summary.qrIn ? currency(summary.qrIn) : "-"} / {summary.qrOut ? currency(summary.qrOut) : "-"}</p>
                     </div>
                     <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Delivery</p>
+                      <p className="mt-1 text-slate-700">{summary.deliveryIn ? currency(summary.deliveryIn) : "-"} / {summary.deliveryOut ? currency(summary.deliveryOut) : "-"}</p>
+                    </div>
+                    <div>
                       <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Status</p>
                       <p className="mt-1 text-slate-700">{summary.status}</p>
                     </div>
@@ -297,6 +319,8 @@ const SalesTransactionPage = () => {
                 <th className="pb-3 pr-4">Card Out</th>
                 <th className="pb-3 pr-4">QR In</th>
                 <th className="pb-3 pr-4">QR Out</th>
+                <th className="pb-3 pr-4">Delivery In</th>
+                <th className="pb-3 pr-4">Delivery Out</th>
                 <th className="pb-3 pr-4">Edit Count</th>
                 <th className="pb-3 pr-4">Status</th>
                 <th className="pb-3 pr-4">Serve Time</th>
@@ -306,7 +330,7 @@ const SalesTransactionPage = () => {
             <tbody>
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan="14" className="py-10 text-center text-sm text-slate-500">
+                  <td colSpan="16" className="py-10 text-center text-sm text-slate-500">
                     No transactions found for the selected date range.
                   </td>
                 </tr>
@@ -333,6 +357,8 @@ const SalesTransactionPage = () => {
                       <td className="py-3 pr-4 text-slate-700">{summary.cardOut ? currency(summary.cardOut) : "-"}</td>
                       <td className="py-3 pr-4 text-slate-700">{summary.qrIn ? currency(summary.qrIn) : "-"}</td>
                       <td className="py-3 pr-4 text-slate-700">{summary.qrOut ? currency(summary.qrOut) : "-"}</td>
+                      <td className="py-3 pr-4 text-slate-700">{summary.deliveryIn ? currency(summary.deliveryIn) : "-"}</td>
+                      <td className="py-3 pr-4 text-slate-700">{summary.deliveryOut ? currency(summary.deliveryOut) : "-"}</td>
                       <td className="py-3 pr-4 text-slate-700">{summary.editCount || "-"}</td>
                       <td className="py-3 pr-4 text-slate-700">{summary.status}</td>
                       <td className="py-3 pr-4 text-slate-700">{summary.serveTime}</td>

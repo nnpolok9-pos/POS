@@ -55,7 +55,7 @@ const buildCategoryOptions = (products) => [
 
 const normalizePromoValue = (value) => String(value || "").trim().toUpperCase();
 
-const PARTNER_METHODS = ["foodpanda", "grab"];
+const PARTNER_METHODS = ["foodpanda", "grab", "e_gates", "wownow"];
 const isPartnerMethod = (value) => PARTNER_METHODS.includes(value);
 const isPartnerSource = (value) => PARTNER_METHODS.includes(value);
 const getDefaultProductPrice = (product, partnerMode = false) =>
@@ -679,7 +679,7 @@ const PosPage = ({ mode = "counter" }) => {
                   ? "This delivery partner order was loaded from history. Update partner source, prices, and items here."
                   : "This order was loaded from history. Update it here and save the changes."
               : partnerOrderContext
-                ? "Use regular prices for Grab and Foodpanda orders, then adjust any unit price before saving."
+                ? "Use regular prices for Grab, Foodpanda, E-Gates, and WOWNOW orders, then adjust any unit price before saving."
                 : "Fast selection with live stock validation"
           }
           checkoutLabel={editingOrder ? "Update Order" : "Place Order"}

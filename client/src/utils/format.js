@@ -5,14 +5,18 @@ const PAYMENT_METHOD_LABELS = {
   qr: "QR",
   due_on_serve: "Due on Serve",
   grab: "Grab",
-  foodpanda: "Foodpanda"
+  foodpanda: "Foodpanda",
+  e_gates: "E-Gates",
+  wownow: "WOWNOW"
 };
 
 const ORDER_SOURCE_LABELS = {
   staff: "Counter POS",
   customer: "Customer Menu",
   grab: "Grab",
-  foodpanda: "Foodpanda"
+  foodpanda: "Foodpanda",
+  e_gates: "E-Gates",
+  wownow: "WOWNOW"
 };
 
 const usdFormatter = new Intl.NumberFormat("en-US", {

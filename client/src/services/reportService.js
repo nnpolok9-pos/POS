@@ -9,6 +9,10 @@ export const reportService = {
     const { data } = await api.get("/reports/sales-range", { params });
     return data;
   },
+  getDeliveryPartnerSales: async (params) => {
+    const { data } = await api.get("/reports/delivery-partner-sales", { params });
+    return data;
+  },
   getProductSales: async (params) => {
     const { data } = await api.get("/reports/product-sales", { params });
     return data;

@@ -3,7 +3,15 @@ const { inferProductType, isCompositeProductType, buildCompositeRequirements } =
 
 const REPORT_TIMEZONE = process.env.REPORT_TIMEZONE || process.env.TZ || "Asia/Bangkok";
 const COMPLETED_STATUSES = ["completed", "confirmed"];
-const PAYMENT_METHODS = ["cash", "card", "qr"];
+const POS_PAYMENT_METHODS = ["cash", "card", "qr"];
+const PARTNER_PAYMENT_METHODS = ["grab", "foodpanda", "e_gates", "wownow"];
+const PAYMENT_METHODS = [...POS_PAYMENT_METHODS, ...PARTNER_PAYMENT_METHODS];
+const PARTNER_LABELS = {
+  grab: "Grab",
+  foodpanda: "Foodpanda",
+  e_gates: "E-Gates",
+  wownow: "WOWNOW"
+};
 const isVoidHistoryEntry = (entry) => ["void", "void_edit"].includes(entry?.adjustmentType);
 const hasCollectedPayment = (paymentMethod) => PAYMENT_METHODS.includes(paymentMethod);
 
@@ -35,6 +43,13 @@ const pushPaymentFlow = (flows, method, direction, amount) => {
   flows[`${method}${direction}`] += numericAmount;
 };
 
+const buildEmptyPaymentFlows = () =>
+  PAYMENT_METHODS.reduce((acc, method) => {
+    acc[`${method}In`] = 0;
+    acc[`${method}Out`] = 0;
+    return acc;
+  }, {});
+
 const getInitialPaymentTransaction = (order) => {
   const firstEdit = Array.isArray(order.editHistory) ? order.editHistory[0] : null;
 
@@ -52,11 +67,7 @@ const getInitialPaymentTransaction = (order) => {
 };
 
 const getOrderPaymentFlows = (order) => {
-  const flows = PAYMENT_METHODS.reduce((acc, method) => {
-    acc[`${method}In`] = 0;
-    acc[`${method}Out`] = 0;
-    return acc;
-  }, {});
+  const flows = buildEmptyPaymentFlows();
 
   const initialTransaction = getInitialPaymentTransaction(order);
   pushPaymentFlow(flows, initialTransaction.method, "In", initialTransaction.amount);
@@ -237,7 +248,15 @@ const getSalesRangeReport = async (req, res) => {
       cardIn: 0,
       cardOut: 0,
       qrIn: 0,
-      qrOut: 0
+      qrOut: 0,
+      grabIn: 0,
+      grabOut: 0,
+      foodpandaIn: 0,
+      foodpandaOut: 0,
+      e_gatesIn: 0,
+      e_gatesOut: 0,
+      wownowIn: 0,
+      wownowOut: 0
     };
 
     if (COMPLETED_STATUSES.includes(order.status)) {
@@ -252,6 +271,14 @@ const getSalesRangeReport = async (req, res) => {
     existing.cardOut += Number(flows.cardOut || 0);
     existing.qrIn += Number(flows.qrIn || 0);
     existing.qrOut += Number(flows.qrOut || 0);
+    existing.grabIn += Number(flows.grabIn || 0);
+    existing.grabOut += Number(flows.grabOut || 0);
+    existing.foodpandaIn += Number(flows.foodpandaIn || 0);
+    existing.foodpandaOut += Number(flows.foodpandaOut || 0);
+    existing.e_gatesIn += Number(flows.e_gatesIn || 0);
+    existing.e_gatesOut += Number(flows.e_gatesOut || 0);
+    existing.wownowIn += Number(flows.wownowIn || 0);
+    existing.wownowOut += Number(flows.wownowOut || 0);
     grouped.set(date, existing);
   });
 
@@ -265,11 +292,118 @@ const getSalesRangeReport = async (req, res) => {
       paymentBy: {
         cash: row.cashIn - row.cashOut,
         card: row.cardIn - row.cardOut,
-        qr: row.qrIn - row.qrOut
+        qr: row.qrIn - row.qrOut,
+        deliveryPartners:
+          row.grabIn -
+          row.grabOut +
+          (row.foodpandaIn - row.foodpandaOut) +
+          (row.e_gatesIn - row.e_gatesOut) +
+          (row.wownowIn - row.wownowOut),
+        partners: {
+          grab: row.grabIn - row.grabOut,
+          foodpanda: row.foodpandaIn - row.foodpandaOut,
+          e_gates: row.e_gatesIn - row.e_gatesOut,
+          wownow: row.wownowIn - row.wownowOut
+        }
       }
     }));
 
   res.json({ from: start, to: end, rows });
+};
+
+const getDeliveryPartnerSalesReport = async (req, res) => {
+  const { from, to } = req.query;
+  const { start, end } = buildDateRange(from, to);
+  const orders = (await getOrders()).filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end);
+  const grouped = new Map(
+    PARTNER_PAYMENT_METHODS.map((partnerKey) => [
+      partnerKey,
+      {
+        partner: partnerKey,
+        partnerLabel: PARTNER_LABELS[partnerKey] || partnerKey,
+        orderCount: 0,
+        completedOrders: 0,
+        grossSales: 0,
+        refunds: 0,
+        netSales: 0
+      }
+    ])
+  );
+
+  orders.forEach((order) => {
+    const flows = getOrderPaymentFlows(order);
+
+    PARTNER_PAYMENT_METHODS.forEach((partnerKey) => {
+      const partnerIn = Number(flows[`${partnerKey}In`] || 0);
+      const partnerOut = Number(flows[`${partnerKey}Out`] || 0);
+      const touched =
+        partnerIn > 0 ||
+        partnerOut > 0 ||
+        order.paymentMethod === partnerKey ||
+        order.source === partnerKey ||
+        (order.editHistory || []).some(
+          (entry) =>
+            entry.oldPaymentMethod === partnerKey ||
+            entry.newPaymentMethod === partnerKey ||
+            entry.adjustmentMethod === partnerKey
+        );
+
+      if (!touched) {
+        return;
+      }
+
+      const existing = grouped.get(partnerKey);
+      existing.orderCount += 1;
+      if (COMPLETED_STATUSES.includes(order.status)) {
+        existing.completedOrders += 1;
+      }
+      existing.grossSales += partnerIn;
+      existing.refunds += partnerOut;
+      existing.netSales += partnerIn - partnerOut;
+    });
+  });
+
+  const rows = [...grouped.values()].map((row, index) => ({
+    sl: index + 1,
+    partner: row.partner,
+    partnerLabel: row.partnerLabel,
+    orderCount: row.orderCount,
+    completedOrders: row.completedOrders,
+    grossSales: row.grossSales,
+    refunds: row.refunds,
+    netSales: row.netSales,
+    averageOrderValue: row.orderCount > 0 ? row.grossSales / row.orderCount : 0
+  }));
+
+  const summary = rows.reduce(
+    (acc, row) => {
+      acc.totalOrders += row.orderCount;
+      acc.totalCompletedOrders += row.completedOrders;
+      acc.totalGrossSales += row.grossSales;
+      acc.totalRefunds += row.refunds;
+      acc.totalNetSales += row.netSales;
+      return acc;
+    },
+    {
+      totalOrders: 0,
+      totalCompletedOrders: 0,
+      totalGrossSales: 0,
+      totalRefunds: 0,
+      totalNetSales: 0
+    }
+  );
+
+  const topPartner = [...rows].sort((left, right) => right.netSales - left.netSales || right.orderCount - left.orderCount)[0] || null;
+
+  res.json({
+    from: start,
+    to: end,
+    summary: {
+      ...summary,
+      topPartner: topPartner?.partnerLabel || null
+    },
+    rows
+  });
 };
 
 const getProductSalesReport = async (req, res) => {
@@ -420,6 +554,7 @@ module.exports = {
   getLowStockProducts,
   getDashboardSummary,
   getSalesRangeReport,
+  getDeliveryPartnerSalesReport,
   getProductSalesReport,
   getCashPositionReport,
   getOrdersByDate

@@ -21,7 +21,7 @@ const RefundMethodModal = ({
 
   const refundAmount = Number(refundAmountOverride ?? order.total ?? 0);
   const collectionMethod = formatPaymentMethodLabel(order.paymentMethod, "Unpaid queue");
-  const refundMethodOptions = ["cash", "card", "qr", "grab", "foodpanda"];
+  const refundMethodOptions = ["cash", "card", "qr", "grab", "foodpanda", "e_gates", "wownow"];
   const refundGridClass = refundMethodOptions.length > 3 ? "grid-cols-5" : "grid-cols-3";
 
   return createPortal(

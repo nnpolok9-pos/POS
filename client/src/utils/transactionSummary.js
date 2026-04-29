@@ -1,6 +1,8 @@
 import { formatServeTime } from "./format";
 
-const paymentMethods = ["cash", "card", "qr"];
+const posPaymentMethods = ["cash", "card", "qr"];
+const partnerPaymentMethods = ["grab", "foodpanda", "e_gates", "wownow"];
+const paymentMethods = [...posPaymentMethods, ...partnerPaymentMethods];
 const isVoidHistoryEntry = (entry) => ["void", "void_edit"].includes(entry?.adjustmentType);
 
 const pushFlow = (flows, method, direction, amount) => {
@@ -109,6 +111,15 @@ export const getTransactionSummary = (order) => {
     cardOut: flows.cardOut,
     qrIn: flows.qrIn,
     qrOut: flows.qrOut,
+    deliveryIn: partnerPaymentMethods.reduce((sum, method) => sum + Number(flows[`${method}In`] || 0), 0),
+    deliveryOut: partnerPaymentMethods.reduce((sum, method) => sum + Number(flows[`${method}Out`] || 0), 0),
+    partnerFlows: partnerPaymentMethods.reduce((acc, method) => {
+      acc[method] = {
+        in: Number(flows[`${method}In`] || 0),
+        out: Number(flows[`${method}Out`] || 0)
+      };
+      return acc;
+    }, {}),
     editCount: nonVoidEditCount,
     status: getOrderStatusLabel(order),
     serveTime: getServeTimeLabel(order)

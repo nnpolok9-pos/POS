@@ -23,7 +23,7 @@ const buildLocalDayRange = (dateValue, endOfDay = false) => {
   const suffix = endOfDay ? "T23:59:59.999" : "T00:00:00.000";
   return new Date(`${dateValue}${suffix}`);
 };
-const PARTNER_PAYMENT_METHODS = ["grab", "foodpanda"];
+const PARTNER_PAYMENT_METHODS = ["grab", "foodpanda", "e_gates", "wownow"];
 const COLLECTED_PAYMENT_METHODS = ["cash", "card", "qr", ...PARTNER_PAYMENT_METHODS];
 const ALLOWED_PAYMENT_METHODS = [...COLLECTED_PAYMENT_METHODS, "due_on_serve"];
 const hasCollectedPayment = (paymentMethod) => COLLECTED_PAYMENT_METHODS.includes(paymentMethod);

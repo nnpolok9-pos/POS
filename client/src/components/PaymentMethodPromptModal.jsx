@@ -23,6 +23,14 @@ const methodMeta = {
     label: "Foodpanda",
     icon: Bike
   },
+  e_gates: {
+    label: "E-Gates",
+    icon: Bike
+  },
+  wownow: {
+    label: "WOWNOW",
+    icon: Bike
+  },
   due_on_serve: {
     label: "Due on Serve",
     icon: Clock3
@@ -35,7 +43,13 @@ const PaymentMethodPromptModal = ({ open, onClose, onSelect, methods = ["cash", 
   }
 
   const gridClass =
-    methods.length <= 2 ? "sm:grid-cols-2" : methods.length === 4 ? "sm:grid-cols-4" : "sm:grid-cols-3";
+    methods.length <= 2
+      ? "sm:grid-cols-2"
+      : methods.length === 4
+        ? "sm:grid-cols-4"
+        : methods.length >= 5
+          ? "sm:grid-cols-5"
+          : "sm:grid-cols-3";
 
   return createPortal(
     <div className="fixed inset-0 z-[95] overflow-y-auto bg-slate-950/55 p-4 sm:p-6" onClick={onClose}>

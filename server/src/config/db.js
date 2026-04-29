@@ -112,11 +112,11 @@ const mysqlSchemaStatements = [
     sauce_items JSON NOT NULL,
     total DECIMAL(12,2) NOT NULL DEFAULT 0,
     subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
-    payment_method ENUM('cash','card','qr','due_on_serve','grab','foodpanda') NULL,
+    payment_method ENUM('cash','card','qr','due_on_serve','grab','foodpanda','e_gates','wownow') NULL,
     booking_details JSON NOT NULL,
     status ENUM('queued','food_serving','completed','void','quote_prepared','confirmed') NOT NULL DEFAULT 'food_serving',
     queue_number VARCHAR(64) NOT NULL DEFAULT '',
-    source ENUM('staff','customer','grab','foodpanda') NOT NULL DEFAULT 'staff',
+    source ENUM('staff','customer','grab','foodpanda','e_gates','wownow') NOT NULL DEFAULT 'staff',
     promo_code_id VARCHAR(36) NULL,
     promo_code VARCHAR(64) NULL,
     promo_discount DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -334,10 +334,14 @@ const ensureMysqlOrderPaymentMethodSupport = async (connection) => {
   const columnType = String(rows[0].Type || "").toLowerCase();
   if (
     columnType.startsWith("enum(") &&
-    (!columnType.includes("'due_on_serve'") || !columnType.includes("'grab'") || !columnType.includes("'foodpanda'"))
+    (!columnType.includes("'due_on_serve'") ||
+      !columnType.includes("'grab'") ||
+      !columnType.includes("'foodpanda'") ||
+      !columnType.includes("'e_gates'") ||
+      !columnType.includes("'wownow'"))
   ) {
     await connection.query(
-      "ALTER TABLE `orders` MODIFY COLUMN `payment_method` ENUM('cash','card','qr','due_on_serve','grab','foodpanda') NULL"
+      "ALTER TABLE `orders` MODIFY COLUMN `payment_method` ENUM('cash','card','qr','due_on_serve','grab','foodpanda','e_gates','wownow') NULL"
     );
   }
 };
@@ -349,9 +353,15 @@ const ensureMysqlOrderSourceSupport = async (connection) => {
   }
 
   const columnType = String(rows[0].Type || "").toLowerCase();
-  if (columnType.startsWith("enum(") && (!columnType.includes("'grab'") || !columnType.includes("'foodpanda'"))) {
+  if (
+    columnType.startsWith("enum(") &&
+    (!columnType.includes("'grab'") ||
+      !columnType.includes("'foodpanda'") ||
+      !columnType.includes("'e_gates'") ||
+      !columnType.includes("'wownow'"))
+  ) {
     await connection.query(
-      "ALTER TABLE `orders` MODIFY COLUMN `source` ENUM('staff','customer','grab','foodpanda') NOT NULL DEFAULT 'staff'"
+      "ALTER TABLE `orders` MODIFY COLUMN `source` ENUM('staff','customer','grab','foodpanda','e_gates','wownow') NOT NULL DEFAULT 'staff'"
     );
   }
 };

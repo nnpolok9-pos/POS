@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarRange, Download, FileSpreadsheet, HandCoins, ReceiptText, WalletCards } from "lucide-react";
+import { Bike, CalendarRange, Download, FileSpreadsheet, HandCoins, ReceiptText, WalletCards } from "lucide-react";
 import toast from "react-hot-toast";
 import ReportDatePicker from "../components/ReportDatePicker";
 import ReportOrdersModal from "../components/ReportOrdersModal";
@@ -18,7 +18,8 @@ const salesColumns = [
   { header: "Number of Order", key: "numberOfOrder" },
   { header: "Payment By Cash", key: "paymentByCash" },
   { header: "Payment By Card", key: "paymentByCard" },
-  { header: "Payment By QR", key: "paymentByQr" }
+  { header: "Payment By QR", key: "paymentByQr" },
+  { header: "Delivery Partners", key: "paymentByDeliveryPartners" }
 ];
 
 const heroBadgeClass =
@@ -69,7 +70,8 @@ const SalesReportPage = () => {
       numberOfOrder: row.numberOfOrder,
       paymentByCash: Number(row.paymentBy?.cash || 0).toFixed(2),
       paymentByCard: Number(row.paymentBy?.card || 0).toFixed(2),
-      paymentByQr: Number(row.paymentBy?.qr || 0).toFixed(2)
+      paymentByQr: Number(row.paymentBy?.qr || 0).toFixed(2),
+      paymentByDeliveryPartners: Number(row.paymentBy?.deliveryPartners || 0).toFixed(2)
     })) || [];
 
   const exportExcel = () => {
@@ -108,6 +110,7 @@ const SalesReportPage = () => {
   const totalSales = report.rows?.reduce((sum, row) => sum + Number(row.totalSaleAmount || 0), 0) || 0;
   const totalOrders = report.rows?.reduce((sum, row) => sum + Number(row.numberOfOrder || 0), 0) || 0;
   const totalCash = report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.cash || 0), 0) || 0;
+  const totalPartners = report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.deliveryPartners || 0), 0) || 0;
   const totalDigital =
     report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.card || 0) + Number(row.paymentBy?.qr || 0), 0) || 0;
 
@@ -158,7 +161,7 @@ const SalesReportPage = () => {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <div className={`${statCardClass} border border-[#d9e0eb] bg-[#e8eef7]`}>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -192,12 +195,23 @@ const SalesReportPage = () => {
               </div>
             </div>
           </div>
+          <div className={`${statCardClass} border border-[#eadff0] bg-[#f3edf7]`}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Delivery Partners</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(totalPartners)}</p>
+              </div>
+              <div className="rounded-full bg-white/55 p-3 text-violet-600">
+                <Bike size={18} />
+              </div>
+            </div>
+          </div>
           <div className={`${statCardClass} bg-[#171d31] text-white`}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Total Sales</p>
                 <p className="mt-2 text-2xl font-bold">{currency(totalSales)}</p>
-                <p className="mt-1 text-xs text-slate-300">Digital: {currency(totalDigital)}</p>
+                <p className="mt-1 text-xs text-slate-300">POS Digital: {currency(totalDigital)}</p>
               </div>
               <div className="rounded-full bg-white/10 p-3 text-white">
                 <WalletCards size={18} />
@@ -251,6 +265,10 @@ const SalesReportPage = () => {
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">QR</p>
                   <p className="mt-1 text-slate-700">{currency(row.paymentBy.qr)}</p>
                 </div>
+                <div className="col-span-2">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Delivery Partners</p>
+                  <p className="mt-1 text-slate-700">{currency(row.paymentBy.deliveryPartners)}</p>
+                </div>
               </div>
             </button>
           ))}
@@ -265,7 +283,8 @@ const SalesReportPage = () => {
                 <th className="pb-3 pr-4">Number of Order</th>
                 <th className="pb-3 pr-4">Payment By Cash</th>
                 <th className="pb-3 pr-4">Payment By Card</th>
-                <th className="pb-3">Payment By QR</th>
+                <th className="pb-3 pr-4">Payment By QR</th>
+                <th className="pb-3">Delivery Partners</th>
               </tr>
             </thead>
             <tbody>
@@ -281,7 +300,8 @@ const SalesReportPage = () => {
                   <td className="py-3 pr-4 text-slate-700">{row.numberOfOrder}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.paymentBy.cash)}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.paymentBy.card)}</td>
-                  <td className="py-3 text-slate-700">{currency(row.paymentBy.qr)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.paymentBy.qr)}</td>
+                  <td className="py-3 text-slate-700">{currency(row.paymentBy.deliveryPartners)}</td>
                 </tr>
               ))}
             </tbody>

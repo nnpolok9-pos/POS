@@ -5,6 +5,7 @@ const normalizeOrderItems = (items = []) =>
   items.map((item) => ({
     product: item.product,
     name: item.name,
+    image: item.image || "",
     price: Number(item.price || 0),
     quantity: Number(item.quantity || 0),
     productType: item.productType || "raw",
@@ -207,6 +208,7 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
       orderItems.push({
         product: product.id || product._id,
         name: product.name,
+        image: product.image || "",
         price: finalUnitPrice,
         quantity,
         productType: product.productType,
@@ -223,6 +225,7 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
     orderItems.push({
       product: product.id || product._id,
       name: product.name,
+      image: product.image || "",
       price: finalUnitPrice,
       quantity,
       productType: inferProductType(product),

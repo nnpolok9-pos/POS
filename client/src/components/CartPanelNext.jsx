@@ -472,7 +472,7 @@ const CartPanelNext = ({
           <div>
             <label className="mb-2 block text-[13px] font-semibold text-slate-600">{adjustmentLabel}</label>
             <div className="grid grid-cols-5 gap-2">
-              {["cash", "card", "qr", "grab", "foodpanda"].map((method) => (
+                {["cash", "card", "qr", "grab", "foodpanda", "e_gates", "wownow"].map((method) => (
                 <button
                   key={method}
                   type="button"

@@ -1,7 +1,7 @@
 import { CheckCircle2, X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel } from "../utils/format";
+import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel, imageUrl } from "../utils/format";
 
 const statusStyles = {
   queued: "bg-violet-100 text-violet-700",
@@ -102,18 +102,47 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
               </div>
               <div className="space-y-3 p-5">
                 {order.items.map((item, index) => (
-                  <div key={`${order.id}-${index}`} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                    <div>
-                      <p className="font-semibold text-slate-900">{item.name}</p>
-                      <p className="text-sm text-slate-500">
-                        {currency(item.price)} x {item.quantity}
-                      </p>
+                  <div key={`${order.id}-${index}`} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <img
+                        src={imageUrl(item.image)}
+                        alt={item.name}
+                        className="h-14 w-14 shrink-0 rounded-2xl border border-slate-100 bg-white object-cover"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-900">{item.name}</p>
+                        <p className="text-sm text-slate-500">
+                          {currency(item.price)} x {item.quantity}
+                        </p>
+                      </div>
                     </div>
-                    <span className="font-bold text-slate-900">{currency(item.subtotal)}</span>
+                    <span className="shrink-0 font-bold text-slate-900">{currency(item.subtotal)}</span>
                   </div>
                 ))}
               </div>
             </div>
+
+            {(order.items || []).some((item) => item.selectedAlternatives?.length) ? (
+              <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50 p-5">
+                <p className="font-semibold text-slate-900">Selected Change Items</p>
+                <div className="mt-3 space-y-3">
+                  {order.items
+                    .filter((item) => item.selectedAlternatives?.length)
+                    .map((item, index) => (
+                      <div key={`${order.id}-alternatives-${index}`} className="rounded-2xl bg-white px-4 py-3">
+                        <p className="font-semibold text-slate-900">{item.name}</p>
+                        <div className="mt-2 space-y-1 text-sm text-slate-500">
+                          {item.selectedAlternatives.map((alternative, alternativeIndex) => (
+                            <p key={`${order.id}-alternative-${index}-${alternativeIndex}`}>
+                              {alternative.sourceName} to {alternative.selectedName}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            ) : null}
 
             {(order.bookingDetails?.customerName || order.bookingDetails?.customerPhone || order.bookingDetails?.customerDateOfBirth) && (
               <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50 p-5">
