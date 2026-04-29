@@ -1,8 +1,14 @@
 import { X } from "lucide-react";
 import { createPortal } from "react-dom";
 
-const aggregatePreparationItems = (order) => {
+const VISIBLE_PRODUCT_TYPES = new Set(["raw", "combo"]);
+const CONTAINER_TYPES = new Set(["combo_type"]);
+const HIDDEN_TYPES = new Set(["raw_material", "sauce", "seasoning"]);
+const PREPARATION_CATEGORIES = new Set(["meal", "combo"]);
+
+const aggregatePreparationItems = (order, productCatalog = []) => {
   const itemMap = new Map();
+  const productMap = new Map(productCatalog.map((product) => [String(product.id || product._id), product]));
 
   const pushItem = (entry) => {
     const quantity = Number(entry?.quantity || 0);
@@ -27,50 +33,55 @@ const aggregatePreparationItems = (order) => {
     });
   };
 
+  const resolveReplacementProductId = (selectedAlternatives = [], sourceProductId) =>
+    selectedAlternatives.find((alternative) => String(alternative.sourceProduct) === String(sourceProductId))?.selectedProduct || null;
+
+  const walkProduct = (productId, quantity, selectedAlternatives = []) => {
+    const product = productMap.get(String(productId));
+    if (!product || quantity <= 0) {
+      return;
+    }
+
+    const normalizedType = String(product.productType || "").toLowerCase();
+    const normalizedCategory = String(product.category || "").trim().toLowerCase();
+
+    if (HIDDEN_TYPES.has(normalizedType)) {
+      return;
+    }
+
+    if (CONTAINER_TYPES.has(normalizedType) || PREPARATION_CATEGORIES.has(normalizedCategory)) {
+      (product.comboItems || []).forEach((comboItem) => {
+        const sourceProductId = String(comboItem.product?.id || comboItem.product?._id || comboItem.product || "");
+        const replacementProductId = comboItem.changeable ? resolveReplacementProductId(selectedAlternatives, sourceProductId) : null;
+        const nextProductId = replacementProductId || sourceProductId;
+        const nextQuantity = Number(comboItem.quantity || 0) * quantity;
+
+        walkProduct(nextProductId, nextQuantity, selectedAlternatives);
+      });
+      return;
+    }
+
+    if (VISIBLE_PRODUCT_TYPES.has(normalizedType)) {
+      pushItem({
+        product: product.id || product._id,
+        name: product.name,
+        quantity
+      });
+    }
+  };
+
   (order?.items || []).forEach((item) => {
-    const preparationItems = Array.isArray(item.components) && item.components.length ? item.components : [item];
-    preparationItems.forEach(pushItem);
+    walkProduct(item.product, Number(item.quantity || 0), item.selectedAlternatives || []);
   });
 
   return [...itemMap.values()].sort((left, right) => left.name.localeCompare(right.name));
 };
-
-const aggregateSauceItems = (order) => {
-  const sauceMap = new Map();
-
-  (order?.sauceItems || []).forEach((item) => {
-    const quantity = Number(item?.quantity || 0);
-    const name = String(item?.name || "").trim();
-
-    if (!name || quantity <= 0) {
-      return;
-    }
-
-    const key = String(item?.product || name).toLowerCase();
-    const existing = sauceMap.get(key);
-
-    if (existing) {
-      existing.quantity += quantity;
-      return;
-    }
-
-    sauceMap.set(key, {
-      key,
-      name,
-      quantity
-    });
-  });
-
-  return [...sauceMap.values()].sort((left, right) => left.name.localeCompare(right.name));
-};
-
-const OrderItemListModal = ({ open, order, onClose }) => {
+const OrderItemListModal = ({ open, order, productCatalog = [], onClose }) => {
   if (!open || !order) {
     return null;
   }
 
-  const preparationItems = aggregatePreparationItems(order);
-  const sauceItems = aggregateSauceItems(order);
+  const preparationItems = aggregatePreparationItems(order, productCatalog);
 
   return createPortal(
     <div className="fixed inset-0 z-[85] overflow-y-auto bg-slate-950/55 p-4 sm:p-6" onClick={onClose}>
@@ -95,7 +106,7 @@ const OrderItemListModal = ({ open, order, onClose }) => {
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Preparation Items</p>
-                  <p className="mt-1 text-sm text-slate-500">Combined count of all products staff need to prepare for this order.</p>
+                  <p className="mt-1 text-sm text-slate-500">Only meal and combo saleable items are listed here for faster kitchen preparation.</p>
                 </div>
                 <p className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700">{preparationItems.length} items</p>
               </div>
@@ -120,26 +131,6 @@ const OrderItemListModal = ({ open, order, onClose }) => {
                 </div>
               )}
             </div>
-
-            {sauceItems.length ? (
-              <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Additional Sauce Items</p>
-                    <p className="mt-1 text-sm text-slate-500">Extra sauce quantities selected while serving this order.</p>
-                  </div>
-                  <p className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700">{sauceItems.length} sauces</p>
-                </div>
-                <div className="space-y-3">
-                  {sauceItems.map((item) => (
-                    <div key={item.key} className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-3">
-                      <p className="font-semibold text-slate-900">{item.name}</p>
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-600">x{item.quantity}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
       </div>

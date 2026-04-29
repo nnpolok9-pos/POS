@@ -1,4 +1,4 @@
-import { CalendarRange, CheckCircle2, Download, Eye, FileSpreadsheet, ListOrdered, Pencil, Printer, ReceiptText, Trash2, WalletCards } from "lucide-react";
+import { CalendarRange, CheckCircle2, Download, Eye, FileSpreadsheet, Pencil, Printer, ReceiptText, Trash2, WalletCards } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -86,10 +86,12 @@ const OrdersPage = () => {
   const [deletingOrder, setDeletingOrder] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [sauceProducts, setSauceProducts] = useState([]);
+  const [productCatalog, setProductCatalog] = useState([]);
   const [itemListOrder, setItemListOrder] = useState(null);
 
   const loadSauces = async () => {
     const products = await productService.getAdminProducts();
+    setProductCatalog(products);
     setSauceProducts(products.filter((product) => product.productType === "sauce"));
   };
 
@@ -295,6 +297,21 @@ const OrdersPage = () => {
   };
 
   const canEditVoidOrder = (order) => canEditVoidSale && order?.status === "void";
+  const canViewPreparationList = (order) => {
+    if (!order) {
+      return false;
+    }
+
+    const productMap = new Map(productCatalog.map((product) => [String(product.id || product._id), product]));
+
+    return order.items.some((item) => {
+      const product = productMap.get(String(item.product));
+      const normalizedCategory = String(product?.category || "").trim().toLowerCase();
+      const normalizedType = String(product?.productType || "").trim().toLowerCase();
+
+      return normalizedCategory === "meal" || normalizedCategory === "combo" || normalizedType === "combo_type";
+    });
+  };
 
   return (
     <div className="glass-card p-4 sm:p-5">
@@ -510,10 +527,6 @@ const OrdersPage = () => {
                   <Eye size={16} />
                   View
                 </button>
-                <button type="button" onClick={() => setItemListOrder(order)} className="btn-secondary h-10 gap-2 px-3 text-sm">
-                  <ListOrdered size={16} />
-                  Item List
-                </button>
                 {canEditOrder(order) && (
                   <button
                     type="button"
@@ -629,10 +642,6 @@ const OrdersPage = () => {
                         <Eye size={16} />
                         View
                       </button>
-                    <button type="button" onClick={() => setItemListOrder(order)} className="btn-secondary h-10 gap-2 px-3 text-sm">
-                      <ListOrdered size={16} />
-                      Item List
-                    </button>
                     {canEditOrder(order) && (
                       <button
                         type="button"
@@ -696,16 +705,20 @@ const OrdersPage = () => {
         onServe={() => openServeDialog(selectedOrder)}
         onVoid={() => openVoidDialog(selectedOrder)}
         onEditVoid={() => openVoidEditDialog(selectedOrder)}
-        onViewItems={() => {
-          setSelectedOrder(null);
-          setItemListOrder(selectedOrder);
-        }}
+        onViewItems={
+          selectedOrder && canViewPreparationList(selectedOrder)
+            ? () => {
+                setSelectedOrder(null);
+                setItemListOrder(selectedOrder);
+              }
+            : null
+        }
         canEdit={selectedOrder ? canEditOrder(selectedOrder) : false}
         canServe={canMutateOrders && selectedOrder?.status === "food_serving"}
         canVoid={canMutateOrders && (canVoidCompleted || ["food_serving", "queued"].includes(selectedOrder?.status))}
         canEditVoid={selectedOrder ? canEditVoidOrder(selectedOrder) : false}
       />
-      <OrderItemListModal open={Boolean(itemListOrder)} order={itemListOrder} onClose={() => setItemListOrder(null)} />
+      <OrderItemListModal open={Boolean(itemListOrder)} order={itemListOrder} productCatalog={productCatalog} onClose={() => setItemListOrder(null)} />
       <RefundMethodModal
         open={Boolean(voidingOrder)}
         order={voidingOrder}
