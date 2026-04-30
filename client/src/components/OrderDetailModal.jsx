@@ -102,7 +102,7 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
               </div>
               <div className="space-y-3 p-5">
                 {order.items.map((item, index) => (
-                  <div key={`${order.id}-${index}`} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
+                  <div key={`${order.id}-${index}`} className="flex flex-col gap-3 rounded-2xl bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <div className="flex min-w-0 items-center gap-3">
                       <img
                         src={imageUrl(item.image)}
@@ -110,13 +110,13 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
                         className="h-14 w-14 shrink-0 rounded-2xl border border-slate-100 bg-white object-cover"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="break-words text-sm font-semibold leading-5 text-slate-900 sm:text-base">{item.name}</p>
+                        <p className="whitespace-normal break-words text-sm font-semibold leading-5 text-slate-900 sm:text-base">{item.name}</p>
                         <p className="text-sm text-slate-500">
                           {currency(item.price)} x {item.quantity}
                         </p>
                       </div>
                     </div>
-                    <span className="shrink-0 font-bold text-slate-900">{currency(item.subtotal)}</span>
+                    <span className="shrink-0 self-end text-right font-bold text-slate-900 sm:self-auto">{currency(item.subtotal)}</span>
                   </div>
                 ))}
               </div>
