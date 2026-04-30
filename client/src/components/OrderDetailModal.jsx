@@ -109,8 +109,8 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
                         alt={item.name}
                         className="h-14 w-14 shrink-0 rounded-2xl border border-slate-100 bg-white object-cover"
                       />
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-900">{item.name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="break-words text-sm font-semibold leading-5 text-slate-900 sm:text-base">{item.name}</p>
                         <p className="text-sm text-slate-500">
                           {currency(item.price)} x {item.quantity}
                         </p>
