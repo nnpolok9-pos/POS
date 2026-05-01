@@ -97,8 +97,8 @@ const AppShell = () => {
 
         {mobileNavOpen ? <button type="button" className="fixed inset-0 z-30 bg-slate-950/35 xl:hidden" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation overlay" /> : null}
 
-        <aside className={`${mobileNavOpen ? "flex" : "hidden"} glass-card fixed inset-y-3 left-3 right-3 z-40 flex-col gap-3 overflow-y-auto p-3 xl:static xl:flex xl:w-[16.5rem] xl:max-h-[calc(100vh-2.5rem)] xl:overflow-y-auto`}>
-          <div className="overflow-hidden rounded-[1.6rem] border border-[#eadcc4] bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(252,244,228,0.94))] shadow-[0_14px_30px_rgba(160,120,50,0.08)]">
+        <aside className={`${mobileNavOpen ? "flex" : "hidden"} glass-card fixed inset-y-3 left-3 right-3 z-40 flex-col gap-3 overflow-hidden p-3 xl:static xl:flex xl:h-[calc(100vh-2.5rem)] xl:w-[16.5rem]`}>
+          <div className="shrink-0 overflow-hidden rounded-[1.6rem] border border-[#eadcc4] bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(252,244,228,0.94))] shadow-[0_14px_30px_rgba(160,120,50,0.08)]">
             <div className="bg-[radial-gradient(circle_at_top_left,rgba(245,146,63,0.22),transparent_45%)] p-3">
               <div className="flex justify-center">
                 <div className="flex h-32 w-full items-center justify-center overflow-hidden rounded-[1.6rem] border border-[#efe3d3] bg-white px-3 shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
@@ -123,7 +123,7 @@ const AppShell = () => {
               navigate("/profile");
               setMobileNavOpen(false);
             }}
-            className="overflow-hidden rounded-[1.6rem] bg-[linear-gradient(145deg,#171d31,#111728)] p-0 text-left text-white shadow-[0_16px_28px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.22)]"
+            className="shrink-0 overflow-hidden rounded-[1.6rem] bg-[linear-gradient(145deg,#171d31,#111728)] p-0 text-left text-white shadow-[0_16px_28px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_34px_rgba(15,23,42,0.22)]"
           >
             <div className="px-4 py-4">
               <div className="flex items-start gap-3">
@@ -142,72 +142,76 @@ const AppShell = () => {
             </div>
           </button>
 
-          <nav className="rounded-[1.6rem] border border-[#eee3cf] bg-white/70 p-2.5 shadow-[0_10px_24px_rgba(160,120,50,0.05)]">
-            <div className="mb-1 px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Navigation
-            </div>
-            <div className="flex flex-col gap-1">
-              {visibleNavItems.map((item) => {
-                const Icon = item.icon;
-                const itemActive = isNavSectionActive(item);
-                const showChildren = item.children.length > 0 && itemActive;
+          <div className="min-h-0 flex-1 overflow-hidden rounded-[1.6rem] border border-[#eee3cf] bg-white/70 shadow-[0_10px_24px_rgba(160,120,50,0.05)]">
+            <nav className="flex h-full min-h-0 flex-col p-2.5">
+              <div className="mb-1 shrink-0 px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                Navigation
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                <div className="flex flex-col gap-1">
+                  {visibleNavItems.map((item) => {
+                    const Icon = item.icon;
+                    const itemActive = isNavSectionActive(item);
+                    const showChildren = item.children.length > 0 && itemActive;
 
-                return (
-                  <div key={item.to} className="space-y-1">
-                    <NavLink
-                      to={item.to}
-                      onClick={() => setMobileNavOpen(false)}
-                      className={() =>
-                        `group flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[15px] font-semibold transition ${
-                          itemActive
-                            ? "bg-gradient-to-r from-brand-500 to-[#f08a2a] text-white shadow-[0_10px_22px_rgba(240,138,42,0.28)]"
-                            : "text-slate-600 hover:bg-[#fff4e4] hover:text-slate-900"
-                        }`
-                      }
-                    >
-                      <span className="flex h-8 w-8 items-center justify-center rounded-2xl transition group-hover:bg-white/70">
-                        <Icon size={17} />
-                      </span>
-                      <span>{item.label}</span>
-                    </NavLink>
+                    return (
+                      <div key={item.to} className="space-y-1">
+                        <NavLink
+                          to={item.to}
+                          onClick={() => setMobileNavOpen(false)}
+                          className={() =>
+                            `group flex items-center gap-3 rounded-[1rem] px-3 py-2.5 text-[15px] font-semibold transition ${
+                              itemActive
+                                ? "bg-gradient-to-r from-brand-500 to-[#f08a2a] text-white shadow-[0_10px_22px_rgba(240,138,42,0.28)]"
+                                : "text-slate-600 hover:bg-[#fff4e4] hover:text-slate-900"
+                            }`
+                          }
+                        >
+                          <span className="flex h-8 w-8 items-center justify-center rounded-2xl transition group-hover:bg-white/70">
+                            <Icon size={17} />
+                          </span>
+                          <span>{item.label}</span>
+                        </NavLink>
 
-                    {showChildren ? (
-                      <div className="ml-7 flex flex-col gap-1">
-                        {item.children.map((child) => {
-                          const ChildIcon = child.icon;
+                        {showChildren ? (
+                          <div className="ml-7 flex flex-col gap-1">
+                            {item.children.map((child) => {
+                              const ChildIcon = child.icon;
 
-                          return (
-                            <NavLink
-                              key={child.to}
-                              to={child.to}
-                              onClick={() => setMobileNavOpen(false)}
-                              className={({ isActive }) =>
-                                `group flex items-center gap-3 rounded-[0.95rem] px-3 py-2 text-sm font-semibold transition ${
-                                  isActive
-                                    ? "bg-orange-100 text-orange-600"
-                                    : "text-slate-500 hover:bg-[#fff7ed] hover:text-slate-900"
-                                }`
-                              }
-                            >
-                              <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-white">
-                                <ChildIcon size={15} />
-                              </span>
-                              <span>{child.label}</span>
-                            </NavLink>
-                          );
-                        })}
+                              return (
+                                <NavLink
+                                  key={child.to}
+                                  to={child.to}
+                                  onClick={() => setMobileNavOpen(false)}
+                                  className={({ isActive }) =>
+                                    `group flex items-center gap-3 rounded-[0.95rem] px-3 py-2 text-sm font-semibold transition ${
+                                      isActive
+                                        ? "bg-orange-100 text-orange-600"
+                                        : "text-slate-500 hover:bg-[#fff7ed] hover:text-slate-900"
+                                    }`
+                                  }
+                                >
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-white">
+                                    <ChildIcon size={15} />
+                                  </span>
+                                  <span>{child.label}</span>
+                                </NavLink>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          </nav>
+                    );
+                  })}
+                </div>
+              </div>
+            </nav>
+          </div>
 
           <button
             type="button"
             onClick={logout}
-            className="mt-auto flex items-center justify-center gap-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-2.5 text-[15px] font-semibold text-slate-700 transition hover:bg-slate-100"
+            className="shrink-0 flex items-center justify-center gap-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 px-4 py-2.5 text-[15px] font-semibold text-slate-700 transition hover:bg-slate-100"
           >
             <LogOut size={18} />
             Logout
