@@ -211,7 +211,11 @@ const createOrder = async (req, res) => {
 };
 
 const createPublicOrder = async (req, res) => {
-  const { items } = req.body;
+  const { items, bookingDetails } = req.body;
+
+  if (!bookingDetails?.customerPhone?.trim()) {
+    return res.status(400).json({ message: "Customer phone number is required" });
+  }
 
   try {
     const requestedItems = buildRequestedItems(items);
@@ -235,7 +239,7 @@ const createPublicOrder = async (req, res) => {
       promoDiscount: appliedPromo.promoDiscount,
       promoSnapshot: appliedPromo.promoSnapshot,
       paymentMethod: null,
-      bookingDetails: {},
+      bookingDetails: normalizeBookingDetails(bookingDetails),
       staff: null,
       status: "queued",
       source: "customer",
@@ -250,6 +254,7 @@ const createPublicOrder = async (req, res) => {
       createdAt: order.createdAt,
       total,
       subtotal,
+      bookingDetails: order.bookingDetails,
       promoCode: appliedPromo.promoCode,
       promoDiscount: appliedPromo.promoDiscount,
       items: order.items

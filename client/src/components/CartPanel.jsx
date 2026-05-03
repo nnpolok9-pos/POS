@@ -75,7 +75,11 @@ const CartPanel = ({
   showPaymentMethodError = false,
   promoLocked = false,
   promoLockedMessage = "",
-  paymentMethods = ["cash", "card", "qr"]
+  paymentMethods = ["cash", "card", "qr"],
+  customerPhone = "",
+  onCustomerPhoneChange,
+  showPhoneNumberField = false,
+  showCustomerPhoneError = false
 }) => {
   const text = {
     emptyCart: "Add products from the grid to start an order.",
@@ -100,6 +104,9 @@ const CartPanel = ({
     removePromo: "Remove",
     promoApplied: "Promo applied",
     customerInfo: "Customer Info",
+    customerPhone: "Phone Number",
+    customerPhonePlaceholder: "Enter phone number",
+    customerPhoneRequired: "Phone number is required before getting the queue number.",
     ...labels
   };
 
@@ -373,6 +380,22 @@ const CartPanel = ({
                 ) : null}
               </>
             )}
+          </div>
+        )}
+
+        {showPhoneNumberField && (
+          <div className={`rounded-3xl border p-3 ${showCustomerPhoneError ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-slate-50"}`}>
+            <label className="block">
+              <span className="mb-2 block text-[13px] font-semibold text-slate-600">{text.customerPhone}</span>
+              <input
+                value={customerPhone}
+                onChange={(event) => onCustomerPhoneChange?.(event.target.value)}
+                className={`input ${showCustomerPhoneError ? "border-rose-200 bg-white focus:border-rose-300 focus:ring-rose-100" : ""}`}
+                placeholder={text.customerPhonePlaceholder}
+                inputMode="tel"
+              />
+            </label>
+            {showCustomerPhoneError ? <p className="mt-2 text-[12px] font-medium text-rose-500">{text.customerPhoneRequired}</p> : null}
           </div>
         )}
 

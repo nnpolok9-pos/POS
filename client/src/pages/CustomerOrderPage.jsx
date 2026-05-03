@@ -224,6 +224,8 @@ const CustomerOrderPage = () => {
   const [promoCode, setPromoCode] = useState("");
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoApplying, setPromoApplying] = useState(false);
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerPhoneError, setCustomerPhoneError] = useState(false);
   const promoRequestIdRef = useRef(0);
 
   const resetPromoState = () => {
@@ -494,6 +496,12 @@ const CustomerOrderPage = () => {
       return;
     }
 
+    if (!customerPhone.trim()) {
+      setCustomerPhoneError(true);
+      toast.error("Phone number is required before getting the queue number");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const normalizedPromoCode = normalizePromoValue(promoCode);
@@ -506,11 +514,16 @@ const CustomerOrderPage = () => {
 
       const order = await orderService.createPublicQueueOrder({
         items: buildOrderRequestItems(cart),
-        promoCode: normalizedPromoCode || null
+        promoCode: normalizedPromoCode || null,
+        bookingDetails: {
+          customerPhone: customerPhone.trim()
+        }
       });
 
       setQueueOrder(order);
       setCart([]);
+      setCustomerPhone("");
+      setCustomerPhoneError(false);
       resetPromoState();
       setCartOpen(true);
       toast.success(`${text.queueCreatedToast} #${order.queueNumber}`);
@@ -636,12 +649,23 @@ const CustomerOrderPage = () => {
             checkoutLabel={submitting ? text.creatingQueue : text.getQueueNumber}
             onClearQueue={() => {
               setCart([]);
+              setCustomerPhone("");
+              setCustomerPhoneError(false);
               resetPromoState();
             }}
             onUpdateAlternatives={updateItemAlternatives}
             allowItemCustomization
             showPaymentSection={false}
             showPromoSection
+            customerPhone={customerPhone}
+            onCustomerPhoneChange={(value) => {
+              setCustomerPhone(value);
+              if (customerPhoneError && value.trim()) {
+                setCustomerPhoneError(false);
+              }
+            }}
+            showPhoneNumberField
+            showCustomerPhoneError={customerPhoneError}
             latestOrderLabel={text.queueCreated}
             showLatestPrint={false}
             labels={text.cartLabels}
@@ -802,12 +826,23 @@ const CustomerOrderPage = () => {
                   checkoutLabel={submitting ? text.creatingQueue : text.getQueueNumber}
                   onClearQueue={() => {
                     setCart([]);
+                    setCustomerPhone("");
+                    setCustomerPhoneError(false);
                     resetPromoState();
                   }}
                   onUpdateAlternatives={updateItemAlternatives}
                   allowItemCustomization
                   showPaymentSection={false}
                   showPromoSection
+                  customerPhone={customerPhone}
+                  onCustomerPhoneChange={(value) => {
+                    setCustomerPhone(value);
+                    if (customerPhoneError && value.trim()) {
+                      setCustomerPhoneError(false);
+                    }
+                  }}
+                  showPhoneNumberField
+                  showCustomerPhoneError={customerPhoneError}
                   latestOrderLabel={text.queueCreated}
                   showLatestPrint={false}
                   labels={text.cartLabels}

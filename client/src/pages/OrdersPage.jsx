@@ -6,7 +6,9 @@ import OrderDetailModal from "../components/OrderDetailModal";
 import EditHistoryModal from "../components/EditHistoryModal";
 import ForceStockPinModal from "../components/ForceStockPinModal";
 import OrderItemListModal from "../components/OrderItemListModal";
+import PaymentMethodPromptModal from "../components/PaymentMethodPromptModal";
 import RefundMethodModal from "../components/RefundMethodModal";
+import RetrieveQueueModal from "../components/RetrieveQueueModal";
 import ReportDatePicker from "../components/ReportDatePicker";
 import ServeOrderModal from "../components/ServeOrderModal";
 import { useAuth } from "../context/AuthContext";
@@ -86,6 +88,9 @@ const OrdersPage = () => {
   const [serveSubmitting, setServeSubmitting] = useState(false);
   const [deletingOrder, setDeletingOrder] = useState(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [retrieveOrder, setRetrieveOrder] = useState(null);
+  const [retrievePaymentPromptOpen, setRetrievePaymentPromptOpen] = useState(false);
+  const [placeOrderSubmitting, setPlaceOrderSubmitting] = useState(false);
   const [sauceProducts, setSauceProducts] = useState([]);
   const [productCatalog, setProductCatalog] = useState([]);
   const [itemListOrder, setItemListOrder] = useState(null);
@@ -299,6 +304,53 @@ const OrdersPage = () => {
   };
 
   const canEditVoidOrder = (order) => canEditVoidSale && order?.status === "void";
+  const openRetrievePreview = (order) => {
+    setSelectedOrder(null);
+    setRetrieveOrder(order);
+  };
+  const handleEditQueuedOrder = (order) => {
+    if (!order) {
+      return;
+    }
+
+    setRetrieveOrder(null);
+    navigate(`${getOrderEditPath(order)}?editOrder=${order.id}`, { state: { returnTo: "/orders" } });
+  };
+  const buildQueuedOrderItemsPayload = (order) =>
+    (order?.items || []).map((item) => ({
+      productId: item.product,
+      quantity: Number(item.quantity || 0),
+      selectedAlternatives: (item.selectedAlternatives || []).map((selectedAlternative) => ({
+        sourceProductId: selectedAlternative.sourceProductId,
+        selectedProductId: selectedAlternative.selectedProductId,
+        priceAdjustment: Number(selectedAlternative.priceAdjustment || 0)
+      }))
+    }));
+  const handlePlaceQueuedOrder = async (paymentMethod) => {
+    if (!retrieveOrder) {
+      return;
+    }
+
+    setPlaceOrderSubmitting(true);
+    try {
+      const updated = await orderService.updateOrder(retrieveOrder.id, {
+        items: buildQueuedOrderItemsPayload(retrieveOrder),
+        paymentMethod,
+        bookingDetails: retrieveOrder.bookingDetails || {},
+        promoCode: retrieveOrder.promoCode || null
+      });
+
+      toast.success(`Order ${updated.orderId} placed in food serving`);
+      setRetrievePaymentPromptOpen(false);
+      setRetrieveOrder(null);
+      setStatusFilter("all");
+      await loadOrders(appliedDateRange || initialDateRange);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to place queued order");
+    } finally {
+      setPlaceOrderSubmitting(false);
+    }
+  };
   const canViewPreparationList = (order) => {
     if (!order) {
       return false;
@@ -524,7 +576,11 @@ const OrdersPage = () => {
                 {canEditOrder(order) && (
                   <button
                     type="button"
-                    onClick={() => navigate(`${getOrderEditPath(order)}?editOrder=${order.id}`, { state: { returnTo: "/orders" } })}
+                    onClick={() =>
+                      isCustomerQueueOrder(order)
+                        ? openRetrievePreview(order)
+                        : navigate(`${getOrderEditPath(order)}?editOrder=${order.id}`, { state: { returnTo: "/orders" } })
+                    }
                     className="btn-secondary h-10 gap-2 px-3 text-sm"
                   >
                     <Pencil size={16} />
@@ -639,7 +695,11 @@ const OrdersPage = () => {
                     {canEditOrder(order) && (
                       <button
                         type="button"
-                        onClick={() => navigate(`${getOrderEditPath(order)}?editOrder=${order.id}`, { state: { returnTo: "/orders" } })}
+                        onClick={() =>
+                          isCustomerQueueOrder(order)
+                            ? openRetrievePreview(order)
+                            : navigate(`${getOrderEditPath(order)}?editOrder=${order.id}`, { state: { returnTo: "/orders" } })
+                        }
                         className="btn-secondary h-10 gap-2 px-3 text-sm"
                         >
                           <Pencil size={16} />
@@ -695,7 +755,11 @@ const OrdersPage = () => {
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
         onPrint={() => printReceipt(selectedOrder, shopSettings)}
-        onEdit={() => navigate(`${getOrderEditPath(selectedOrder)}?editOrder=${selectedOrder.id}`, { state: { returnTo: "/orders" } })}
+        onEdit={() =>
+          isCustomerQueueOrder(selectedOrder)
+            ? openRetrievePreview(selectedOrder)
+            : navigate(`${getOrderEditPath(selectedOrder)}?editOrder=${selectedOrder.id}`, { state: { returnTo: "/orders" } })
+        }
         onServe={() => openServeDialog(selectedOrder)}
         onVoid={() => openVoidDialog(selectedOrder)}
         onEditVoid={() => openVoidEditDialog(selectedOrder)}
@@ -711,6 +775,23 @@ const OrdersPage = () => {
         canServe={canMutateOrders && selectedOrder?.status === "food_serving"}
         canVoid={canMutateOrders && (canVoidCompleted || ["food_serving", "queued"].includes(selectedOrder?.status))}
         canEditVoid={selectedOrder ? canEditVoidOrder(selectedOrder) : false}
+      />
+      <RetrieveQueueModal
+        open={Boolean(retrieveOrder)}
+        order={retrieveOrder}
+        onClose={() => {
+          setRetrievePaymentPromptOpen(false);
+          setRetrieveOrder(null);
+        }}
+        onPlaceOrder={() => setRetrievePaymentPromptOpen(true)}
+        onEditOrder={() => handleEditQueuedOrder(retrieveOrder)}
+        placingOrder={placeOrderSubmitting}
+      />
+      <PaymentMethodPromptModal
+        open={retrievePaymentPromptOpen}
+        onClose={() => setRetrievePaymentPromptOpen(false)}
+        onSelect={handlePlaceQueuedOrder}
+        methods={["cash", "card", "qr"]}
       />
       <OrderItemListModal open={Boolean(itemListOrder)} order={itemListOrder} productCatalog={productCatalog} onClose={() => setItemListOrder(null)} />
       <RefundMethodModal
