@@ -1,4 +1,7 @@
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const emptyCustomerInfo = {
   customerName: "",
@@ -6,8 +9,16 @@ const emptyCustomerInfo = {
   customerDateOfBirth: ""
 };
 
+const formatLocalDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const CustomerInfoModal = ({ open, value, onClose, onSave }) => {
   const [form, setForm] = useState(emptyCustomerInfo);
+  const selectedDateOfBirth = form.customerDateOfBirth ? new Date(`${form.customerDateOfBirth}T00:00:00`) : null;
 
   useEffect(() => {
     if (open) {
@@ -64,10 +75,22 @@ const CustomerInfoModal = ({ open, value, onClose, onSave }) => {
 
           <label className="block">
             <span className="mb-2 block text-sm font-semibold text-slate-600">Date of Birth</span>
-            <input
-              type="date"
-              value={form.customerDateOfBirth}
-              onChange={(event) => setForm((current) => ({ ...current, customerDateOfBirth: event.target.value }))}
+            <DatePicker
+              selected={selectedDateOfBirth}
+              onChange={(date) => setForm((current) => ({ ...current, customerDateOfBirth: date ? formatLocalDate(date) : "" }))}
+              dateFormat="dd MMM yyyy"
+              placeholderText="Select date of birth"
+              maxDate={new Date()}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              yearDropdownItemNumber={100}
+              scrollableYearDropdown
+              calendarClassName="!rounded-3xl !border !border-slate-200 !shadow-soft"
+              popperClassName="z-[80]"
+              popperPlacement="bottom-start"
+              popperProps={{ strategy: "fixed" }}
+              popperContainer={({ children }) => createPortal(children, document.body)}
               className="input"
             />
           </label>
