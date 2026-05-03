@@ -139,6 +139,7 @@ const getInventoryReport = async (req, res) => {
         return {
           productId: baseProduct?.id || baseProduct?._id || requiredProductId,
           productName: baseProduct?.name || "Unknown base item",
+          image: baseProduct?.image || "",
           sku: baseProduct?.sku || "",
           productType: inferProductType(baseProduct || { productType: "raw_material" }),
           stockUnit: baseProduct?.stockUnit || "pieces",

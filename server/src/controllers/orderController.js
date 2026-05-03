@@ -18,11 +18,8 @@ const {
   buildSeasoningItems
 } = require("../lib/orderPricing");
 const { normalizePromoCode, getPromoUsageStats, validatePromoForOrder } = require("../lib/promoLogic");
+const { buildTimezoneDayRange } = require("../utils/reportDateRange");
 
-const buildLocalDayRange = (dateValue, endOfDay = false) => {
-  const suffix = endOfDay ? "T23:59:59.999" : "T00:00:00.000";
-  return new Date(`${dateValue}${suffix}`);
-};
 const PARTNER_PAYMENT_METHODS = ["grab", "foodpanda", "e_gates", "wownow"];
 const COLLECTED_PAYMENT_METHODS = ["cash", "card", "qr", ...PARTNER_PAYMENT_METHODS];
 const ALLOWED_PAYMENT_METHODS = [...COLLECTED_PAYMENT_METHODS, "due_on_serve"];
@@ -271,19 +268,19 @@ const getOrdersHandler = async (req, res) => {
   }
 
   if (from) {
-    const fromDate = buildLocalDayRange(from);
-    if (Number.isNaN(fromDate.getTime())) {
+    const fromRange = buildTimezoneDayRange(from);
+    if (!fromRange || Number.isNaN(fromRange.start.getTime())) {
       return res.status(400).json({ message: "Invalid from date" });
     }
-    orders = orders.filter((order) => new Date(order.createdAt) >= fromDate);
+    orders = orders.filter((order) => new Date(order.createdAt) >= fromRange.start);
   }
 
   if (to) {
-    const toDate = buildLocalDayRange(to, true);
-    if (Number.isNaN(toDate.getTime())) {
+    const toRange = buildTimezoneDayRange(to);
+    if (!toRange || Number.isNaN(toRange.end.getTime())) {
       return res.status(400).json({ message: "Invalid to date" });
     }
-    orders = orders.filter((order) => new Date(order.createdAt) <= toDate);
+    orders = orders.filter((order) => new Date(order.createdAt) <= toRange.end);
   }
 
   orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -295,19 +292,19 @@ const getEditedOrders = async (req, res) => {
   let orders = (await getAllOrders()).filter((order) => Array.isArray(order.editHistory) && order.editHistory.length > 0);
 
   if (from) {
-    const fromDate = buildLocalDayRange(from);
-    if (Number.isNaN(fromDate.getTime())) {
+    const fromRange = buildTimezoneDayRange(from);
+    if (!fromRange || Number.isNaN(fromRange.start.getTime())) {
       return res.status(400).json({ message: "Invalid from date" });
     }
-    orders = orders.filter((order) => order.editedAt && new Date(order.editedAt) >= fromDate);
+    orders = orders.filter((order) => order.editedAt && new Date(order.editedAt) >= fromRange.start);
   }
 
   if (to) {
-    const toDate = buildLocalDayRange(to, true);
-    if (Number.isNaN(toDate.getTime())) {
+    const toRange = buildTimezoneDayRange(to);
+    if (!toRange || Number.isNaN(toRange.end.getTime())) {
       return res.status(400).json({ message: "Invalid to date" });
     }
-    orders = orders.filter((order) => order.editedAt && new Date(order.editedAt) <= toDate);
+    orders = orders.filter((order) => order.editedAt && new Date(order.editedAt) <= toRange.end);
   }
 
   orders.sort((a, b) => new Date(b.editedAt || 0) - new Date(a.editedAt || 0) || new Date(b.createdAt) - new Date(a.createdAt));

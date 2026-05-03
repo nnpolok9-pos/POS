@@ -97,7 +97,7 @@ const AppShell = () => {
 
         {mobileNavOpen ? <button type="button" className="fixed inset-0 z-30 bg-slate-950/35 xl:hidden" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation overlay" /> : null}
 
-        <aside className={`${mobileNavOpen ? "flex" : "hidden"} glass-card fixed inset-y-3 left-3 right-3 z-40 flex-col gap-3 overflow-hidden p-3 xl:static xl:flex xl:h-[calc(100vh-2.5rem)] xl:w-[16.5rem]`}>
+        <aside className={`${mobileNavOpen ? "flex" : "hidden"} glass-card fixed inset-y-3 left-3 right-3 z-40 flex-col gap-3 overflow-y-auto p-3 xl:static xl:flex xl:h-[calc(100vh-2.5rem)] xl:w-[16.5rem] xl:overflow-hidden`}>
           <div className="shrink-0 overflow-hidden rounded-[1.6rem] border border-[#eadcc4] bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(252,244,228,0.94))] shadow-[0_14px_30px_rgba(160,120,50,0.08)]">
             <div className="bg-[radial-gradient(circle_at_top_left,rgba(245,146,63,0.22),transparent_45%)] p-3">
               <div className="flex justify-center">
@@ -142,12 +142,12 @@ const AppShell = () => {
             </div>
           </button>
 
-          <div className="min-h-0 flex-1 overflow-hidden rounded-[1.6rem] border border-[#eee3cf] bg-white/70 shadow-[0_10px_24px_rgba(160,120,50,0.05)]">
-            <nav className="flex h-full min-h-0 flex-col p-2.5">
+          <div className="rounded-[1.6rem] border border-[#eee3cf] bg-white/70 shadow-[0_10px_24px_rgba(160,120,50,0.05)] xl:min-h-0 xl:flex-1 xl:overflow-hidden">
+            <nav className="flex flex-col p-2.5 xl:h-full xl:min-h-0">
               <div className="mb-1 shrink-0 px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                 Navigation
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="pr-1 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
                 <div className="flex flex-col gap-1">
                   {visibleNavItems.map((item) => {
                     const Icon = item.icon;

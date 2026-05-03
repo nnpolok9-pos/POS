@@ -1,4 +1,5 @@
-import { AlertTriangle, Package2, Scale, X } from "lucide-react";
+import { AlertTriangle, Package2, Plus, Scale, X } from "lucide-react";
+import { imageUrl } from "../utils/format";
 
 const productTypeLabel = (type) =>
   ({
@@ -16,7 +17,7 @@ const stockUnitLabel = (unit) =>
     teaspoon: "Tea Spoon"
   })[unit] || "Piece";
 
-const CombinedProductBreakdownModal = ({ open, product, materials = [], onClose }) => {
+const CombinedProductBreakdownModal = ({ open, product, materials = [], onClose, canAddStock = false, onAddStock }) => {
   if (!open || !product) {
     return null;
   }
@@ -100,15 +101,19 @@ const CombinedProductBreakdownModal = ({ open, product, materials = [], onClose 
                   <th className="px-4 py-3 font-semibold">Current Stock</th>
                   <th className="px-4 py-3 font-semibold">Supports Combined Qty</th>
                   <th className="px-4 py-3 font-semibold">Need More For Next Unit</th>
+                  <th className="px-4 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.map((item) => (
                   <tr key={item.id} className="border-t border-slate-100 bg-white">
                     <td className="px-4 py-4">
-                      <div>
+                      <div className="flex items-center gap-3">
+                        <img src={imageUrl(item.image)} alt={item.name} className="h-12 w-12 rounded-2xl object-cover" />
+                        <div>
                         <p className="font-semibold text-slate-900">{item.name}</p>
                         <p className="text-xs text-slate-500">{item.sku || "No SKU"}</p>
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-4 text-slate-600">{productTypeLabel(item.productType)}</td>
@@ -139,6 +144,20 @@ const CombinedProductBreakdownModal = ({ open, product, materials = [], onClose 
                             : `This item already supports ${nextTarget} units`}
                         </p>
                       </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      {canAddStock ? (
+                        <button
+                          type="button"
+                          onClick={() => onAddStock?.(item)}
+                          className="btn-secondary gap-2 whitespace-nowrap"
+                        >
+                          <Plus size={16} />
+                          Add Stock
+                        </button>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-400">View only</span>
+                      )}
                     </td>
                   </tr>
                 ))}

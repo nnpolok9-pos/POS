@@ -1,5 +1,6 @@
 const { getOrders, getAllProducts } = require("../lib/dataStore");
 const { inferProductType, isCompositeProductType, buildCompositeRequirements } = require("../lib/productLogic");
+const { buildTimezoneDateRange, buildTimezoneDayRange } = require("../utils/reportDateRange");
 
 const REPORT_TIMEZONE = process.env.REPORT_TIMEZONE || process.env.TZ || "Asia/Bangkok";
 const COMPLETED_STATUSES = ["completed", "confirmed"];
@@ -14,13 +15,6 @@ const PARTNER_LABELS = {
 };
 const isVoidHistoryEntry = (entry) => ["void", "void_edit"].includes(entry?.adjustmentType);
 const hasCollectedPayment = (paymentMethod) => PAYMENT_METHODS.includes(paymentMethod);
-
-const buildDateRange = (from, to) => {
-  const now = new Date();
-  const start = from ? new Date(`${from}T00:00:00.000`) : new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = to ? new Date(`${to}T23:59:59.999`) : new Date();
-  return { start, end };
-};
 
 const toReportDay = (dateValue) =>
   new Intl.DateTimeFormat("en-CA", {
@@ -233,7 +227,11 @@ const getDashboardSummary = async (_req, res) => {
 
 const getSalesRangeReport = async (req, res) => {
   const { from, to } = req.query;
-  const { start, end } = buildDateRange(from, to);
+  const range = buildTimezoneDateRange(from, to);
+  if (!range) {
+    return res.status(400).json({ message: "Invalid date range" });
+  }
+  const { start, end } = range;
   const allOrders = await getOrders();
   const orders = allOrders.filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end);
 
@@ -313,7 +311,11 @@ const getSalesRangeReport = async (req, res) => {
 
 const getDeliveryPartnerSalesReport = async (req, res) => {
   const { from, to } = req.query;
-  const { start, end } = buildDateRange(from, to);
+  const range = buildTimezoneDateRange(from, to);
+  if (!range) {
+    return res.status(400).json({ message: "Invalid date range" });
+  }
+  const { start, end } = range;
   const orders = (await getOrders()).filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end);
   const grouped = new Map(
     PARTNER_PAYMENT_METHODS.map((partnerKey) => [
@@ -408,7 +410,11 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
 
 const getProductSalesReport = async (req, res) => {
   const { from, to } = req.query;
-  const { start, end } = buildDateRange(from, to);
+  const range = buildTimezoneDateRange(from, to);
+  if (!range) {
+    return res.status(400).json({ message: "Invalid date range" });
+  }
+  const { start, end } = range;
   const [orders, products] = await Promise.all([getOrders(), getAllProducts()]);
   const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
   const grouped = new Map();
@@ -488,7 +494,11 @@ const getProductSalesReport = async (req, res) => {
 
 const getCashPositionReport = async (req, res) => {
   const { from, to } = req.query;
-  const { start, end } = buildDateRange(from, to);
+  const range = buildTimezoneDateRange(from, to);
+  if (!range) {
+    return res.status(400).json({ message: "Invalid date range" });
+  }
+  const { start, end } = range;
   const orders = (await getOrders()).filter(
     (order) => COMPLETED_STATUSES.includes(order.status) && new Date(order.createdAt) >= start && new Date(order.createdAt) <= end
   );
@@ -540,8 +550,12 @@ const getOrdersByDate = async (req, res) => {
     return res.status(400).json({ message: "Date is required" });
   }
 
-  const start = new Date(`${date}T00:00:00.000`);
-  const end = new Date(`${date}T23:59:59.999`);
+  const dayRange = buildTimezoneDayRange(date);
+  if (!dayRange) {
+    return res.status(400).json({ message: "Invalid date" });
+  }
+
+  const { start, end } = dayRange;
   const orders = (await getOrders())
     .filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

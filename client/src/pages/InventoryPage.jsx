@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Archive, Boxes, Info, PackageSearch, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
+import { Archive, Boxes, Info, PackageSearch, Plus, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
 import toast from "react-hot-toast";
 import CombinedProductBreakdownModal from "../components/CombinedProductBreakdownModal";
+import ProductStockModal from "../components/ProductStockModal";
 import ReportDatePicker from "../components/ReportDatePicker";
+import { useAuth } from "../context/AuthContext";
 import { inventoryService } from "../services/inventoryService";
+import { productService } from "../services/productService";
 import { getLocalDateInputValue } from "../utils/date";
 import { formatDate, imageUrl } from "../utils/format";
 
@@ -44,6 +47,8 @@ const ProductCell = ({ image, name, sku }) => (
 );
 
 const InventoryPage = () => {
+  const { user } = useAuth();
+  const canAddStock = ["master_admin", "admin", "staff"].includes(user?.role);
   const [from, setFrom] = useState(todayString());
   const [to, setTo] = useState(todayString());
   const [report, setReport] = useState({
@@ -59,6 +64,9 @@ const InventoryPage = () => {
   const [appliedDateRange, setAppliedDateRange] = useState(null);
   const [activeTab, setActiveTab] = useState("raw");
   const [selectedCombinedRow, setSelectedCombinedRow] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [stockSubmitting, setStockSubmitting] = useState(false);
 
   const loadReport = async (params = {}) => {
     setLoading(true);
@@ -75,6 +83,17 @@ const InventoryPage = () => {
   useEffect(() => {
     loadReport({});
   }, []);
+
+  useEffect(() => {
+    if (!selectedCombinedRow) {
+      return;
+    }
+
+    const refreshedCombinedRow = (report.comboRows || []).find((row) => String(row.productId) === String(selectedCombinedRow.productId));
+    if (refreshedCombinedRow) {
+      setSelectedCombinedRow(refreshedCombinedRow);
+    }
+  }, [report.comboRows, selectedCombinedRow]);
 
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -162,7 +181,9 @@ const InventoryPage = () => {
 
         return {
           id: component.productId || `${component.productName}-${requiredQuantity}`,
+          productId: component.productId,
           name: component.productName,
+          image: component.image || "",
           sku: component.sku || "",
           productType: component.productType || "raw_material",
           stockUnit: component.stockUnit || "pieces",
@@ -175,6 +196,30 @@ const InventoryPage = () => {
       })
       .sort((left, right) => left.possibleUnits - right.possibleUnits || right.shortageForNextUnit - left.shortageForNextUnit);
   }, [selectedCombinedRow]);
+
+  const openStockModal = (product) => {
+    setSelectedProduct(product);
+    setStockModalOpen(true);
+  };
+
+  const handleStockUpdate = async ({ receivedQuantity, expiryDate }) => {
+    if (!selectedProduct) {
+      return;
+    }
+
+    setStockSubmitting(true);
+    try {
+      await productService.updateStock(selectedProduct.id, { receivedQuantity, expiryDate });
+      toast.success("Stock updated");
+      setStockModalOpen(false);
+      setSelectedProduct(null);
+      await loadReport(appliedDateRange || {});
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update stock");
+    } finally {
+      setStockSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -432,6 +477,24 @@ const InventoryPage = () => {
                         <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Sold</p><p className="mt-1 font-semibold text-rose-600">{row.soldQuantity}</p></div>
                         <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Last Received</p><p className="mt-1 text-slate-700">{row.lastReceivedAt ? formatDate(row.lastReceivedAt) : "-"}</p></div>
                       </div>
+                      {canAddStock ? (
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openStockModal({
+                                id: row.productId,
+                                name: row.productName,
+                                stock: Number(row.currentStock || 0)
+                              })
+                            }
+                            className="btn-secondary gap-2"
+                          >
+                            <Plus size={16} />
+                            Add Stock
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ))
                 )}
@@ -450,13 +513,14 @@ const InventoryPage = () => {
                   <th className="pb-3 pr-4">Deducted Qty</th>
                   <th className="pb-3 pr-4">Sold Qty</th>
                   <th className="pb-3 pr-4">Current Stock</th>
-                  <th className="pb-3">Last Received</th>
+                  <th className="pb-3 pr-4">Last Received</th>
+                  <th className="pb-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan="11" className="py-10 text-center text-sm text-slate-500">
+                    <td colSpan="12" className="py-10 text-center text-sm text-slate-500">
                       No base inventory records found for the selected filters.
                     </td>
                   </tr>
@@ -475,7 +539,27 @@ const InventoryPage = () => {
                       <td className="py-3 pr-4 font-semibold text-rose-600">{row.deductedQuantity}</td>
                       <td className="py-3 pr-4 font-semibold text-rose-600">{row.soldQuantity}</td>
                       <td className="py-3 pr-4 font-bold text-slate-900">{row.currentStock}</td>
-                      <td className="py-3 text-slate-600">{row.lastReceivedAt ? formatDate(row.lastReceivedAt) : "-"}</td>
+                      <td className="py-3 pr-4 text-slate-600">{row.lastReceivedAt ? formatDate(row.lastReceivedAt) : "-"}</td>
+                      <td className="py-3">
+                        {canAddStock ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openStockModal({
+                                id: row.productId,
+                                name: row.productName,
+                                stock: Number(row.currentStock || 0)
+                              })
+                            }
+                            className="btn-secondary gap-2"
+                          >
+                            <Plus size={16} />
+                            Add Stock
+                          </button>
+                        ) : (
+                          <span className="inline-flex rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">View only</span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -789,7 +873,26 @@ const InventoryPage = () => {
             : null
         }
         materials={combinedBreakdownMaterials}
+        canAddStock={canAddStock}
+        onAddStock={(material) =>
+          openStockModal({
+            id: material.productId,
+            name: material.name,
+            stock: Number(material.currentStock || 0)
+          })
+        }
         onClose={() => setSelectedCombinedRow(null)}
+      />
+
+      <ProductStockModal
+        open={stockModalOpen}
+        product={selectedProduct}
+        onClose={() => {
+          setStockModalOpen(false);
+          setSelectedProduct(null);
+        }}
+        onSubmit={handleStockUpdate}
+        submitting={stockSubmitting}
       />
     </div>
   );
