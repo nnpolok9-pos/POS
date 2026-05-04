@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppShell from "./components/AppShell";
 import { useAuth } from "./context/AuthContext";
+import { PosSidebarProvider } from "./context/PosSidebarContext";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import OrdersPage from "./pages/OrdersPage";
@@ -63,7 +64,9 @@ function App() {
         path="/"
         element={
           <ProtectedRoute roles={["master_admin", "admin", "checker", "staff"]}>
-            <AppShell />
+            <PosSidebarProvider>
+              <AppShell />
+            </PosSidebarProvider>
           </ProtectedRoute>
         }
       >

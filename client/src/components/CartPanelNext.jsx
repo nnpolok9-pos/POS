@@ -79,7 +79,8 @@ const CartPanelNext = ({
   promoLockedMessage = "",
   paymentMethods = ["cash", "card", "qr"],
   allowPriceEdit = false,
-  onUpdatePrice
+  onUpdatePrice,
+  mobileModal = false
 }) => {
   const text = {
     emptyCart: "Add products from the grid to start an order.",
@@ -127,7 +128,11 @@ const CartPanelNext = ({
   }, [hasAppliedPromo, promoCode]);
 
   return (
-    <div className="glass-card flex min-h-[calc(100vh-7rem)] flex-col gap-3 overflow-hidden p-4 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)] xl:min-h-0 xl:overflow-y-auto">
+    <div
+      className={`glass-card flex flex-col gap-3 overflow-hidden p-4 ${
+        mobileModal ? "min-h-0" : "min-h-[calc(100vh-7rem)]"
+      } xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)] xl:min-h-0 xl:overflow-y-auto`}
+    >
       <div className="space-y-2 border-b border-slate-100 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -221,7 +226,7 @@ const CartPanelNext = ({
                                 <Minus size={17} />
                               </button>
                               <span className="min-w-[44px] text-center text-[1.05rem] font-bold text-slate-900">{item.quantity}</span>
-                              <button type="button" onClick={() => onIncrease(item.id)} disabled={item.quantity >= item.stock} className="btn-secondary h-11 w-11 rounded-[1rem] p-0">
+                              <button type="button" onClick={() => onIncrease(item.id)} className="btn-secondary h-11 w-11 rounded-[1rem] p-0">
                                 <Plus size={17} />
                               </button>
                             </div>

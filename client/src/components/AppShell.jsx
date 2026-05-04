@@ -2,6 +2,7 @@ import { Archive, BadgePercent, BarChart3, FilePenLine, LayoutDashboard, LogOut,
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { usePosSidebar } from "../context/PosSidebarContext";
 import { useShopSettings } from "../context/ShopSettingsContext";
 import { imageUrl } from "../utils/format";
 
@@ -27,6 +28,7 @@ const navItems = [
 
 const AppShell = () => {
   const { logout, user } = useAuth();
+  const { config: posSidebarConfig } = usePosSidebar();
   const { settings } = useShopSettings();
   const navigate = useNavigate();
   const location = useLocation();
@@ -70,6 +72,14 @@ const AppShell = () => {
 
   const isNavSectionActive = (item) =>
     location.pathname.startsWith(item.to) || item.children.some((child) => location.pathname.startsWith(child.to));
+
+  const shouldShowPosSidebarCategories = (item) =>
+    Boolean(
+      posSidebarConfig &&
+        posSidebarConfig.parentRoute === item.to &&
+        Array.isArray(posSidebarConfig.categories) &&
+        posSidebarConfig.categories.length > 0
+    );
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(245,146,63,0.35),_transparent_32%),linear-gradient(180deg,#fff7ed_0%,#fffbeb_100%)]">
@@ -173,7 +183,7 @@ const AppShell = () => {
                           <span>{item.label}</span>
                         </NavLink>
 
-                        {showChildren ? (
+                        {showChildren || shouldShowPosSidebarCategories(item) ? (
                           <div className="ml-7 flex flex-col gap-1">
                             {item.children.map((child) => {
                               const ChildIcon = child.icon;
@@ -198,6 +208,33 @@ const AppShell = () => {
                                 </NavLink>
                               );
                             })}
+                            {shouldShowPosSidebarCategories(item) ? (
+                              <div className="hidden xl:block">
+                                <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                  Categories
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  {posSidebarConfig.categories.map((category) => {
+                                    const activeCategory = posSidebarConfig.selectedCategory === category.key;
+
+                                    return (
+                                      <button
+                                        key={`${item.to}-${category.key}`}
+                                        type="button"
+                                        onClick={posSidebarConfig.onSelectCategory ? () => posSidebarConfig.onSelectCategory(category.key) : undefined}
+                                        className={`w-full rounded-[0.95rem] px-3 py-2 text-left text-sm font-semibold transition ${
+                                          activeCategory
+                                            ? "bg-orange-100 text-orange-600"
+                                            : "text-slate-500 hover:bg-[#fff7ed] hover:text-slate-900"
+                                        }`}
+                                      >
+                                        {category.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>

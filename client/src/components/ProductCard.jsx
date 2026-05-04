@@ -1,20 +1,20 @@
 import StatusBadge from "./StatusBadge";
 import { currencyParts, imageUrl } from "../utils/format";
 
-const ProductCard = ({ product, onSelect, language = "en", showStatusBadge = true, showStockQuantity = true, priceMode = "offer" }) => {
+const ProductCard = ({ product, onSelect, language = "en", showStatusBadge = true, showStockQuantity = true, priceMode = "offer", cartQuantity = 0 }) => {
   const isKhmer = language === "km";
   const promotionalPrice = Number(product.promotionalPrice ?? product.price ?? 0);
   const regularPrice = Number(product.regularPrice ?? product.price ?? promotionalPrice);
   const activePrice = priceMode === "regular" ? regularPrice : promotionalPrice;
   const activeParts = currencyParts(activePrice);
   const regularParts = currencyParts(product.regularPrice ?? product.price);
+  const cartTotalParts = currencyParts(activePrice * cartQuantity);
 
   return (
     <button
       type="button"
       onClick={() => onSelect(product)}
-      disabled={product.stock === 0}
-      className="group flex h-full flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white text-left shadow-soft transition hover:-translate-y-1 disabled:cursor-not-allowed disabled:opacity-50"
+      className="group flex h-full flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white text-left shadow-soft transition hover:-translate-y-1"
     >
       <div className="aspect-[4/3] overflow-hidden bg-amber-100">
         <img
@@ -46,6 +46,14 @@ const ProductCard = ({ product, onSelect, language = "en", showStatusBadge = tru
           </div>
           {showStockQuantity ? <span className={`text-[13px] font-medium ${isKhmer ? "text-black" : "text-slate-500"}`}>Stock: {product.stock}</span> : null}
         </div>
+        {cartQuantity > 0 ? (
+          <div className="rounded-2xl border border-brand-100 bg-brand-50/70 px-3 py-2 xl:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <span className={`text-[12px] font-semibold ${isKhmer ? "text-black" : "text-brand-700"}`}>x {cartQuantity} in cart</span>
+              <span className="text-[13px] font-bold text-brand-600">{cartTotalParts.khr}</span>
+            </div>
+          </div>
+        ) : null}
       </div>
     </button>
   );

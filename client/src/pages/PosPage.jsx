@@ -1,3 +1,4 @@
+import { ShoppingBag, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -5,10 +6,12 @@ import CartPanelNext from "../components/CartPanelNext";
 import CustomerInfoModal from "../components/CustomerInfoModal";
 import PaymentMethodPromptModal from "../components/PaymentMethodPromptModal";
 import ProductCard from "../components/ProductCard";
+import { usePosSidebar } from "../context/PosSidebarContext";
 import { useShopSettings } from "../context/ShopSettingsContext";
 import { orderService } from "../services/orderService";
 import { productService } from "../services/productService";
 import { promoService } from "../services/promoService";
+import { currency } from "../utils/format";
 import { printReceipt } from "../utils/printReceipt";
 
 const getItemAdjustmentTotal = (item) =>
@@ -83,6 +86,7 @@ const buildOrderRequestItems = (cart) =>
 const PosPage = ({ mode = "counter" }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setConfig: setPosSidebarConfig } = usePosSidebar();
   const { settings: shopSettings } = useShopSettings();
   const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
@@ -99,6 +103,7 @@ const PosPage = ({ mode = "counter" }) => {
   const [promoApplying, setPromoApplying] = useState(false);
   const [paymentMethodError, setPaymentMethodError] = useState(false);
   const [paymentPromptOpen, setPaymentPromptOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const [customerInfo, setCustomerInfo] = useState({
     customerName: "",
     customerPhone: "",
@@ -232,6 +237,20 @@ const PosPage = ({ mode = "counter" }) => {
 
     return ["cash", "card", "qr", "due_on_serve"];
   }, [editingOrder, partnerOrderContext]);
+  const cartTotal = useMemo(() => Number((getCartTotal(cart) - Number(appliedPromo?.discount || 0)).toFixed(2)), [appliedPromo?.discount, cart]);
+
+  useEffect(() => {
+    const shouldLockBody = cartOpen;
+    const previousOverflow = document.body.style.overflow;
+
+    if (shouldLockBody) {
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [cartOpen]);
 
   useEffect(() => {
     const initPage = async () => {
@@ -397,6 +416,7 @@ const PosPage = ({ mode = "counter" }) => {
 
   const categoryOptions = useMemo(() => buildCategoryOptions(productsForSale), [productsForSale]);
   const totalCartItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+  const cartQuantityMap = useMemo(() => new Map(cart.map((item) => [item.id, item.quantity])), [cart]);
 
   const filteredProducts = useMemo(
     () =>
@@ -409,16 +429,22 @@ const PosPage = ({ mode = "counter" }) => {
   );
   const visibleProductCount = filteredProducts.length;
 
+  useEffect(() => {
+    setPosSidebarConfig({
+      parentRoute: isPartnerMode ? "/partner-pos" : "/pos",
+      categories: categoryOptions,
+      selectedCategory,
+      onSelectCategory: setSelectedCategory
+    });
+
+    return () => setPosSidebarConfig(null);
+  }, [categoryOptions, isPartnerMode, selectedCategory, setPosSidebarConfig]);
+
   const addToCart = (product) => {
     setCart((current) => {
       const existing = current.find((item) => item.id === product.id);
 
       if (existing) {
-        if (existing.quantity >= product.stock) {
-          toast.error("Cannot add more than available stock");
-          return current;
-        }
-
         return current.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
       }
 
@@ -447,14 +473,7 @@ const PosPage = ({ mode = "counter" }) => {
   };
 
   const increaseItem = (id) => {
-    updateCartItem(id, (item) => {
-      if (item.quantity >= item.stock) {
-        toast.error("Cannot exceed stock");
-        return item;
-      }
-
-      return { ...item, quantity: item.quantity + 1 };
-    });
+    updateCartItem(id, (item) => ({ ...item, quantity: item.quantity + 1 }));
   };
 
   const updateItemAlternatives = (id, selectedAlternatives) => {
@@ -583,11 +602,11 @@ const PosPage = ({ mode = "counter" }) => {
         <section className="glass-card flex flex-col p-3 md:p-4 xl:max-h-[calc(100vh-2rem)]">
           <div className="rounded-[30px] bg-gradient-to-r from-amber-100 via-white to-orange-50 p-2.5 shadow-soft">
             <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-col gap-2 xl:min-w-0 xl:flex-1 xl:flex-row xl:items-center xl:gap-2.5">
-                <h1 className="font-display text-lg font-bold text-slate-900 xl:shrink-0">{partnerOrderContext ? "Delivery Partner POS" : "POS Terminal"}</h1>
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products by name..." className="input py-2.5 xl:max-w-[340px]" />
+              <div className="flex flex-col gap-2 xl:min-w-0 xl:flex-1 xl:flex-row xl:items-center xl:gap-3">
+                <h1 className="font-display text-lg font-bold text-slate-900 xl:shrink-0">POS Terminal</h1>
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products by name..." className="input py-2.5 xl:max-w-[420px]" />
               </div>
-              <div className="grid grid-cols-3 gap-1.5 sm:w-auto xl:shrink-0">
+              <div className="grid grid-cols-3 gap-1.5 sm:w-auto xl:hidden xl:shrink-0">
                 <div className="rounded-2xl bg-white/90 px-3 py-1.5">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Visible</p>
                   <p className="mt-0.5 text-base font-bold text-slate-900">{visibleProductCount}</p>
@@ -603,7 +622,7 @@ const PosPage = ({ mode = "counter" }) => {
               </div>
             </div>
 
-            <div className="mt-2.5">
+            <div className="mt-2.5 xl:hidden">
               <div className="rounded-[1.35rem] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,248,238,0.92))] p-2.5 shadow-[0_12px_24px_rgba(160,120,50,0.07)]">
                 <div className="mb-1.5 flex items-center justify-between gap-3">
                   <div>
@@ -653,6 +672,7 @@ const PosPage = ({ mode = "counter" }) => {
                     product={product}
                     onSelect={addToCart}
                     priceMode={partnerOrderContext ? "regular" : "offer"}
+                    cartQuantity={cartQuantityMap.get(product.id) || 0}
                   />
                 ))
               )}
@@ -660,63 +680,158 @@ const PosPage = ({ mode = "counter" }) => {
           </div>
         </section>
 
-        <CartPanelNext
-          cart={cart}
-          paymentMethod={paymentMethod}
-          onPaymentChange={handlePaymentMethodChange}
-          onIncrease={increaseItem}
-          onDecrease={(id) => updateCartItem(id, (item) => ({ ...item, quantity: item.quantity - 1 }))}
-          onRemove={(id) => setCart((current) => current.filter((item) => item.id !== id))}
-          onCheckout={checkout}
-          latestOrder={latestOrder}
-          onPrintLatest={() => printReceipt(latestOrder, shopSettings)}
-          title={editingOrder ? `Editing ${editingOrder.orderId}` : partnerOrderContext ? "Delivery Partner Order" : "Current Order"}
-          description={
-            editingOrder
-              ? editingOrder.status === "queued"
-                ? "This queue order came from customer self-order. Confirm payment and send it to the kitchen."
+        <div className="hidden xl:block">
+          <CartPanelNext
+            cart={cart}
+            paymentMethod={paymentMethod}
+            onPaymentChange={handlePaymentMethodChange}
+            onIncrease={increaseItem}
+            onDecrease={(id) => updateCartItem(id, (item) => ({ ...item, quantity: item.quantity - 1 }))}
+            onRemove={(id) => setCart((current) => current.filter((item) => item.id !== id))}
+            onCheckout={checkout}
+            latestOrder={latestOrder}
+            onPrintLatest={() => printReceipt(latestOrder, shopSettings)}
+            title={editingOrder ? `Editing ${editingOrder.orderId}` : partnerOrderContext ? "Delivery Partner Order" : "Current Order"}
+            description={
+              editingOrder
+                ? editingOrder.status === "queued"
+                  ? "This queue order came from customer self-order. Confirm payment and send it to the kitchen."
+                  : partnerOrderContext
+                    ? "This delivery partner order was loaded from history. Update partner source, prices, and items here."
+                    : "This order was loaded from history. Update it here and save the changes."
                 : partnerOrderContext
-                  ? "This delivery partner order was loaded from history. Update partner source, prices, and items here."
-                  : "This order was loaded from history. Update it here and save the changes."
-              : partnerOrderContext
-                ? "Use regular prices for Grab, Foodpanda, E-Gates, and WOWNOW orders, then adjust any unit price before saving."
-                : "Fast selection with live stock validation"
-          }
-          checkoutLabel={editingOrder ? "Update Order" : "Place Order"}
-          isEditing={Boolean(editingOrder)}
-          onCancelEdit={cancelEdit}
-          onClearQueue={clearQueue}
-          originalTotal={editingOrder?.total || 0}
-          adjustmentMethod={adjustmentMethod}
-          onAdjustmentMethodChange={setAdjustmentMethod}
-          onUpdateAlternatives={updateItemAlternatives}
-          allowPriceEdit={partnerOrderContext}
-          onUpdatePrice={updateItemPrice}
-          allowItemCustomization={allowItemCustomization}
-          checkoutDisabled={requiresAdjustmentMethod && !adjustmentMethod}
-          showPaymentMethodError={paymentMethodError}
-          customerInfo={customerInfo}
-          onOpenCustomerInfo={() => setCustomerInfoOpen(true)}
-          promoCode={promoCode}
-          onPromoCodeChange={handlePromoCodeChange}
-          onApplyPromo={() => {
-            if (!promoLocked) {
-              previewPromo({ silent: false });
+                  ? "Use regular prices for Grab, Foodpanda, E-Gates, and WOWNOW orders, then adjust any unit price before saving."
+                  : "Fast selection with live stock validation"
             }
-          }}
-          onRemovePromo={() => {
-            if (!promoLocked) {
-              resetPromoState();
-            }
-          }}
-          appliedPromo={appliedPromo}
-          promoApplying={promoApplying}
-          showPromoSection={!partnerOrderContext}
-          promoLocked={promoLocked}
-          promoLockedMessage={promoLockedMessage}
-          paymentMethods={paymentMethodOptions}
-        />
+            checkoutLabel={editingOrder ? "Update Order" : "Place Order"}
+            isEditing={Boolean(editingOrder)}
+            onCancelEdit={cancelEdit}
+            onClearQueue={clearQueue}
+            originalTotal={editingOrder?.total || 0}
+            adjustmentMethod={adjustmentMethod}
+            onAdjustmentMethodChange={setAdjustmentMethod}
+            onUpdateAlternatives={updateItemAlternatives}
+            allowPriceEdit={partnerOrderContext}
+            onUpdatePrice={updateItemPrice}
+            allowItemCustomization={allowItemCustomization}
+            checkoutDisabled={requiresAdjustmentMethod && !adjustmentMethod}
+            showPaymentMethodError={paymentMethodError}
+            customerInfo={customerInfo}
+            onOpenCustomerInfo={() => setCustomerInfoOpen(true)}
+            promoCode={promoCode}
+            onPromoCodeChange={handlePromoCodeChange}
+            onApplyPromo={() => {
+              if (!promoLocked) {
+                previewPromo({ silent: false });
+              }
+            }}
+            onRemovePromo={() => {
+              if (!promoLocked) {
+                resetPromoState();
+              }
+            }}
+            appliedPromo={appliedPromo}
+            promoApplying={promoApplying}
+            showPromoSection={!partnerOrderContext}
+            promoLocked={promoLocked}
+            promoLockedMessage={promoLockedMessage}
+            paymentMethods={paymentMethodOptions}
+          />
+        </div>
       </div>
+      <button
+        type="button"
+        onClick={() => setCartOpen(true)}
+        className="fixed bottom-4 left-3 right-3 z-40 flex items-center justify-between rounded-[1.45rem] bg-slate-900 px-4 py-3 text-white shadow-[0_18px_40px_rgba(15,23,42,0.3)] transition hover:bg-slate-800 sm:left-auto sm:right-4 sm:w-auto sm:min-w-[250px] xl:hidden"
+      >
+        <div className="flex items-center gap-3">
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
+            <ShoppingBag size={20} />
+            <span className="absolute -right-1 -top-1 min-w-[20px] rounded-full bg-brand-500 px-1.5 py-0.5 text-[11px] font-bold">
+              {totalCartItems}
+            </span>
+          </div>
+          <div className="text-left">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-slate-300">Your Cart</p>
+            <p className="text-sm font-bold">{currency(cartTotal)}</p>
+          </div>
+        </div>
+        <span className="rounded-full bg-white/10 px-3 py-1.5 text-[12px] font-semibold">View</span>
+      </button>
+      {cartOpen ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-slate-950/45 p-3 sm:p-4 xl:hidden" onClick={() => setCartOpen(false)}>
+          <div className="flex min-h-full items-end justify-center sm:items-center sm:justify-end" onClick={(event) => event.stopPropagation()}>
+            <div className="relative w-full max-w-[460px] max-h-[calc(100vh-1.5rem)] overflow-hidden rounded-[2rem] sm:max-h-[calc(100vh-2rem)]">
+              <button
+                type="button"
+                onClick={() => setCartOpen(false)}
+                className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-600 shadow-sm"
+              >
+                <X size={18} />
+              </button>
+              <div className="max-h-[calc(100vh-1.5rem)] overflow-y-auto overscroll-contain sm:max-h-[calc(100vh-2rem)]">
+                <CartPanelNext
+                  cart={cart}
+                  paymentMethod={paymentMethod}
+                  onPaymentChange={handlePaymentMethodChange}
+                  onIncrease={increaseItem}
+                  onDecrease={(id) => updateCartItem(id, (item) => ({ ...item, quantity: item.quantity - 1 }))}
+                  onRemove={(id) => setCart((current) => current.filter((item) => item.id !== id))}
+                  onCheckout={checkout}
+                  latestOrder={latestOrder}
+                  onPrintLatest={() => printReceipt(latestOrder, shopSettings)}
+                  title={editingOrder ? `Editing ${editingOrder.orderId}` : partnerOrderContext ? "Delivery Partner Order" : "Current Order"}
+                  description={
+                    editingOrder
+                      ? editingOrder.status === "queued"
+                        ? "This queue order came from customer self-order. Confirm payment and send it to the kitchen."
+                        : partnerOrderContext
+                          ? "This delivery partner order was loaded from history. Update partner source, prices, and items here."
+                          : "This order was loaded from history. Update it here and save the changes."
+                      : partnerOrderContext
+                        ? "Use regular prices for Grab, Foodpanda, E-Gates, and WOWNOW orders, then adjust any unit price before saving."
+                        : "Fast selection with live stock validation"
+                  }
+                  checkoutLabel={editingOrder ? "Update Order" : "Place Order"}
+                  isEditing={Boolean(editingOrder)}
+                  onCancelEdit={cancelEdit}
+                  onClearQueue={clearQueue}
+                  originalTotal={editingOrder?.total || 0}
+                  adjustmentMethod={adjustmentMethod}
+                  onAdjustmentMethodChange={setAdjustmentMethod}
+                  onUpdateAlternatives={updateItemAlternatives}
+                  allowPriceEdit={partnerOrderContext}
+                  onUpdatePrice={updateItemPrice}
+                  allowItemCustomization={allowItemCustomization}
+                  checkoutDisabled={requiresAdjustmentMethod && !adjustmentMethod}
+                  showPaymentMethodError={paymentMethodError}
+                  customerInfo={customerInfo}
+                  onOpenCustomerInfo={() => setCustomerInfoOpen(true)}
+                  promoCode={promoCode}
+                  onPromoCodeChange={handlePromoCodeChange}
+                  onApplyPromo={() => {
+                    if (!promoLocked) {
+                      previewPromo({ silent: false });
+                    }
+                  }}
+                  onRemovePromo={() => {
+                    if (!promoLocked) {
+                      resetPromoState();
+                    }
+                  }}
+                  appliedPromo={appliedPromo}
+                  promoApplying={promoApplying}
+                  showPromoSection={!partnerOrderContext}
+                  promoLocked={promoLocked}
+                  promoLockedMessage={promoLockedMessage}
+                  paymentMethods={paymentMethodOptions}
+                  mobileModal
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <CustomerInfoModal
         open={customerInfoOpen}
         value={customerInfo}

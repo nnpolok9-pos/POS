@@ -340,9 +340,7 @@ const CustomerOrderPage = () => {
         });
       } catch (error) {
         const cachedMenu = productService.getCachedPublicMenu();
-        const cachedAdminProducts = productService
-          .getCachedProducts()
-          .filter((product) => product.isActive !== false && product.forSale !== false);
+        const cachedAdminProducts = productService.getCachedProducts().filter((product) => product.forSale !== false);
         const fallbackMenu = cachedMenu.length > 0 ? cachedMenu : cachedAdminProducts;
         const cachedSettings = shopSettingsService.getCachedPublic();
 
@@ -399,6 +397,7 @@ const CustomerOrderPage = () => {
   );
   const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const cartTotal = useMemo(() => Number((getCartTotal(cart) - Number(appliedPromo?.discount || 0)).toFixed(2)), [appliedPromo?.discount, cart]);
+  const cartQuantityMap = useMemo(() => new Map(cart.map((item) => [item.id, item.quantity])), [cart]);
 
   useEffect(() => {
     setCart((current) =>
@@ -452,11 +451,6 @@ const CustomerOrderPage = () => {
       const existing = current.find((item) => item.id === product.id);
 
       if (existing) {
-        if (existing.quantity >= product.stock) {
-          toast.error(text.stockError);
-          return current;
-        }
-
         return current.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
       }
 
@@ -627,6 +621,7 @@ const CustomerOrderPage = () => {
                       language={language}
                       showStatusBadge={false}
                       showStockQuantity={false}
+                      cartQuantity={cartQuantityMap.get(product.id) || 0}
                     />
                   ))
                 )}
@@ -729,14 +724,15 @@ const CustomerOrderPage = () => {
                     (() => {
                       const promoParts = currencyParts(product.promotionalPrice ?? product.price);
                       const regularParts = currencyParts(product.regularPrice ?? product.price);
+                      const cartQuantity = cartQuantityMap.get(product.id) || 0;
+                      const cartLineTotalParts = currencyParts(Number(product.promotionalPrice ?? product.price ?? 0) * cartQuantity);
 
                       return (
                         <button
                           key={product.id}
                           type="button"
                           onClick={() => addToCart(product)}
-                          disabled={product.stock === 0}
-                          className="flex w-full items-center gap-3 rounded-[1.6rem] border border-white/80 bg-white p-3 text-left shadow-[0_12px_24px_rgba(160,120,50,0.08)] transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="flex w-full items-center gap-3 rounded-[1.6rem] border border-white/80 bg-white p-3 text-left shadow-[0_12px_24px_rgba(160,120,50,0.08)] transition active:scale-[0.99]"
                         >
                           <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[1.3rem] bg-amber-100">
                             <img src={imageUrl(product.image)} alt={product.name} className="h-full w-full object-cover" />
@@ -767,6 +763,14 @@ const CustomerOrderPage = () => {
                                 {text.add}
                               </span>
                             </div>
+                            {cartQuantity > 0 ? (
+                              <div className="mt-3 rounded-[1rem] border border-brand-100 bg-brand-50/70 px-3 py-2">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className={`text-[12px] font-semibold ${localizedPrimaryTextClass(language, "text-brand-700")}`}>x {cartQuantity} in cart</span>
+                                  <span className="text-[13px] font-bold text-brand-600">{cartLineTotalParts.khr}</span>
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
                         </button>
                       );

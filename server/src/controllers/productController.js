@@ -137,7 +137,7 @@ const getProducts = async (req, res) => {
   }
 
   const serialized = await serializeProducts(products);
-  res.json(includeInactive === "true" ? serialized : serialized.filter((product) => product.isActive && product.forSale));
+  res.json(includeInactive === "true" ? serialized : serialized.filter((product) => product.forSale));
 };
 
 const getAdminProducts = async (_req, res) => {
@@ -214,8 +214,8 @@ const forceUpdateProductStock = async (req, res) => {
   const reason = String(req.body.reason || "").trim();
   const pin = String(req.body.pin || "").trim();
 
-  if (Number.isNaN(stockQuantity) || stockQuantity < 0) {
-    return res.status(400).json({ message: "Stock quantity must be zero or greater" });
+  if (!Number.isFinite(stockQuantity)) {
+    return res.status(400).json({ message: "Stock quantity must be a valid number" });
   }
 
   if (!pin || pin !== getForceStockPin()) {
@@ -291,8 +291,8 @@ const updateProduct = async (req, res) => {
     image: nextImage
   });
 
-  if (product.price < 0 || Number(product.regularPrice || 0) < 0 || Number(product.promotionalPrice || 0) < 0 || product.stock < 0) {
-    return res.status(400).json({ message: "Prices and stock must be zero or greater" });
+  if (product.price < 0 || Number(product.regularPrice || 0) < 0 || Number(product.promotionalPrice || 0) < 0) {
+    return res.status(400).json({ message: "Prices must be zero or greater" });
   }
 
   if (!["raw", "raw_material", "sauce", "seasoning", "combo", "combo_type"].includes(product.productType)) {
@@ -351,10 +351,6 @@ const deductProductStock = async (req, res) => {
 
   if (!reason) {
     return res.status(400).json({ message: "Deduction reason is required" });
-  }
-
-  if (deductionQuantity > product.stock) {
-    return res.status(400).json({ message: `Only ${product.stock} units available to deduct` });
   }
 
   const previousStock = product.stock;

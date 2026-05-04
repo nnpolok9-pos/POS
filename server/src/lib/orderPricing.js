@@ -236,19 +236,11 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
     rawRequirements.set(productId, (rawRequirements.get(productId) || 0) + quantity);
   }
 
-  for (const [rawId, requiredQuantity] of rawRequirements.entries()) {
+  for (const [rawId] of rawRequirements.entries()) {
     const rawProduct = productMap.get(rawId);
 
     if (!rawProduct || !isBaseProductType(rawProduct)) {
       throw new Error("One or more raw items no longer exist");
-    }
-
-    if (!rawProduct.isActive || Number(rawProduct.stock || 0) === 0) {
-      throw new Error(`${rawProduct.name} is out of stock`);
-    }
-
-    if (requiredQuantity > Number(rawProduct.stock || 0)) {
-      throw new Error(`Only ${rawProduct.stock} units left for ${rawProduct.name}`);
     }
   }
 
@@ -293,24 +285,14 @@ const applyInventoryForItems = async (orderItems, sauceItems = []) => {
         throw new Error("One or more products no longer exist");
       }
 
-      if (!product.isActive || Number(product.stock || 0) === 0) {
-        throw new Error(`${product.name} is out of stock`);
-      }
-
-      if (quantity > Number(product.stock || 0)) {
-        throw new Error(`Only ${product.stock} units left for ${product.name}`);
-      }
-
       const previousStock = Number(product.stock || 0);
       product.stock = previousStock - quantity;
-      product.isActive = product.stock > 0;
       await saveProduct(product);
       appliedUpdates.push({ product, previousStock, quantity });
     }
   } catch (error) {
     for (const update of appliedUpdates) {
       update.product.stock = update.previousStock;
-      update.product.isActive = true;
       await saveProduct(update.product);
     }
     throw error;
@@ -330,7 +312,6 @@ const restoreInventoryForOrderItems = async (items, sauceItems = []) => {
       continue;
     }
     product.stock = Number(product.stock || 0) + quantity;
-    product.isActive = true;
     await saveProduct(product);
   }
 };
@@ -372,7 +353,7 @@ const buildSauceItems = async (items = []) => {
 const buildSeasoningItems = async () => {
   const products = await getAllProducts();
   return products
-    .filter((product) => product.productType === "seasoning" && product.isActive)
+    .filter((product) => product.productType === "seasoning")
     .map((seasoning) => ({
       product: seasoning.id || seasoning._id,
       name: seasoning.name,

@@ -20,10 +20,10 @@ const ProductDeductModal = ({ open, product, onClose, onSubmit, submitting }) =>
   };
 
   const bumpQuantity = (amount) => {
-    setDeductionQuantity((current) => String(Math.min(product.stock, Math.max(1, Number(current || 0) + amount))));
+    setDeductionQuantity((current) => String(Math.max(1, Number(current || 0) + amount)));
   };
 
-  const previewQuantity = Math.max(0, Math.min(product.stock, Number(deductionQuantity) || 0));
+  const previewQuantity = Math.max(0, Number(deductionQuantity) || 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
@@ -50,7 +50,6 @@ const ProductDeductModal = ({ open, product, onClose, onSubmit, submitting }) =>
             <input
               type="number"
               min="1"
-              max={product.stock}
               value={deductionQuantity}
               onChange={(event) => {
                 const { value } = event.target;
@@ -88,10 +87,10 @@ const ProductDeductModal = ({ open, product, onClose, onSubmit, submitting }) =>
           </label>
 
           <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            New stock after deduction: <span className="font-bold">{Math.max(product.stock - previewQuantity, 0)}</span>
+            New stock after deduction: <span className="font-bold">{Number(product.stock || 0) - previewQuantity}</span>
           </div>
 
-          <button type="submit" disabled={submitting || product.stock <= 0} className="btn-primary w-full">
+          <button type="submit" disabled={submitting} className="btn-primary w-full">
             {submitting ? "Updating..." : "Deduct Stock"}
           </button>
         </form>

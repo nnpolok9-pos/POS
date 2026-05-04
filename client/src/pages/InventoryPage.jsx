@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Archive, Boxes, Info, PackageSearch, Plus, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
 import toast from "react-hot-toast";
 import CombinedProductBreakdownModal from "../components/CombinedProductBreakdownModal";
+import ProductDeductModal from "../components/ProductDeductModal";
 import ProductStockModal from "../components/ProductStockModal";
 import ReportDatePicker from "../components/ReportDatePicker";
 import { useAuth } from "../context/AuthContext";
@@ -67,6 +68,8 @@ const InventoryPage = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [stockSubmitting, setStockSubmitting] = useState(false);
+  const [deductModalOpen, setDeductModalOpen] = useState(false);
+  const [deductSubmitting, setDeductSubmitting] = useState(false);
 
   const loadReport = async (params = {}) => {
     setLoading(true);
@@ -202,6 +205,11 @@ const InventoryPage = () => {
     setStockModalOpen(true);
   };
 
+  const openDeductModal = (product) => {
+    setSelectedProduct(product);
+    setDeductModalOpen(true);
+  };
+
   const handleStockUpdate = async ({ receivedQuantity, expiryDate }) => {
     if (!selectedProduct) {
       return;
@@ -218,6 +226,25 @@ const InventoryPage = () => {
       toast.error(error.response?.data?.message || "Failed to update stock");
     } finally {
       setStockSubmitting(false);
+    }
+  };
+
+  const handleStockDeduct = async ({ deductionQuantity, reason }) => {
+    if (!selectedProduct) {
+      return;
+    }
+
+    setDeductSubmitting(true);
+    try {
+      await productService.deductStock(selectedProduct.id, deductionQuantity, reason);
+      toast.success("Stock deducted");
+      setDeductModalOpen(false);
+      setSelectedProduct(null);
+      await loadReport(appliedDateRange || {});
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to deduct stock");
+    } finally {
+      setDeductSubmitting(false);
     }
   };
 
@@ -478,7 +505,7 @@ const InventoryPage = () => {
                         <div><p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Last Received</p><p className="mt-1 text-slate-700">{row.lastReceivedAt ? formatDate(row.lastReceivedAt) : "-"}</p></div>
                       </div>
                       {canAddStock ? (
-                        <div className="mt-3 flex justify-end">
+                        <div className="mt-3 flex flex-wrap justify-end gap-2">
                           <button
                             type="button"
                             onClick={() =>
@@ -493,6 +520,21 @@ const InventoryPage = () => {
                             <Plus size={16} />
                             Add Stock
                           </button>
+                          {["master_admin", "admin"].includes(user?.role) ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openDeductModal({
+                                  id: row.productId,
+                                  name: row.productName,
+                                  stock: Number(row.currentStock || 0)
+                                })
+                              }
+                              className="btn-secondary gap-2"
+                            >
+                              Deduct Stock
+                            </button>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>
@@ -542,20 +584,37 @@ const InventoryPage = () => {
                       <td className="py-3 pr-4 text-slate-600">{row.lastReceivedAt ? formatDate(row.lastReceivedAt) : "-"}</td>
                       <td className="py-3">
                         {canAddStock ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openStockModal({
-                                id: row.productId,
-                                name: row.productName,
-                                stock: Number(row.currentStock || 0)
-                              })
-                            }
-                            className="btn-secondary gap-2"
-                          >
-                            <Plus size={16} />
-                            Add Stock
-                          </button>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openStockModal({
+                                  id: row.productId,
+                                  name: row.productName,
+                                  stock: Number(row.currentStock || 0)
+                                })
+                              }
+                              className="btn-secondary gap-2"
+                            >
+                              <Plus size={16} />
+                              Add Stock
+                            </button>
+                            {["master_admin", "admin"].includes(user?.role) ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openDeductModal({
+                                    id: row.productId,
+                                    name: row.productName,
+                                    stock: Number(row.currentStock || 0)
+                                  })
+                                }
+                                className="btn-secondary gap-2"
+                              >
+                                Deduct Stock
+                              </button>
+                            ) : null}
+                          </div>
                         ) : (
                           <span className="inline-flex rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">View only</span>
                         )}
@@ -893,6 +952,16 @@ const InventoryPage = () => {
         }}
         onSubmit={handleStockUpdate}
         submitting={stockSubmitting}
+      />
+      <ProductDeductModal
+        open={deductModalOpen}
+        product={selectedProduct}
+        onClose={() => {
+          setDeductModalOpen(false);
+          setSelectedProduct(null);
+        }}
+        onSubmit={handleStockDeduct}
+        submitting={deductSubmitting}
       />
     </div>
   );
