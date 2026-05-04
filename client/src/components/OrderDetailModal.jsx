@@ -2,6 +2,10 @@ import { CheckCircle2, ListOrdered, X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel, imageUrl } from "../utils/format";
+import foodpandaLogo from "../assets/partners/foodpanda.png";
+import grabLogo from "../assets/partners/grab.png";
+import eGatesLogo from "../assets/partners/e-gates.jpg";
+import wownowLogo from "../assets/partners/wownow.png";
 
 const statusStyles = {
   queued: "bg-violet-100 text-violet-700",
@@ -15,6 +19,13 @@ const statusLabels = {
   food_serving: "Food Serving",
   completed: "Completed",
   void: "Void Sale"
+};
+
+const partnerLogos = {
+  grab: grabLogo,
+  foodpanda: foodpandaLogo,
+  e_gates: eGatesLogo,
+  wownow: wownowLogo
 };
 
 const getCurrentVoidRefundMethod = (order) =>
@@ -44,6 +55,7 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
 
   const isCustomerQueue = order.source === "customer" && order.status === "queued";
   const currentVoidRefundMethod = order.status === "void" ? getCurrentVoidRefundMethod(order) : null;
+  const sourceLogo = partnerLogos[order.source];
 
   return createPortal(
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4 sm:p-6" onClick={onClose}>
@@ -83,8 +95,21 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
               </div>
               <div className="rounded-3xl bg-slate-50 p-4">
                 <p className="text-sm text-slate-500">Order From</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">{formatOrderSourceLabel(order.source)}</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <p className="text-2xl font-bold text-slate-900">{formatOrderSourceLabel(order.source)}</p>
+                  {sourceLogo ? (
+                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white p-0.5 shadow-sm">
+                      <img src={sourceLogo} alt={formatOrderSourceLabel(order.source)} className="h-full w-full rounded-[1rem] object-cover" />
+                    </div>
+                  ) : null}
+                </div>
               </div>
+              {order.bookingDetails?.partnerSalesId ? (
+                <div className="rounded-3xl bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Partner Sales ID</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">{order.bookingDetails.partnerSalesId}</p>
+                </div>
+              ) : null}
               <div className="rounded-3xl bg-slate-50 p-4 sm:col-span-2">
                 <p className="text-sm text-slate-500">Promo Used</p>
                 <p className="mt-1 text-2xl font-bold text-slate-900">{order.promoCode || "No promo"}</p>

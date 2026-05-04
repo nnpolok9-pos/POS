@@ -80,7 +80,8 @@ const CartPanelNext = ({
   paymentMethods = ["cash", "card", "qr"],
   allowPriceEdit = false,
   onUpdatePrice,
-  mobileModal = false
+  mobileModal = false,
+  showCustomerInfoSection = true
 }) => {
   const text = {
     emptyCart: "Add products from the grid to start an order.",
@@ -146,7 +147,7 @@ const CartPanelNext = ({
           ) : null}
         </div>
 
-        {showPaymentSection ? (
+        {showCustomerInfoSection ? (
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={onOpenCustomerInfo} className="btn-secondary gap-2 px-3 py-2 text-[13px]">
               <UserRound size={16} />

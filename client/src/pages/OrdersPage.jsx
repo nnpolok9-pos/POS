@@ -2,6 +2,10 @@ import { CalendarRange, CheckCircle2, Download, Eye, FileSpreadsheet, Pencil, Pr
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import foodpandaLogo from "../assets/partners/foodpanda.png";
+import grabLogo from "../assets/partners/grab.png";
+import eGatesLogo from "../assets/partners/e-gates.jpg";
+import wownowLogo from "../assets/partners/wownow.png";
 import OrderDetailModal from "../components/OrderDetailModal";
 import EditHistoryModal from "../components/EditHistoryModal";
 import ForceStockPinModal from "../components/ForceStockPinModal";
@@ -50,6 +54,12 @@ const statusFilterStyles = {
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
 const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
 const isPartnerSource = (order) => ["grab", "foodpanda", "e_gates", "wownow"].includes(order?.source || "");
+const partnerLogos = {
+  grab: grabLogo,
+  foodpanda: foodpandaLogo,
+  e_gates: eGatesLogo,
+  wownow: wownowLogo
+};
 const hasCollectedPayment = (order) => ["cash", "card", "qr", "grab", "foodpanda", "e_gates", "wownow"].includes(order?.paymentMethod || "");
 const isDueOnServeOrder = (order) => order?.paymentMethod === "due_on_serve";
 const getOrderEditPath = (order) => (isPartnerSource(order) ? "/partner-pos" : "/pos");
@@ -308,6 +318,17 @@ const OrdersPage = () => {
     setSelectedOrder(null);
     setRetrieveOrder(order);
   };
+  const renderOrderSourceMeta = (order) => {
+    const sourceLabel = formatOrderSourceLabel(order.source);
+    const sourceLogo = partnerLogos[order.source];
+
+    return (
+      <div className="mt-1 flex items-center gap-2 text-xs font-semibold text-slate-500">
+        <span>From {sourceLabel}</span>
+        {sourceLogo ? <img src={sourceLogo} alt={sourceLabel} className="h-4 w-4 rounded object-cover" /> : null}
+      </div>
+    );
+  };
   const handleEditQueuedOrder = (order) => {
     if (!order) {
       return;
@@ -514,7 +535,8 @@ const OrdersPage = () => {
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-900">{order.orderId}</p>
                   {order.source === "customer" && order.queueNumber ? <p className="mt-1 text-xs font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
-                  <p className="mt-1 text-xs font-semibold text-slate-500">From {formatOrderSourceLabel(order.source)}</p>
+                  {renderOrderSourceMeta(order)}
+                  {order.bookingDetails?.partnerSalesId ? <p className="mt-1 text-xs font-semibold text-sky-700">Partner ID: {order.bookingDetails.partnerSalesId}</p> : null}
                   <p className={`mt-1 text-xs ${isDueOnServeOrder(order) ? "font-bold text-red-600" : "text-slate-500"}`}>
                     {formatPaymentMethodLabel(order.paymentMethod, "Unpaid Queue")}
                   </p>
@@ -656,7 +678,8 @@ const OrdersPage = () => {
                   <td className="py-3 pr-4">
                     <p className="font-semibold text-slate-900">{order.orderId}</p>
                     {order.source === "customer" && order.queueNumber ? <p className="text-xs font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
-                    <p className="text-xs font-semibold text-slate-500">From {formatOrderSourceLabel(order.source)}</p>
+                    {renderOrderSourceMeta(order)}
+                    {order.bookingDetails?.partnerSalesId ? <p className="text-xs font-semibold text-sky-700">Partner ID: {order.bookingDetails.partnerSalesId}</p> : null}
                     <p className={`text-xs ${isDueOnServeOrder(order) ? "font-bold text-red-600" : "text-slate-500"}`}>
                       {formatPaymentMethodLabel(order.paymentMethod, "Unpaid Queue")}
                     </p>

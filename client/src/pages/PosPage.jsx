@@ -104,6 +104,7 @@ const PosPage = ({ mode = "counter" }) => {
   const [paymentMethodError, setPaymentMethodError] = useState(false);
   const [paymentPromptOpen, setPaymentPromptOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [partnerSalesId, setPartnerSalesId] = useState("");
   const [customerInfo, setCustomerInfo] = useState({
     customerName: "",
     customerPhone: "",
@@ -265,6 +266,7 @@ const PosPage = ({ mode = "counter" }) => {
           setEditingOrder(null);
           setCart([]);
           setPaymentMethod("");
+          setPartnerSalesId("");
           setPaymentMethodError(false);
           setAdjustmentMethod("");
           resetPromoState();
@@ -296,6 +298,7 @@ const PosPage = ({ mode = "counter" }) => {
 
         setEditingOrder(order);
         setPaymentMethod(order.paymentMethod || "");
+        setPartnerSalesId(order.bookingDetails?.partnerSalesId || "");
         setPaymentMethodError(false);
         setAdjustmentMethod("");
         setPromoCode(order.promoCode || "");
@@ -497,7 +500,7 @@ const PosPage = ({ mode = "counter" }) => {
     );
   };
 
-  const submitCheckout = async (selectedPaymentMethod = paymentMethod) => {
+  const submitCheckout = async (selectedPaymentMethod = paymentMethod, options = {}) => {
     try {
       const normalizedPromoCode = partnerOrderContext ? "" : promoLocked ? normalizePromoValue(appliedPromo?.code) : normalizePromoValue(promoCode);
 
@@ -509,7 +512,10 @@ const PosPage = ({ mode = "counter" }) => {
       const payload = {
         items: buildOrderRequestItems(cart),
         paymentMethod: selectedPaymentMethod,
-        bookingDetails: customerInfo,
+        bookingDetails: {
+          ...customerInfo,
+          partnerSalesId: partnerOrderContext ? String(options?.referenceValue ?? partnerSalesId ?? "").trim() : ""
+        },
         adjustmentMethod: editingOrder ? adjustmentMethod || null : null,
         promoCode: normalizedPromoCode || null
       };
@@ -517,6 +523,12 @@ const PosPage = ({ mode = "counter" }) => {
       if (!selectedPaymentMethod) {
         setPaymentMethodError(true);
         setPaymentPromptOpen(true);
+        return;
+      }
+
+      if (partnerOrderContext && !String(options?.referenceValue ?? partnerSalesId ?? "").trim()) {
+        setPaymentPromptOpen(true);
+        toast.error("Enter the partner sales ID before placing this order");
         return;
       }
 
@@ -532,6 +544,7 @@ const PosPage = ({ mode = "counter" }) => {
       setCart([]);
       setEditingOrder(null);
       setPaymentMethod("");
+      setPartnerSalesId("");
       setPaymentMethodError(false);
       setPaymentPromptOpen(false);
       setAdjustmentMethod("");
@@ -556,20 +569,29 @@ const PosPage = ({ mode = "counter" }) => {
   };
 
   const checkout = async () => {
+    if (partnerOrderContext) {
+      setPaymentPromptOpen(true);
+      return;
+    }
+
     await submitCheckout(paymentMethod);
   };
 
-  const handlePaymentPromptSelect = async (method) => {
+  const handlePaymentPromptSelect = async (method, options = {}) => {
     setPaymentMethod(method);
+    if (partnerOrderContext) {
+      setPartnerSalesId(String(options.referenceValue || "").trim());
+    }
     setPaymentMethodError(false);
     setPaymentPromptOpen(false);
-    await submitCheckout(method);
+    await submitCheckout(method, options);
   };
 
   const cancelEdit = () => {
     setEditingOrder(null);
     setCart([]);
     setPaymentMethod("");
+    setPartnerSalesId("");
     setPaymentMethodError(false);
     setPaymentPromptOpen(false);
     setAdjustmentMethod("");
@@ -586,6 +608,7 @@ const PosPage = ({ mode = "counter" }) => {
     setCart([]);
     setPaymentMethodError(false);
     setPaymentPromptOpen(false);
+    setPartnerSalesId("");
     setAdjustmentMethod("");
     resetPromoState();
     setCustomerInfo({
@@ -736,6 +759,7 @@ const PosPage = ({ mode = "counter" }) => {
             promoLocked={promoLocked}
             promoLockedMessage={promoLockedMessage}
             paymentMethods={paymentMethodOptions}
+            showPaymentSection={!partnerOrderContext}
           />
         </div>
       </div>
@@ -826,6 +850,7 @@ const PosPage = ({ mode = "counter" }) => {
                   promoLockedMessage={promoLockedMessage}
                   paymentMethods={paymentMethodOptions}
                   mobileModal
+                  showPaymentSection={!partnerOrderContext}
                 />
               </div>
             </div>
@@ -847,6 +872,18 @@ const PosPage = ({ mode = "counter" }) => {
         onClose={() => setPaymentPromptOpen(false)}
         onSelect={handlePaymentPromptSelect}
         methods={paymentMethodOptions}
+        title={partnerOrderContext ? "Select Delivery Partner" : "Select Payment Method"}
+        description={
+          partnerOrderContext
+            ? "Choose the delivery partner and enter the partner sales ID before placing this order."
+            : "This order was not placed because no payment method was selected. Choose how payment will be handled, or mark it as due on serve."
+        }
+        requireReferenceForMethods={partnerOrderContext ? paymentMethodOptions : []}
+        referenceLabel="Partner Sales ID"
+        referencePlaceholder="Example: GF-575 or 1y9k"
+        initialMethod={paymentMethod}
+        initialReference={partnerSalesId}
+        confirmLabel={editingOrder ? "Update Partner Order" : "Place Partner Order"}
       />
     </>
   );

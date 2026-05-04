@@ -31,7 +31,8 @@ const deriveSourceFromPaymentMethod = (paymentMethod, fallback = "staff") =>
 const normalizeBookingDetails = (bookingDetails = {}) => ({
   customerName: bookingDetails.customerName?.trim() || bookingDetails.leadTravelerName?.trim() || "",
   customerPhone: bookingDetails.customerPhone?.trim() || bookingDetails.contactPhone?.trim() || "",
-  customerDateOfBirth: bookingDetails.customerDateOfBirth || null
+  customerDateOfBirth: bookingDetails.customerDateOfBirth || null,
+  partnerSalesId: bookingDetails.partnerSalesId?.trim() || ""
 });
 
 const buildQueueNumber = (orderId = "") => orderId.split("-").pop() || orderId;
@@ -171,6 +172,10 @@ const createOrder = async (req, res) => {
 
   if (isPartnerPaymentMethod(paymentMethod) && requestedPromoCode) {
     return res.status(400).json({ message: "Promo codes are not available for delivery partner orders" });
+  }
+
+  if (isPartnerPaymentMethod(paymentMethod) && !req.body?.bookingDetails?.partnerSalesId?.trim()) {
+    return res.status(400).json({ message: "Partner sales ID is required for delivery partner orders" });
   }
 
   try {
@@ -345,6 +350,10 @@ const updateOrder = async (req, res) => {
 
   if (isPartnerPaymentMethod(paymentMethod) && requestedPromoCode) {
     return res.status(400).json({ message: "Promo codes are not available for delivery partner orders" });
+  }
+
+  if (isPartnerPaymentMethod(paymentMethod) && !req.body?.bookingDetails?.partnerSalesId?.trim()) {
+    return res.status(400).json({ message: "Partner sales ID is required for delivery partner orders" });
   }
 
   const order = await getStoredOrderById(req.params.id);

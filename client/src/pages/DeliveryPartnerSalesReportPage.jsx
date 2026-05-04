@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bike, CalendarRange, Download, FileSpreadsheet, ReceiptText, RotateCcw, WalletCards } from "lucide-react";
 import toast from "react-hot-toast";
 import ReportDatePicker from "../components/ReportDatePicker";
@@ -32,6 +32,7 @@ const DeliveryPartnerSalesReportPage = () => {
   const [to, setTo] = useState(todayString());
   const [report, setReport] = useState({ summary: {}, rows: [] });
   const [loading, setLoading] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState("all");
 
   const loadReport = async () => {
     setLoading(true);
@@ -49,8 +50,49 @@ const DeliveryPartnerSalesReportPage = () => {
     loadReport();
   }, []);
 
+  const partnerOptions = useMemo(
+    () => [
+      { value: "all", label: "All Partners" },
+      ...((report.rows || []).map((row) => ({
+        value: row.partner,
+        label: row.partnerLabel
+      })))
+    ],
+    [report.rows]
+  );
+
+  const visibleRows = useMemo(
+    () => (report.rows || []).filter((row) => selectedPartner === "all" || row.partner === selectedPartner),
+    [report.rows, selectedPartner]
+  );
+
+  const visibleSummary = useMemo(
+    () =>
+      visibleRows.reduce(
+        (acc, row) => {
+          acc.totalOrders += Number(row.orderCount || 0);
+          acc.totalCompletedOrders += Number(row.completedOrders || 0);
+          acc.totalGrossSales += Number(row.grossSales || 0);
+          acc.totalRefunds += Number(row.refunds || 0);
+          acc.totalNetSales += Number(row.netSales || 0);
+          return acc;
+        },
+        {
+          totalOrders: 0,
+          totalCompletedOrders: 0,
+          totalGrossSales: 0,
+          totalRefunds: 0,
+          totalNetSales: 0
+        }
+      ),
+    [visibleRows]
+  );
+
+  const selectedPartnerLabel = partnerOptions.find((option) => option.value === selectedPartner)?.label || "All Partners";
+  const visibleTopPartner = selectedPartner === "all" ? report.summary?.topPartner || "-" : visibleRows[0]?.partnerLabel || "-";
+
   const exportRows =
-    report.rows?.map((row) => ({
+    visibleRows?.map((row) => ({
       sl: row.sl,
       partnerLabel: row.partnerLabel,
       orderCount: row.orderCount,
@@ -74,7 +116,7 @@ const DeliveryPartnerSalesReportPage = () => {
       columns: partnerSalesColumns,
       rows: exportRows,
       shopProfile: shopSettings,
-      summaryLines: [`Date Range: ${from} to ${to}`]
+      summaryLines: [`Date Range: ${from} to ${to}`, `Partner Filter: ${selectedPartnerLabel}`]
     });
   };
 
@@ -89,7 +131,7 @@ const DeliveryPartnerSalesReportPage = () => {
       fileName: `delivery-partner-sales-${from}-to-${to}`,
       columns: partnerSalesColumns,
       rows: exportRows,
-      summaryLines: [`Date Range: ${from} to ${to}`],
+      summaryLines: [`Date Range: ${from} to ${to}`, `Partner Filter: ${selectedPartnerLabel}`],
       shopProfile: shopSettings
     });
   };
@@ -119,10 +161,20 @@ const DeliveryPartnerSalesReportPage = () => {
 
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
               <div className="rounded-[1.4rem] border border-[#efe2ca] bg-[#fff8ea] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-end">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_minmax(220px,0.7fr)] md:items-end">
                   <ReportDatePicker label="From Date" value={from} onChange={setFrom} maxDate={to} />
                   <div className="pb-3 text-center text-sm font-semibold text-slate-400">to</div>
                   <ReportDatePicker label="To Date" value={to} onChange={setTo} minDate={from} />
+                  <div>
+                    <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Partner Filter</label>
+                    <select value={selectedPartner} onChange={(event) => setSelectedPartner(event.target.value)} className="input">
+                      {partnerOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -148,7 +200,7 @@ const DeliveryPartnerSalesReportPage = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Partner Orders</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">{report.summary?.totalOrders || 0}</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{visibleSummary.totalOrders || 0}</p>
               </div>
               <div className="rounded-full bg-white/55 p-3 text-slate-500">
                 <ReceiptText size={18} />
@@ -159,7 +211,7 @@ const DeliveryPartnerSalesReportPage = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Completed</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">{report.summary?.totalCompletedOrders || 0}</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{visibleSummary.totalCompletedOrders || 0}</p>
               </div>
               <div className="rounded-full bg-white/55 p-3 text-slate-500">
                 <CalendarRange size={18} />
@@ -170,7 +222,7 @@ const DeliveryPartnerSalesReportPage = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Refunds</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(report.summary?.totalRefunds || 0)}</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(visibleSummary.totalRefunds || 0)}</p>
               </div>
               <div className="rounded-full bg-white/55 p-3 text-rose-500">
                 <RotateCcw size={18} />
@@ -181,8 +233,8 @@ const DeliveryPartnerSalesReportPage = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Net Sales</p>
-                <p className="mt-2 text-2xl font-bold">{currency(report.summary?.totalNetSales || 0)}</p>
-                <p className="mt-1 text-xs text-slate-300">Top Partner: {report.summary?.topPartner || "-"}</p>
+                <p className="mt-2 text-2xl font-bold">{currency(visibleSummary.totalNetSales || 0)}</p>
+                <p className="mt-1 text-xs text-slate-300">Top Partner: {visibleTopPartner}</p>
               </div>
               <div className="rounded-full bg-white/10 p-3 text-white">
                 <WalletCards size={18} />
@@ -198,16 +250,18 @@ const DeliveryPartnerSalesReportPage = () => {
             <h2 className="text-lg font-bold text-slate-900">Partner-wise Summary</h2>
             <p className="text-xs text-slate-500">Each delivery app is summarized here with its gross sales, refunds, and net balance.</p>
           </div>
-          <p className="text-xs font-medium text-slate-400">{from} to {to}</p>
+          <p className="text-xs font-medium text-slate-400">
+            {selectedPartnerLabel} · {from} to {to}
+          </p>
         </div>
 
         <div className="space-y-3 md:hidden">
-          {(report.rows || []).map((row) => (
+          {visibleRows.map((row) => (
             <div key={row.partner} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-900">{row.partnerLabel}</p>
-                  <p className="mt-1 text-xs text-slate-500">{row.orderCount} orders • {row.completedOrders} completed</p>
+                  <p className="mt-1 text-xs text-slate-500">{row.orderCount} orders · {row.completedOrders} completed</p>
                 </div>
                 <p className="text-sm font-bold text-brand-600">{currency(row.netSales)}</p>
               </div>
@@ -244,7 +298,7 @@ const DeliveryPartnerSalesReportPage = () => {
               </tr>
             </thead>
             <tbody>
-              {(report.rows || []).map((row) => (
+              {visibleRows.map((row) => (
                 <tr key={row.partner} className="border-b border-slate-100">
                   <td className="py-3 pr-4 font-semibold text-slate-700">{row.sl}</td>
                   <td className="py-3 pr-4 font-semibold text-slate-900">{row.partnerLabel}</td>
