@@ -1,6 +1,11 @@
 const { getOrders, getAllProducts } = require("../lib/dataStore");
 const { inferProductType, isCompositeProductType, buildCompositeRequirements } = require("../lib/productLogic");
-const { buildTimezoneDateRange, buildTimezoneDayRange } = require("../utils/reportDateRange");
+const {
+  buildTimezoneDateRange,
+  buildTimezoneDayRange,
+  buildTimezoneTodayRange,
+  buildTimezoneMonthRange
+} = require("../utils/reportDateRange");
 
 const REPORT_TIMEZONE = process.env.REPORT_TIMEZONE || process.env.TZ || "Asia/Bangkok";
 const COMPLETED_STATUSES = ["completed", "confirmed"];
@@ -146,13 +151,22 @@ const calculateProductInventory = (product, productMap) => {
 
 const getSalesReport = async (_req, res) => {
   const allOrders = await getOrders();
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const todayRange = buildTimezoneTodayRange();
+  const monthRange = buildTimezoneMonthRange();
   const completedOrders = allOrders.filter((order) => COMPLETED_STATUSES.includes(order.status));
 
-  const dailyOrders = completedOrders.filter((order) => new Date(order.createdAt) >= startOfDay);
-  const monthlyOrders = completedOrders.filter((order) => new Date(order.createdAt) >= startOfMonth);
+  const dailyOrders = todayRange
+    ? completedOrders.filter((order) => {
+        const createdAt = new Date(order.createdAt);
+        return createdAt >= todayRange.start && createdAt <= todayRange.end;
+      })
+    : [];
+  const monthlyOrders = monthRange
+    ? completedOrders.filter((order) => {
+        const createdAt = new Date(order.createdAt);
+        return createdAt >= monthRange.start && createdAt <= monthRange.end;
+      })
+    : [];
 
   const topSellingMap = new Map();
   completedOrders.forEach((order) => {

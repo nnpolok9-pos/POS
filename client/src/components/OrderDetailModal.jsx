@@ -95,11 +95,11 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
               </div>
               <div className="rounded-3xl bg-slate-50 p-4">
                 <p className="text-sm text-slate-500">Order From</p>
-                <div className="mt-2 flex items-center gap-3">
-                  <p className="text-2xl font-bold text-slate-900">{formatOrderSourceLabel(order.source)}</p>
+                <div className="mt-2 grid grid-cols-[minmax(0,1fr)_4.5rem] items-center gap-4">
+                  <p className="min-w-0 text-2xl font-bold text-slate-900">{formatOrderSourceLabel(order.source)}</p>
                   {sourceLogo ? (
-                    <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white p-0.5 shadow-sm">
-                      <img src={sourceLogo} alt={formatOrderSourceLabel(order.source)} className="h-full w-full rounded-[1rem] object-cover" />
+                    <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center overflow-hidden rounded-2xl bg-white p-1 shadow-sm">
+                      <img src={sourceLogo} alt={formatOrderSourceLabel(order.source)} className="h-full w-full rounded-[1rem] object-contain" />
                     </div>
                   ) : null}
                 </div>

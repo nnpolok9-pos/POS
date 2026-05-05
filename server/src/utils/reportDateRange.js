@@ -1,4 +1,5 @@
 const REPORT_TIMEZONE_OFFSET_MINUTES = Number(process.env.REPORT_TIMEZONE_OFFSET_MINUTES || 420);
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 const parseDateParts = (dateValue) => {
   const match = String(dateValue || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -25,13 +26,33 @@ const buildTimezoneDayRange = (dateValue) => {
 
   return {
     start: new Date(startUtcMs),
-    end: new Date(startUtcMs + 24 * 60 * 60 * 1000 - 1)
+    end: new Date(startUtcMs + ONE_DAY_MS - 1)
+  };
+};
+
+const getTimezoneDateString = (date = new Date()) =>
+  new Date(date.getTime() + REPORT_TIMEZONE_OFFSET_MINUTES * 60 * 1000).toISOString().slice(0, 10);
+
+const buildTimezoneTodayRange = (date = new Date()) => buildTimezoneDayRange(getTimezoneDateString(date));
+
+const buildTimezoneMonthRange = (date = new Date()) => {
+  const shiftedDate = new Date(date.getTime() + REPORT_TIMEZONE_OFFSET_MINUTES * 60 * 1000);
+  const monthStartString = `${shiftedDate.getUTCFullYear()}-${String(shiftedDate.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  const monthStartRange = buildTimezoneDayRange(monthStartString);
+  const todayRange = buildTimezoneTodayRange(date);
+
+  if (!monthStartRange || !todayRange) {
+    return null;
+  }
+
+  return {
+    start: monthStartRange.start,
+    end: todayRange.end
   };
 };
 
 const buildTimezoneDateRange = (from, to) => {
-  const today = new Date();
-  const todayIso = new Date(today.getTime() + REPORT_TIMEZONE_OFFSET_MINUTES * 60 * 1000).toISOString().slice(0, 10);
+  const todayIso = getTimezoneDateString();
 
   const startRange = buildTimezoneDayRange(from || todayIso);
   const endRange = buildTimezoneDayRange(to || todayIso);
@@ -48,6 +69,9 @@ const buildTimezoneDateRange = (from, to) => {
 
 module.exports = {
   REPORT_TIMEZONE_OFFSET_MINUTES,
+  getTimezoneDateString,
   buildTimezoneDayRange,
+  buildTimezoneTodayRange,
+  buildTimezoneMonthRange,
   buildTimezoneDateRange
 };
