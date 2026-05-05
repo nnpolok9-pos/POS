@@ -680,7 +680,7 @@ const PosPage = ({ mode = "counter" }) => {
             </div>
           </div>
 
-          <div className="mt-4 min-h-[360px] flex-1 overflow-y-auto pr-1 xl:min-h-0">
+          <div className="mt-4 min-h-[360px] flex-1 overflow-y-auto pr-1 pb-32 xl:min-h-0 xl:pb-0">
             <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
               {loading ? (
                 <div className="rounded-3xl bg-white p-6 text-slate-500">Loading products...</div>

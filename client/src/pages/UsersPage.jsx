@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import UserFormModal from "../components/UserFormModal";
 import { useAuth } from "../context/AuthContext";
 import { userService } from "../services/userService";
-import { formatDate } from "../utils/format";
+import { formatDate, formatUserDisplayName } from "../utils/format";
 
 const UsersPage = () => {
   const { user: currentUser } = useAuth();
@@ -81,7 +81,7 @@ const UsersPage = () => {
             <div key={user.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-slate-900">{user.name}</p>
+                  <p className="font-semibold text-slate-900">{formatUserDisplayName(user.name, user.email)}</p>
                   <p className="text-sm text-slate-600">{user.email}</p>
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${user.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
@@ -127,7 +127,7 @@ const UsersPage = () => {
             <tbody>
               {users.map((user) => (
                 <tr key={user.id} className="border-b border-slate-100">
-                  <td className="py-4 pr-4 font-semibold text-slate-900">{user.name}</td>
+                  <td className="py-4 pr-4 font-semibold text-slate-900">{formatUserDisplayName(user.name, user.email)}</td>
                   <td className="py-4 pr-4 text-slate-600">{user.email}</td>
                   <td className="py-4 pr-4 capitalize text-slate-600">{user.role}</td>
                   <td className="py-4 pr-4">

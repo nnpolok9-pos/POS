@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
+import { formatUserDisplayName } from "../utils/format";
 
 const LoginPage = () => {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -15,7 +16,7 @@ const LoginPage = () => {
 
     try {
       const user = await login(form);
-      toast.success(`Welcome back, ${user.name}`);
+      toast.success(`Welcome back, ${formatUserDisplayName(user.name, user.email)}`);
       navigate(user.role === "admin" ? "/dashboard" : "/pos");
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");

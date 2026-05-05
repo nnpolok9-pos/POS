@@ -4,7 +4,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { usePosSidebar } from "../context/PosSidebarContext";
 import { useShopSettings } from "../context/ShopSettingsContext";
-import { imageUrl } from "../utils/format";
+import { formatUserDisplayName, imageUrl } from "../utils/format";
 
 const navItems = [
   { to: "/pos", label: "POS", icon: ShoppingCart, roles: ["master_admin", "admin", "staff"] },
@@ -88,7 +88,7 @@ const AppShell = () => {
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-[#efe3d3] bg-white shadow-sm">
               {user?.avatar && !avatarFailed ? (
-                <img src={imageUrl(user.avatar)} alt={user.name} className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
+                <img src={imageUrl(user.avatar)} alt={formatUserDisplayName(user?.name, user?.email)} className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
               ) : logoSrc ? (
                 <img src={logoSrc} alt={shopName} className="h-full w-full object-contain p-1.5" onError={() => setLogoFailed(true)} />
               ) : (
@@ -139,13 +139,13 @@ const AppShell = () => {
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/10 text-[15px] font-bold text-white">
                   {user?.avatar && !avatarFailed ? (
-                    <img src={imageUrl(user.avatar)} alt={user.name} className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
+                    <img src={imageUrl(user.avatar)} alt={formatUserDisplayName(user?.name, user?.email)} className="h-full w-full object-cover" onError={() => setAvatarFailed(true)} />
                   ) : (
-                    (user?.name || "U").charAt(0).toUpperCase()
+                    formatUserDisplayName(user?.name, user?.email).charAt(0).toUpperCase()
                   )}
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate pt-1 text-[1.1rem] font-bold leading-tight text-white">{user?.name}</p>
+                  <p className="truncate pt-1 text-[1.1rem] font-bold leading-tight text-white">{formatUserDisplayName(user?.name, user?.email)}</p>
                   <p className="mt-1 text-xs text-white/60">Open profile</p>
                 </div>
               </div>

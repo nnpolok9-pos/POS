@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import { userService } from "../services/userService";
-import { formatDate, imageUrl } from "../utils/format";
+import { formatDate, formatUserDisplayName, imageUrl } from "../utils/format";
 
 const ProfilePage = () => {
   const { user, setCurrentUser, refreshUser } = useAuth();
@@ -119,13 +119,13 @@ const ProfilePage = () => {
             <div className="flex flex-col items-center text-center">
               <div className="flex h-40 w-40 items-center justify-center overflow-hidden rounded-[2rem] border border-[#efe3d3] bg-white shadow-sm">
                 {profile?.avatar || avatarFile ? (
-                  <img src={avatarPreview} alt={profile?.name || user?.name} className="h-full w-full object-cover" />
+                  <img src={avatarPreview} alt={formatUserDisplayName(profile?.name || user?.name, profile?.email || user?.email)} className="h-full w-full object-cover" />
                 ) : (
-                  <span className="text-5xl font-bold text-slate-700">{(profile?.name || user?.name || "U").charAt(0).toUpperCase()}</span>
+                  <span className="text-5xl font-bold text-slate-700">{formatUserDisplayName(profile?.name || user?.name, profile?.email || user?.email).charAt(0).toUpperCase()}</span>
                 )}
               </div>
 
-              <p className="mt-4 text-lg font-bold text-slate-900">{profile?.name}</p>
+              <p className="mt-4 text-lg font-bold text-slate-900">{formatUserDisplayName(profile?.name, profile?.email)}</p>
               <p className="text-sm text-slate-500">{profile?.email}</p>
 
               <label className="btn-secondary mt-5 cursor-pointer gap-2">

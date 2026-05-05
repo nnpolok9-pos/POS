@@ -65,6 +65,37 @@ export const formatOrderSourceLabel = (value, fallback = "Counter POS") => {
   return ORDER_SOURCE_LABELS[value] || value.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 };
 
+const normalizeNameWord = (word) => {
+  const cleaned = String(word || "").trim();
+  if (!cleaned) {
+    return "";
+  }
+
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+};
+
+export const formatUserDisplayName = (name, email = "") => {
+  const rawName = String(name || "").trim();
+  const fallbackEmail = String(email || "").trim().toLowerCase();
+  const source = rawName || fallbackEmail;
+
+  if (!source) {
+    return "User";
+  }
+
+  if (source.includes("@")) {
+    const localPart = source.split("@")[0] || "";
+    const parts = localPart
+      .split(/[._-]+/)
+      .map(normalizeNameWord)
+      .filter(Boolean);
+
+    return parts.join(" ") || "User";
+  }
+
+  return rawName;
+};
+
 export const formatDate = (value) =>
   new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",

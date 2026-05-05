@@ -20,7 +20,7 @@ import { useShopSettings } from "../context/ShopSettingsContext";
 import { orderService } from "../services/orderService";
 import { productService } from "../services/productService";
 import { getLocalDateInputValue } from "../utils/date";
-import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel, formatServeTime } from "../utils/format";
+import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel, formatServeTime, formatUserDisplayName } from "../utils/format";
 import { printReceipt } from "../utils/printReceipt";
 import { exportReportToExcel, exportReportToPdf } from "../utils/reportExport";
 
@@ -248,7 +248,7 @@ const OrdersPage = () => {
     orderId: order.orderId,
     date: formatDate(order.createdAt),
     serveTime: getServeTimeLabel(order),
-    staff: order.staff?.name || "Staff",
+    staff: order.staff ? formatUserDisplayName(order.staff?.name, order.staff?.email) : "Staff",
     orderFrom: formatOrderSourceLabel(order.source),
     paymentMethod: formatPaymentMethodLabel(order.paymentMethod, "-"),
     items: order.items.length,
@@ -575,7 +575,7 @@ const OrdersPage = () => {
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Staff</p>
-                  <p className="mt-1 font-medium text-slate-700">{order.staff?.name || "Staff"}</p>
+                  <p className="mt-1 font-medium text-slate-700">{order.staff ? formatUserDisplayName(order.staff?.name, order.staff?.email) : "Staff"}</p>
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Order From</p>
@@ -691,7 +691,7 @@ const OrdersPage = () => {
                   </td>
                   <td className="py-3 pr-4 text-slate-600">{formatDate(order.createdAt)}</td>
                   <td className="py-3 pr-4 text-slate-600">{getServeTimeLabel(order)}</td>
-                  <td className="py-3 pr-4 text-slate-600">{order.staff?.name || "Staff"}</td>
+                  <td className="py-3 pr-4 text-slate-600">{order.staff ? formatUserDisplayName(order.staff?.name, order.staff?.email) : "Staff"}</td>
                   <td className="py-3 pr-4 text-slate-600">{order.items.length}</td>
                   <td className="py-3 pr-4 font-bold text-brand-600">{currency(order.total)}</td>
                   <td className="py-3 pr-4">

@@ -711,7 +711,7 @@ const CustomerOrderPage = () => {
               <Menu size={18} />
             </button>
 
-            <div className="bg-white/55 px-4 pb-24 pt-4 sm:px-5">
+            <div className="bg-white/55 px-4 pb-40 pt-4 sm:px-5">
               <div className="space-y-3">
                 {loading ? (
                   <div className={`rounded-[1.6rem] bg-white p-6 text-center text-sm shadow-sm ${localizedSecondaryTextClass(language, "text-slate-500")}`}>{text.loading}</div>

@@ -1,7 +1,7 @@
 import { CheckCircle2, ListOrdered, X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel, imageUrl } from "../utils/format";
+import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel, formatUserDisplayName, imageUrl } from "../utils/format";
 import foodpandaLogo from "../assets/partners/foodpanda.png";
 import grabLogo from "../assets/partners/grab.png";
 import eGatesLogo from "../assets/partners/e-gates.jpg";
@@ -67,7 +67,7 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
                 <h3 className="font-display text-xl font-bold text-slate-900 sm:text-2xl">{order.orderId}</h3>
                 {order.source === "customer" && order.queueNumber ? <p className="mt-1 text-sm font-semibold text-violet-700">Queue #{order.queueNumber}</p> : null}
                 <p className="text-sm text-slate-500">
-                  {formatDate(order.createdAt)} by {order.staff?.name || "Staff"}
+                  {formatDate(order.createdAt)} by {order.staff ? formatUserDisplayName(order.staff?.name, order.staff?.email) : "Staff"}
                 </p>
                 <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[order.status] || statusStyles.completed}`}>
                   {statusLabels[order.status] || "Completed"}
