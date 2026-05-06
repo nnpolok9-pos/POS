@@ -670,11 +670,15 @@ const getTentativeProfitReport = async (req, res) => {
     tentativeProfit: 0,
     counterGrossSales: 0,
     counterNetSales: 0,
+    counterCostOfGoodsSold: 0,
+    counterTentativeProfit: 0,
     partnerGrossSales: 0,
     partnerPromoSalesDiscount: 0,
     partnerSalesAfterPromo: 0,
     partnerCommissionAmount: 0,
-    partnerNetSales: 0
+    partnerNetSales: 0,
+    partnerCostOfGoodsSold: 0,
+    partnerTentativeProfit: 0
   };
 
   filteredOrders.forEach((order) => {
@@ -738,9 +742,13 @@ const getTentativeProfitReport = async (req, res) => {
       summary.partnerSalesAfterPromo += metrics.salesAfterPromo;
       summary.partnerCommissionAmount += metrics.commissionAmount;
       summary.partnerNetSales += metrics.netSales;
+      summary.partnerCostOfGoodsSold += metrics.costOfGoodsSold;
+      summary.partnerTentativeProfit += metrics.tentativeProfit;
     } else {
       summary.counterGrossSales += metrics.grossSales;
       summary.counterNetSales += metrics.netSales;
+      summary.counterCostOfGoodsSold += metrics.costOfGoodsSold;
+      summary.counterTentativeProfit += metrics.tentativeProfit;
     }
 
     if (metrics.partnerKey) {
@@ -827,11 +835,15 @@ const getTentativeProfitReport = async (req, res) => {
       tentativeProfit: roundReportAmount(summary.tentativeProfit),
       counterGrossSales: roundReportAmount(summary.counterGrossSales),
       counterNetSales: roundReportAmount(summary.counterNetSales),
+      counterCostOfGoodsSold: roundReportAmount(summary.counterCostOfGoodsSold),
+      counterTentativeProfit: roundReportAmount(summary.counterTentativeProfit),
       partnerGrossSales: roundReportAmount(summary.partnerGrossSales),
       partnerPromoSalesDiscount: roundReportAmount(summary.partnerPromoSalesDiscount),
       partnerSalesAfterPromo: roundReportAmount(summary.partnerSalesAfterPromo),
       partnerCommissionAmount: roundReportAmount(summary.partnerCommissionAmount),
       partnerNetSales: roundReportAmount(summary.partnerNetSales),
+      partnerCostOfGoodsSold: roundReportAmount(summary.partnerCostOfGoodsSold),
+      partnerTentativeProfit: roundReportAmount(summary.partnerTentativeProfit),
       profitMarginPercent: summary.netSales > 0 ? roundReportAmount((summary.tentativeProfit / summary.netSales) * 100) : 0,
       averageOrderValue: summary.totalOrders > 0 ? roundReportAmount(summary.netSales / summary.totalOrders) : 0
     },

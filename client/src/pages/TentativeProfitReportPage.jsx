@@ -100,6 +100,41 @@ const TentativeProfitReportPage = () => {
   );
 
   const summary = report.summary || {};
+  const counterDetailRow = useMemo(() => {
+    const counterGrossSales = Number(summary.counterGrossSales || 0);
+    const counterNetSales = Number(summary.counterNetSales || 0);
+    const counterCostOfGoodsSold = Number(summary.counterCostOfGoodsSold || 0);
+    const counterTentativeProfit = Number(summary.counterTentativeProfit || 0);
+
+    if (
+      counterGrossSales <= 0 &&
+      counterNetSales <= 0 &&
+      counterCostOfGoodsSold <= 0 &&
+      counterTentativeProfit <= 0
+    ) {
+      return null;
+    }
+
+    return {
+      sl: 0,
+      partner: "counter",
+      partnerLabel: "Counter POS",
+      orderCount: Number(summary.totalOrders || 0) - (report.partnerRows || []).reduce((sum, row) => sum + Number(row.orderCount || 0), 0),
+      grossSales: counterGrossSales,
+      partnerPromoDiscount: Number(summary.counterPromoDiscount || 0),
+      salesAfterPartnerPromo: counterGrossSales - Number(summary.counterPromoDiscount || 0),
+      commissionAmount: 0,
+      netSales: counterNetSales,
+      costOfGoodsSold: counterCostOfGoodsSold,
+      tentativeProfit: counterTentativeProfit,
+      profitMarginPercent: counterNetSales > 0 ? (counterTentativeProfit / counterNetSales) * 100 : 0
+    };
+  }, [report.partnerRows, summary]);
+
+  const detailRows = useMemo(
+    () => (counterDetailRow ? [counterDetailRow, ...(report.partnerRows || [])] : report.partnerRows || []),
+    [counterDetailRow, report.partnerRows]
+  );
 
   const dailyExportRows =
     report.rows?.map((row) => ({
@@ -120,8 +155,8 @@ const TentativeProfitReportPage = () => {
     })) || [];
 
   const partnerExportRows =
-    report.partnerRows?.map((row) => ({
-      sl: row.sl,
+    detailRows?.map((row, index) => ({
+      sl: index + 1,
       partnerLabel: row.partnerLabel,
       orderCount: row.orderCount,
       grossSales: Number(row.grossSales || 0).toFixed(2),
@@ -476,14 +511,14 @@ const TentativeProfitReportPage = () => {
       <section className="glass-card overflow-hidden p-4 sm:p-6">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Delivery Partner Profit Detail</h2>
-            <p className="text-xs text-slate-500">Partner rows show each app&apos;s sales before promo, after promo, commission, stored cost, and tentative profit.</p>
+            <h2 className="text-lg font-bold text-slate-900">Sales Channel Profit Detail</h2>
+            <p className="text-xs text-slate-500">Counter and partner rows show each channel&apos;s sales before promo, after promo, commission, stored cost, and tentative profit.</p>
           </div>
           <p className="text-xs font-medium text-slate-400">Partner filter: {selectedPartnerLabel}</p>
         </div>
 
         <div className="space-y-3 md:hidden">
-          {(report.partnerRows || []).map((row) => (
+          {detailRows.map((row) => (
             <div key={row.partner} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -544,9 +579,9 @@ const TentativeProfitReportPage = () => {
               </tr>
             </thead>
             <tbody>
-              {(report.partnerRows || []).map((row) => (
+          {detailRows.map((row, index) => (
                 <tr key={row.partner} className="border-b border-slate-100">
-                  <td className="py-3 pr-4 font-semibold text-slate-700">{row.sl}</td>
+                  <td className="py-3 pr-4 font-semibold text-slate-700">{index + 1}</td>
                   <td className="py-3 pr-4 font-semibold text-slate-900">{row.partnerLabel}</td>
                   <td className="py-3 pr-4 text-slate-700">{row.orderCount}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.grossSales)}</td>
