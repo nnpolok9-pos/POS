@@ -21,6 +21,18 @@ const navItems = [
     children: [{ to: "/edited-list", label: "Edited List", icon: FilePenLine, roles: ["master_admin", "admin", "checker"] }],
   },
   { to: "/promos", label: "Promos", icon: BadgePercent, roles: ["master_admin", "admin"] },
+  {
+    to: "/manage-partners/grab",
+    label: "Manage Partners",
+    icon: Store,
+    roles: ["master_admin", "admin"],
+    children: [
+      { to: "/manage-partners/foodpanda", label: "Foodpanda", icon: Store, roles: ["master_admin", "admin"] },
+      { to: "/manage-partners/grab", label: "Grab", icon: Store, roles: ["master_admin", "admin"] },
+      { to: "/manage-partners/e_gates", label: "E-Gates", icon: Store, roles: ["master_admin", "admin"] },
+      { to: "/manage-partners/wownow", label: "WOWNOW", icon: Store, roles: ["master_admin", "admin"] }
+    ]
+  },
   { to: "/reports/sales", label: "Reports", icon: BarChart3, roles: ["master_admin", "admin", "checker"] },
   { to: "/users", label: "Users", icon: Users, roles: ["master_admin", "admin"] },
   { to: "/shop-profile", label: "Shop Profile", icon: Store, roles: ["master_admin"] }

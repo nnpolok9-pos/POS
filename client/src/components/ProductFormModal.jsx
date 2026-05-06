@@ -20,6 +20,8 @@ const productTypeLabel = (type) =>
 const COMPOSITE_PRODUCT_TYPES = ["combo", "combo_type"];
 const isCompositeType = (type) => COMPOSITE_PRODUCT_TYPES.includes(type);
 const isBaseMaterialType = (type) => type === "raw_material";
+const canManualTentativeCost = (type) => ["raw", "combo"].includes(type);
+const TENTATIVE_COST_FALLBACK_RATE = 0.4;
 
 const initialState = {
   name: "",
@@ -36,6 +38,7 @@ const initialState = {
   sku: "",
   productType: "raw",
   forSale: "true",
+  tentativeCost: "",
   comboItems: []
 };
 
@@ -203,6 +206,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
             sku: product.sku || "",
             productType: product.productType || "raw",
             forSale: String(product.forSale ?? true),
+            tentativeCost: product.tentativeCost ?? "",
             comboItems: (product.comboItems || []).map((item) => ({
               ...item,
               changeable: item.changeable === true,
@@ -219,6 +223,67 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
     () => rawProducts.filter((item) => item.id !== product?.id),
     [rawProducts, product?.id]
   );
+  const comboCompositionOptions = useMemo(() => {
+    if (form.productType !== "combo_type") {
+      return availableProducts;
+    }
+
+    return availableProducts.filter((item) => ["raw", "combo"].includes(item.productType) && item.forSale !== false);
+  }, [availableProducts, form.productType]);
+
+  const comboTentativeCost = useMemo(() => {
+    if (form.productType !== "combo_type") {
+      return 0;
+    }
+
+    const productMap = new Map(availableProducts.map((item) => [item.id, item]));
+    const computeItemCost = (productId, trail = new Set()) => {
+      const linkedProduct = productMap.get(productId);
+      if (!linkedProduct) {
+        return 0;
+      }
+
+      if (linkedProduct.productType === "combo_type") {
+        if (trail.has(productId)) {
+          return 0;
+        }
+
+        const nextTrail = new Set(trail);
+        nextTrail.add(productId);
+
+        return (linkedProduct.comboItems || []).reduce((sum, comboItem) => {
+          const nestedProductId = comboItem.product?.id || comboItem.product;
+          return sum + computeItemCost(nestedProductId, nextTrail) * Number(comboItem.quantity || 0);
+        }, 0);
+      }
+
+      const enteredCost = Number(linkedProduct.tentativeCost || 0);
+      if (enteredCost > 0) {
+        return enteredCost;
+      }
+
+      return linkedProduct.forSale === false
+        ? 0
+        : Number((Number(linkedProduct.promotionalPrice ?? linkedProduct.price ?? 0) * TENTATIVE_COST_FALLBACK_RATE).toFixed(2));
+    };
+
+    return form.comboItems.reduce((sum, item) => {
+      if (!item.product) {
+        return sum;
+      }
+
+      return sum + computeItemCost(item.product) * Number(item.quantity || 0);
+    }, 0);
+  }, [availableProducts, form.comboItems, form.productType]);
+
+  const fallbackTentativeCost = useMemo(() => {
+    if (form.forSale !== "true" || !canManualTentativeCost(form.productType)) {
+      return 0;
+    }
+
+    const offerPrice = Number(form.promotionalPrice || 0);
+    return Number((offerPrice * TENTATIVE_COST_FALLBACK_RATE).toFixed(2));
+  }, [form.forSale, form.productType, form.promotionalPrice]);
 
   if (!open) {
     return null;
@@ -291,6 +356,14 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
       ...form,
       regularPrice: shouldHidePricing ? 0 : form.regularPrice,
       promotionalPrice: shouldHidePricing ? 0 : form.promotionalPrice,
+      tentativeCost:
+        form.forSale !== "true"
+          ? 0
+          : form.productType === "combo_type"
+            ? Number(comboTentativeCost || 0).toFixed(2)
+            : canManualTentativeCost(form.productType)
+              ? form.tentativeCost
+              : 0,
       stock: isCompositeType(form.productType) ? 0 : form.stock,
       stockUnit: isCompositeType(form.productType) ? "pieces" : form.stockUnit,
       seasoningPerOrderConsumption: form.productType === "seasoning" ? form.seasoningPerOrderConsumption || 0 : 0,
@@ -458,6 +531,33 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               <option value="false">No</option>
             </select>
           </label>
+          {form.forSale === "true" && canManualTentativeCost(form.productType) && (
+            <label className="md:col-span-2">
+              <span className="mb-2 block text-sm font-semibold text-slate-600">Tentative Cost Per Production (KHR)</span>
+              <input
+                name="tentativeCost"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.tentativeCost}
+                onChange={handleChange}
+                className="input"
+                placeholder="Enter estimated production cost"
+              />
+              <span className="mt-2 block text-xs text-slate-500">
+                This cost will be snapped into each order when the order is created or edited. If left empty, the system will use 40% of the offer price: {Number.isFinite(fallbackTentativeCost) ? fallbackTentativeCost.toFixed(2) : "0.00"} KHR.
+              </span>
+            </label>
+          )}
+          {form.forSale === "true" && form.productType === "combo_type" && (
+            <label className="md:col-span-2">
+              <span className="mb-2 block text-sm font-semibold text-slate-600">Tentative Cost Per Production (Auto)</span>
+              <input value={Number(comboTentativeCost || 0).toFixed(2)} readOnly className="input bg-slate-50 text-slate-700" />
+              <span className="mt-2 block text-xs text-slate-500">
+                Combo cost is calculated automatically from linked A La Catre and Combined items.
+              </span>
+            </label>
+          )}
 
           {!isCompositeType(form.productType) ? (
             <>
@@ -489,7 +589,11 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-900">{form.productType === "combo_type" ? "Combo Composition" : "Combined Composition"}</p>
-                  <p className="text-sm text-slate-500">Select the Base, Combined, Combo, or A La Catre items that will be consumed when this product is sold.</p>
+                  <p className="text-sm text-slate-500">
+                    {form.productType === "combo_type"
+                      ? "Select the A La Catre and Combined items that will be included in this combo."
+                      : "Select the Base, Combined, Combo, or A La Catre items that will be consumed when this product is sold."}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -509,7 +613,9 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               <div className="mt-4 space-y-3">
                 {form.comboItems.length === 0 ? (
                   <p className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-sm text-slate-500">
-                    Add one or more Base, Combined, Combo, or A La Catre products for this item.
+                    {form.productType === "combo_type"
+                      ? "Add one or more A La Catre or Combined products for this combo."
+                      : "Add one or more Base, Combined, Combo, or A La Catre products for this item."}
                   </p>
                 ) : (
                   form.comboItems.map((item, index) => (
@@ -519,7 +625,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
                           label="Item"
                           value={item.product}
                           onChange={(event) => updateComboItem(index, { product: event.target.value })}
-                          options={availableProducts}
+                          options={comboCompositionOptions}
                           placeholder="Select product"
                         />
                         <label className="block">
@@ -593,7 +699,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
                                   }
                                 }))
                               }
-                              options={availableProducts}
+                              options={comboCompositionOptions}
                               placeholder="Select one product"
                               disabledIds={[
                                 item.product,

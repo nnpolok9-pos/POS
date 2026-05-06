@@ -13,6 +13,10 @@ export const reportService = {
     const { data } = await api.get("/reports/delivery-partner-sales", { params });
     return data;
   },
+  getTentativeProfit: async (params) => {
+    const { data } = await api.get("/reports/tentative-profit", { params });
+    return data;
+  },
   getProductSales: async (params) => {
     const { data } = await api.get("/reports/product-sales", { params });
     return data;

@@ -6,6 +6,7 @@ const {
   buildComboItems,
   isCompositeProductType,
   isBaseProductType,
+  canHaveManualTentativeCost,
   syncAvailability,
   resolvePricing,
   recordInventoryMovement,
@@ -59,6 +60,7 @@ const createProduct = async (req, res) => {
   const forSale = toBoolean(req.body.forSale, true);
   const expiryDate = parseExpiryDate(req.body.expiryDate);
   const seasoningPerOrderConsumption = Math.max(0, Number(req.body.seasoningPerOrderConsumption || 0));
+  const tentativeCostInput = Math.max(0, Number(req.body.tentativeCost || 0));
   const pricing = productType === "raw_material" ? resolvePricing({ price: 0, regularPrice: 0, promotionalPrice: 0 }) : resolvePricing({ price, regularPrice, promotionalPrice });
 
   if (!name || category === undefined || (productType !== "raw_material" && (regularPrice === undefined || promotionalPrice === undefined))) {
@@ -85,6 +87,19 @@ const createProduct = async (req, res) => {
     return res.status(400).json({ message: "Combo products must include raw item composition" });
   }
 
+  if (productType === "combo_type" && comboItems.length > 0) {
+    const products = await getAllProductsAdmin();
+    const productMap = new Map(products.map((item) => [String(item.id), item]));
+    const invalidComboItem = comboItems.find((item) => {
+      const linkedProduct = productMap.get(String(item.product));
+      return !linkedProduct || !["raw", "combo"].includes(linkedProduct.productType);
+    });
+
+    if (invalidComboItem) {
+      return res.status(400).json({ message: "Combo products can only use A La Catre and Combined items" });
+    }
+  }
+
   const product = syncAvailability({
     name,
     khmerName: String(khmerName || "").trim(),
@@ -95,6 +110,7 @@ const createProduct = async (req, res) => {
     khmerCategory: String(khmerCategory || "").trim(),
     description: String(description || "").trim(),
     khmerDescription: String(khmerDescription || "").trim(),
+    tentativeCost: canHaveManualTentativeCost(productType) && forSale ? tentativeCostInput : 0,
     stock: isCompositeProductType(productType) ? 0 : Number(stock ?? 0),
     stockUnit,
     seasoningPerOrderConsumption: productType === "seasoning" ? seasoningPerOrderConsumption : 0,
@@ -258,6 +274,8 @@ const updateProduct = async (req, res) => {
     req.body.seasoningPerOrderConsumption !== undefined
       ? Math.max(0, Number(req.body.seasoningPerOrderConsumption || 0))
       : product.seasoningPerOrderConsumption || 0;
+  const nextTentativeCost =
+    req.body.tentativeCost !== undefined ? Math.max(0, Number(req.body.tentativeCost || 0)) : Number(product.tentativeCost || 0);
   const comboItems =
     req.body.comboItems !== undefined ? buildComboItems(parseComboItemsInput(req.body.comboItems)) : buildComboItems(product.comboItems || []);
   const pricing =
@@ -280,6 +298,11 @@ const updateProduct = async (req, res) => {
     description: req.body.description !== undefined ? String(req.body.description || "").trim() : product.description,
     khmerDescription:
       req.body.khmerDescription !== undefined ? String(req.body.khmerDescription || "").trim() : product.khmerDescription,
+    tentativeCost:
+      canHaveManualTentativeCost(nextProductType) &&
+      (req.body.forSale !== undefined ? toBoolean(req.body.forSale, product.forSale ?? true) : product.forSale ?? true)
+        ? nextTentativeCost
+        : 0,
     stockUnit: req.body.stockUnit || product.stockUnit || "pieces",
     productType: nextProductType,
     seasoningPerOrderConsumption: nextProductType === "seasoning" ? nextSeasoningPerOrderConsumption : 0,
@@ -309,6 +332,19 @@ const updateProduct = async (req, res) => {
 
   if (isCompositeProductType(product.productType) && product.comboItems.length === 0) {
     return res.status(400).json({ message: "Combo products must include raw item composition" });
+  }
+
+  if (product.productType === "combo_type" && product.comboItems.length > 0) {
+    const products = await getAllProductsAdmin();
+    const productMap = new Map(products.map((item) => [String(item.id), item]));
+    const invalidComboItem = product.comboItems.find((item) => {
+      const linkedProduct = productMap.get(String(item.product));
+      return !linkedProduct || !["raw", "combo"].includes(linkedProduct.productType);
+    });
+
+    if (invalidComboItem) {
+      return res.status(400).json({ message: "Combo products can only use A La Catre and Combined items" });
+    }
   }
 
   syncAvailability(product);

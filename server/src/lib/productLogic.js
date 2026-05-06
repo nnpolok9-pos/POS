@@ -6,6 +6,8 @@ const { getAllProducts, getProductById, saveProduct, saveInventoryMovement, dele
 const STOCK_UNITS = ["pieces", "gram", "teaspoon"];
 const COMPOSITE_PRODUCT_TYPES = ["combo", "combo_type"];
 const PRODUCT_TYPES = ["raw", "raw_material", "sauce", "seasoning", "combo", "combo_type"];
+const MANUAL_TENTATIVE_COST_PRODUCT_TYPES = ["raw", "combo"];
+const TENTATIVE_COST_FALLBACK_RATE = 0.4;
 
 const parseExpiryDate = (value) => {
   if (!value) {
@@ -79,6 +81,7 @@ const inferProductType = (product) => {
 
 const isCompositeProductType = (productType) => COMPOSITE_PRODUCT_TYPES.includes(productType);
 const isBaseProductType = (product) => !isCompositeProductType(inferProductType(product));
+const canHaveManualTentativeCost = (productType) => MANUAL_TENTATIVE_COST_PRODUCT_TYPES.includes(productType);
 
 const syncAvailability = (product) => {
   if (isCompositeProductType(inferProductType(product))) {
@@ -105,6 +108,21 @@ const resolvePricing = ({ price, regularPrice, promotionalPrice }) => {
     promotionalPrice: normalizedPromotionalPrice,
     regularPrice: normalizedRegularPrice
   };
+};
+
+const getOfferSellingPrice = (product) => Number(product?.promotionalPrice ?? product?.price ?? 0);
+
+const getFallbackTentativeCost = (product) => {
+  if (product?.forSale === false) {
+    return 0;
+  }
+
+  return Number((getOfferSellingPrice(product) * TENTATIVE_COST_FALLBACK_RATE).toFixed(2));
+};
+
+const getEffectiveManualTentativeCost = (product) => {
+  const enteredCost = Number(product?.tentativeCost || 0);
+  return enteredCost > 0 ? enteredCost : getFallbackTentativeCost(product);
 };
 
 const recordInventoryMovement = async ({ product, previousStock, newStock, performedBy, movementType, reason = "" }) => {
@@ -210,6 +228,42 @@ const calculateComboAvailability = (product, productMap) => {
   };
 };
 
+const calculateTentativeCost = (product, productMap, trail = new Set()) => {
+  const normalizedType = inferProductType(product);
+  const productId = String(product?.id || product?._id || "");
+
+  if (normalizedType === "combo_type") {
+    if (!product?.comboItems?.length || trail.has(productId)) {
+      return 0;
+    }
+
+    const nextTrail = new Set(trail);
+    nextTrail.add(productId);
+
+    return product.comboItems.reduce((sum, comboItem) => {
+      const linkedProduct = productMap.get(String(comboItem.product?.id || comboItem.product?._id || comboItem.product));
+      if (!linkedProduct) {
+        return sum;
+      }
+
+      const linkedType = inferProductType(linkedProduct);
+      const allowedType = linkedType === "raw" || linkedType === "combo" || linkedType === "combo_type";
+      if (!allowedType) {
+        return sum;
+      }
+
+      const quantity = Number(comboItem.quantity || 0);
+      return sum + calculateTentativeCost(linkedProduct, productMap, nextTrail) * quantity;
+    }, 0);
+  }
+
+  if (canHaveManualTentativeCost(normalizedType)) {
+    return getEffectiveManualTentativeCost(product);
+  }
+
+  return 0;
+};
+
 const populateComboProducts = (products) => {
   const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
 
@@ -264,6 +318,7 @@ const serializeProducts = async (products) => {
       price: promotionalPrice,
       promotionalPrice,
       regularPrice,
+      tentativeCost: Number(calculateTentativeCost(product, productMap).toFixed(2)),
       productType: inferProductType(product),
       stock: availability.stock,
       isActive: availability.isActive,
@@ -302,11 +357,14 @@ module.exports = {
   inferProductType,
   isCompositeProductType,
   isBaseProductType,
+  canHaveManualTentativeCost,
   syncAvailability,
   resolvePricing,
   recordInventoryMovement,
   buildCompositeRequirements,
   calculateComboAvailability,
+  calculateTentativeCost,
+  getEffectiveManualTentativeCost,
   serializeProducts,
   loadAllProducts,
   removeImageFile,

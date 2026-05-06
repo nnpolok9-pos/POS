@@ -14,7 +14,11 @@ const todayString = () => getLocalDateInputValue();
 const salesColumns = [
   { header: "SL", key: "sl" },
   { header: "Date", key: "date" },
-  { header: "Total Sale Amount", key: "totalSaleAmount" },
+  { header: "Total Sales", key: "grossSales" },
+  { header: "Partner Promo", key: "partnerPromoDiscount" },
+  { header: "Sales After Promo", key: "salesAfterPartnerPromo" },
+  { header: "Commission", key: "commissionAmount" },
+  { header: "Net Sales", key: "totalSaleAmount" },
   { header: "Number of Order", key: "numberOfOrder" },
   { header: "Payment By Cash", key: "paymentByCash" },
   { header: "Payment By Card", key: "paymentByCard" },
@@ -66,6 +70,10 @@ const SalesReportPage = () => {
     report.rows?.map((row) => ({
       sl: row.sl,
       date: row.date,
+      grossSales: Number(row.grossSales || 0).toFixed(2),
+      partnerPromoDiscount: Number(row.partnerPromoDiscount || 0).toFixed(2),
+      salesAfterPartnerPromo: Number(row.salesAfterPartnerPromo || 0).toFixed(2),
+      commissionAmount: Number(row.commissionAmount || 0).toFixed(2),
       totalSaleAmount: Number(row.totalSaleAmount || 0).toFixed(2),
       numberOfOrder: row.numberOfOrder,
       paymentByCash: Number(row.paymentBy?.cash || 0).toFixed(2),
@@ -107,7 +115,11 @@ const SalesReportPage = () => {
     });
   };
 
-  const totalSales = report.rows?.reduce((sum, row) => sum + Number(row.totalSaleAmount || 0), 0) || 0;
+  const totalGrossSales = report.rows?.reduce((sum, row) => sum + Number(row.grossSales || 0), 0) || 0;
+  const totalPartnerPromoDiscount = report.rows?.reduce((sum, row) => sum + Number(row.partnerPromoDiscount || 0), 0) || 0;
+  const totalSalesAfterPartnerPromo = report.rows?.reduce((sum, row) => sum + Number(row.salesAfterPartnerPromo || 0), 0) || 0;
+  const totalCommissionAmount = report.rows?.reduce((sum, row) => sum + Number(row.commissionAmount || 0), 0) || 0;
+  const totalNetSales = report.rows?.reduce((sum, row) => sum + Number(row.totalSaleAmount || 0), 0) || 0;
   const totalOrders = report.rows?.reduce((sum, row) => sum + Number(row.numberOfOrder || 0), 0) || 0;
   const totalCash = report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.cash || 0), 0) || 0;
   const totalPartners = report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.deliveryPartners || 0), 0) || 0;
@@ -126,7 +138,9 @@ const SalesReportPage = () => {
                   Sales Overview
                 </div>
                 <h1 className="mt-2.5 font-display text-xl font-bold text-slate-900 sm:text-2xl">Sales Report</h1>
-                <p className="mt-1.5 text-[13px] leading-5 text-slate-500">Generate daily merged sales information between any two dates.</p>
+                <p className="mt-1.5 text-[13px] leading-5 text-slate-500">
+                  Generate daily sales with partner promo deduction, commission, and final net sales already settled to your business.
+                </p>
               </div>
 
               <div className="rounded-full border border-[#cbbba5] bg-[#fffaf0] px-4 py-2.5 shadow-sm">
@@ -161,7 +175,7 @@ const SalesReportPage = () => {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <div className={`${statCardClass} border border-[#d9e0eb] bg-[#e8eef7]`}>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -184,39 +198,66 @@ const SalesReportPage = () => {
               </div>
             </div>
           </div>
-          <div className={`${statCardClass} border border-[#dce7df] bg-[#eef4ef]`}>
+          <div className={`${statCardClass} border border-[#f2e1d0] bg-[#fff5eb]`}>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Cash Sales</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(totalCash)}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Total Sales</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(totalGrossSales)}</p>
               </div>
-              <div className="rounded-full bg-white/55 p-3 text-emerald-600">
-                <HandCoins size={18} />
+              <div className="rounded-full bg-white/55 p-3 text-orange-500">
+                <WalletCards size={18} />
               </div>
             </div>
           </div>
           <div className={`${statCardClass} border border-[#eadff0] bg-[#f3edf7]`}>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Delivery Partners</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(totalPartners)}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Sales After Promo</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(totalSalesAfterPartnerPromo)}</p>
+                <p className="mt-1 text-xs text-slate-500">Partner promo: {currency(totalPartnerPromoDiscount)}</p>
               </div>
               <div className="rounded-full bg-white/55 p-3 text-violet-600">
                 <Bike size={18} />
               </div>
             </div>
           </div>
+          <div className={`${statCardClass} border border-[#efe2ca] bg-[#fff8ea]`}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Commission</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(totalCommissionAmount)}</p>
+              </div>
+              <div className="rounded-full bg-white/55 p-3 text-amber-500">
+                <HandCoins size={18} />
+              </div>
+            </div>
+          </div>
           <div className={`${statCardClass} bg-[#171d31] text-white`}>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Total Sales</p>
-                <p className="mt-2 text-2xl font-bold">{currency(totalSales)}</p>
-                <p className="mt-1 text-xs text-slate-300">POS Digital: {currency(totalDigital)}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Net Sales</p>
+                <p className="mt-2 text-2xl font-bold">{currency(totalNetSales)}</p>
+                <p className="mt-1 text-xs text-slate-300">POS cash/digital + partner settlement</p>
               </div>
               <div className="rounded-full bg-white/10 p-3 text-white">
                 <WalletCards size={18} />
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-[1.25rem] border border-slate-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Cash</p>
+            <p className="mt-2 text-xl font-bold text-slate-900">{currency(totalCash)}</p>
+          </div>
+          <div className="rounded-[1.25rem] border border-slate-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">POS Digital</p>
+            <p className="mt-2 text-xl font-bold text-slate-900">{currency(totalDigital)}</p>
+          </div>
+          <div className="rounded-[1.25rem] border border-slate-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Delivery Partners</p>
+            <p className="mt-2 text-xl font-bold text-slate-900">{currency(totalPartners)}</p>
           </div>
         </div>
       </section>
@@ -225,7 +266,7 @@ const SalesReportPage = () => {
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Daily Sales Table</h2>
-            <p className="text-xs text-slate-500">Click any date to view that day&apos;s order list.</p>
+            <p className="text-xs text-slate-500">Click any date to view that day&apos;s order list. Net sales below are already after partner commission.</p>
           </div>
           <p className="text-xs font-medium text-slate-400">{from} to {to}</p>
         </div>
@@ -254,6 +295,22 @@ const SalesReportPage = () => {
                   <p className="mt-1 text-slate-700">{row.numberOfOrder}</p>
                 </div>
                 <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Total Sales</p>
+                  <p className="mt-1 text-slate-700">{currency(row.grossSales)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Partner Promo</p>
+                  <p className="mt-1 text-slate-700">{currency(row.partnerPromoDiscount)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">After Promo</p>
+                  <p className="mt-1 text-slate-700">{currency(row.salesAfterPartnerPromo)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Commission</p>
+                  <p className="mt-1 text-slate-700">{currency(row.commissionAmount)}</p>
+                </div>
+                <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Cash</p>
                   <p className="mt-1 text-slate-700">{currency(row.paymentBy.cash)}</p>
                 </div>
@@ -261,12 +318,12 @@ const SalesReportPage = () => {
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Card</p>
                   <p className="mt-1 text-slate-700">{currency(row.paymentBy.card)}</p>
                 </div>
-                <div className="col-span-2">
+                <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">QR</p>
                   <p className="mt-1 text-slate-700">{currency(row.paymentBy.qr)}</p>
                 </div>
-                <div className="col-span-2">
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Delivery Partners</p>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Partners</p>
                   <p className="mt-1 text-slate-700">{currency(row.paymentBy.deliveryPartners)}</p>
                 </div>
               </div>
@@ -279,11 +336,15 @@ const SalesReportPage = () => {
               <tr className="border-b border-slate-100 text-left text-slate-500">
                 <th className="pb-3 pr-4">SL</th>
                 <th className="pb-3 pr-4">Date</th>
-                <th className="pb-3 pr-4">Total Sale Amount</th>
-                <th className="pb-3 pr-4">Number of Order</th>
-                <th className="pb-3 pr-4">Payment By Cash</th>
-                <th className="pb-3 pr-4">Payment By Card</th>
-                <th className="pb-3 pr-4">Payment By QR</th>
+                <th className="pb-3 pr-4">Total Sales</th>
+                <th className="pb-3 pr-4">Partner Promo</th>
+                <th className="pb-3 pr-4">Sales After Promo</th>
+                <th className="pb-3 pr-4">Commission</th>
+                <th className="pb-3 pr-4">Net Sales</th>
+                <th className="pb-3 pr-4">Orders</th>
+                <th className="pb-3 pr-4">Cash</th>
+                <th className="pb-3 pr-4">Card</th>
+                <th className="pb-3 pr-4">QR</th>
                 <th className="pb-3">Delivery Partners</th>
               </tr>
             </thead>
@@ -296,6 +357,10 @@ const SalesReportPage = () => {
                       {row.date}
                     </button>
                   </td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.grossSales)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.partnerPromoDiscount)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.salesAfterPartnerPromo)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.commissionAmount)}</td>
                   <td className="py-3 pr-4 font-bold text-brand-600">{currency(row.totalSaleAmount)}</td>
                   <td className="py-3 pr-4 text-slate-700">{row.numberOfOrder}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.paymentBy.cash)}</td>

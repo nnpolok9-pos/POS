@@ -13,11 +13,13 @@ import StocksPage from "./pages/StocksPage";
 import ReportsPage from "./pages/ReportsPage";
 import SalesReportPage from "./pages/SalesReportPage";
 import SalesTransactionPage from "./pages/SalesTransactionPage";
+import TentativeProfitReportPage from "./pages/TentativeProfitReportPage";
 import ProductSalesReportPage from "./pages/ProductSalesReportPage";
 import DeliveryPartnerSalesReportPage from "./pages/DeliveryPartnerSalesReportPage";
 import UsersPage from "./pages/UsersPage";
 import EditedListPage from "./pages/EditedListPage";
 import PromosPage from "./pages/PromosPage";
+import ManagePartnersPage from "./pages/ManagePartnersPage";
 import ShopProfilePage from "./pages/ShopProfilePage";
 import CustomerOrderPage from "./pages/CustomerOrderPage";
 import MenuCardPage from "./pages/MenuCardPage";
@@ -169,6 +171,14 @@ function App() {
           }
         />
         <Route
+          path="manage-partners/:partnerKey"
+          element={
+            <ProtectedRoute roles={["master_admin", "admin"]}>
+              <ManagePartnersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="reports"
           element={
             <ProtectedRoute roles={["master_admin", "admin", "checker"]}>
@@ -179,6 +189,7 @@ function App() {
           <Route index element={<Navigate to="/reports/sales" replace />} />
           <Route path="sales" element={<SalesReportPage />} />
           <Route path="sales-transaction" element={<SalesTransactionPage />} />
+          <Route path="tentative-profit" element={<TentativeProfitReportPage />} />
           <Route path="product-sales" element={<ProductSalesReportPage />} />
           <Route path="delivery-partner-sales" element={<DeliveryPartnerSalesReportPage />} />
         </Route>

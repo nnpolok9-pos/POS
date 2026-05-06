@@ -6,7 +6,8 @@ const {
   getUsersByIds,
   deleteOrderById,
   getPromoByCode,
-  getOrders: queryOrders
+  getOrders: queryOrders,
+  getPartnerSettingByKey
 } = require("../lib/dataStore");
 const {
   normalizeOrderItems,
@@ -17,8 +18,9 @@ const {
   buildSauceItems,
   buildSeasoningItems
 } = require("../lib/orderPricing");
-const { normalizePromoCode, getPromoUsageStats, validatePromoForOrder } = require("../lib/promoLogic");
+const { normalizePromoCode, getPromoUsageStats, validatePromoForOrder, applyPromoBillingRounding } = require("../lib/promoLogic");
 const { buildTimezoneDayRange } = require("../utils/reportDateRange");
+const { applyPartnerPromotions } = require("../utils/partnerSettings");
 
 const PARTNER_PAYMENT_METHODS = ["grab", "foodpanda", "e_gates", "wownow"];
 const COLLECTED_PAYMENT_METHODS = ["cash", "card", "qr", ...PARTNER_PAYMENT_METHODS];
@@ -32,7 +34,12 @@ const normalizeBookingDetails = (bookingDetails = {}) => ({
   customerName: bookingDetails.customerName?.trim() || bookingDetails.leadTravelerName?.trim() || "",
   customerPhone: bookingDetails.customerPhone?.trim() || bookingDetails.contactPhone?.trim() || "",
   customerDateOfBirth: bookingDetails.customerDateOfBirth || null,
-  partnerSalesId: bookingDetails.partnerSalesId?.trim() || ""
+  partnerSalesId: bookingDetails.partnerSalesId?.trim() || "",
+  partnerPromoIds: Array.isArray(bookingDetails.partnerPromoIds) ? bookingDetails.partnerPromoIds.map((promoId) => String(promoId)) : [],
+  partnerCommissionRate:
+    bookingDetails.partnerCommissionRate === null || bookingDetails.partnerCommissionRate === undefined || bookingDetails.partnerCommissionRate === ""
+      ? null
+      : Number(bookingDetails.partnerCommissionRate)
 });
 
 const buildQueueNumber = (orderId = "") => orderId.split("-").pop() || orderId;
@@ -128,6 +135,40 @@ const resolvePromoForOrder = async ({ promoCode, subtotal, source, excludeOrderI
   });
 };
 
+const resolvePromotionsForOrder = async ({
+  paymentMethod,
+  promoCode,
+  subtotal,
+  source = "pos",
+  excludeOrderId = null,
+  bookingDetails = {}
+}) => {
+  if (!isPartnerPaymentMethod(paymentMethod)) {
+    return resolvePromoForOrder({
+      promoCode,
+      subtotal,
+      source,
+      excludeOrderId
+    });
+  }
+
+  const partnerSetting = await getPartnerSettingByKey(paymentMethod);
+  const partnerPromotion = applyPartnerPromotions({
+    partnerSetting,
+    subtotal,
+    selectedPromoIds: bookingDetails.partnerPromoIds || []
+  });
+
+  return {
+    promoCodeId: null,
+    promoCode: partnerPromotion.promoCode,
+    promoDiscount: partnerPromotion.promoDiscount,
+    promoSnapshot: partnerPromotion.promoSnapshot,
+    partnerCommissionRate: Number(partnerSetting?.commissionRate || 0),
+    selectedPromoIds: partnerPromotion.selectedPromoIds
+  };
+};
+
 const hydrateOrders = async (orders) => {
   const userIds = new Set();
 
@@ -170,23 +211,25 @@ const createOrder = async (req, res) => {
     return res.status(400).json({ message: "A valid payment method is required" });
   }
 
-  if (isPartnerPaymentMethod(paymentMethod) && requestedPromoCode) {
-    return res.status(400).json({ message: "Promo codes are not available for delivery partner orders" });
-  }
-
   if (isPartnerPaymentMethod(paymentMethod) && !req.body?.bookingDetails?.partnerSalesId?.trim()) {
     return res.status(400).json({ message: "Partner sales ID is required for delivery partner orders" });
   }
 
   try {
     const requestedItems = buildRequestedItems(items);
-    const { orderItems, subtotal } = await buildOrderItemsFromProducts(requestedItems);
-    const appliedPromo = await resolvePromoForOrder({
+    const { orderItems, subtotal, costTotal } = await buildOrderItemsFromProducts(requestedItems);
+    const normalizedBookingDetails = normalizeBookingDetails(bookingDetails);
+    const appliedPromo = await resolvePromotionsForOrder({
+      paymentMethod,
       promoCode: requestedPromoCode,
       subtotal,
-      source: "pos"
+      source: "pos",
+      bookingDetails: normalizedBookingDetails
     });
-    const total = Number((subtotal - appliedPromo.promoDiscount).toFixed(2));
+    const roundedPromo = applyPromoBillingRounding({
+      subtotal,
+      promoDiscount: appliedPromo.promoDiscount
+    });
     const orderId = generateOrderId();
     const source = deriveSourceFromPaymentMethod(paymentMethod, "staff");
     const order = await saveOrder({
@@ -195,13 +238,19 @@ const createOrder = async (req, res) => {
       items: orderItems,
       sauceItems: [],
       subtotal,
-      total,
+      costTotal,
+      total: roundedPromo.total,
       promoCodeId: appliedPromo.promoCodeId,
       promoCode: appliedPromo.promoCode,
-      promoDiscount: appliedPromo.promoDiscount,
+      promoDiscount: roundedPromo.promoDiscount,
       promoSnapshot: appliedPromo.promoSnapshot,
       paymentMethod,
-      bookingDetails: normalizeBookingDetails(bookingDetails),
+      bookingDetails: {
+        ...normalizedBookingDetails,
+        partnerPromoIds: appliedPromo.selectedPromoIds || normalizedBookingDetails.partnerPromoIds || [],
+        partnerCommissionRate:
+          appliedPromo.partnerCommissionRate ?? normalizedBookingDetails.partnerCommissionRate ?? null
+      },
       staff: req.user.id,
       status: "food_serving",
       source,
@@ -224,13 +273,16 @@ const createPublicOrder = async (req, res) => {
 
   try {
     const requestedItems = buildRequestedItems(items);
-    const { orderItems, subtotal } = await buildOrderItemsFromProducts(requestedItems);
+    const { orderItems, subtotal, costTotal } = await buildOrderItemsFromProducts(requestedItems);
     const appliedPromo = await resolvePromoForOrder({
       promoCode: req.body?.promoCode,
       subtotal,
       source: "menu"
     });
-    const total = Number((subtotal - appliedPromo.promoDiscount).toFixed(2));
+    const roundedPromo = applyPromoBillingRounding({
+      subtotal,
+      promoDiscount: appliedPromo.promoDiscount
+    });
     const orderId = generateOrderId();
     const order = await saveOrder({
       orderId,
@@ -238,10 +290,11 @@ const createPublicOrder = async (req, res) => {
       items: orderItems,
       sauceItems: [],
       subtotal,
-      total,
+      costTotal,
+      total: roundedPromo.total,
       promoCodeId: appliedPromo.promoCodeId,
       promoCode: appliedPromo.promoCode,
-      promoDiscount: appliedPromo.promoDiscount,
+      promoDiscount: roundedPromo.promoDiscount,
       promoSnapshot: appliedPromo.promoSnapshot,
       paymentMethod: null,
       bookingDetails: normalizeBookingDetails(bookingDetails),
@@ -257,11 +310,12 @@ const createPublicOrder = async (req, res) => {
       queueNumber: order.queueNumber,
       status: order.status,
       createdAt: order.createdAt,
-      total,
+      total: roundedPromo.total,
       subtotal,
+      costTotal,
       bookingDetails: order.bookingDetails,
       promoCode: appliedPromo.promoCode,
-      promoDiscount: appliedPromo.promoDiscount,
+      promoDiscount: roundedPromo.promoDiscount,
       items: order.items
     });
   } catch (error) {
@@ -348,10 +402,6 @@ const updateOrder = async (req, res) => {
     return res.status(400).json({ message: "A valid payment method is required" });
   }
 
-  if (isPartnerPaymentMethod(paymentMethod) && requestedPromoCode) {
-    return res.status(400).json({ message: "Promo codes are not available for delivery partner orders" });
-  }
-
   if (isPartnerPaymentMethod(paymentMethod) && !req.body?.bookingDetails?.partnerSalesId?.trim()) {
     return res.status(400).json({ message: "Partner sales ID is required for delivery partner orders" });
   }
@@ -387,6 +437,7 @@ const updateOrder = async (req, res) => {
     const previousItems = normalizeOrderItems(order.items);
     const previousSubtotal = Number(order.subtotal || 0);
     const previousTotal = Number(order.total || 0);
+    const previousCostTotal = Number(order.costTotal || 0);
     const previousPaymentMethod = order.paymentMethod;
     const previousSource = order.source || "staff";
     const previousPromoCode = order.promoCode || null;
@@ -409,14 +460,22 @@ const updateOrder = async (req, res) => {
       nextOrderState = await buildOrderItemsFromProducts(requestedItems);
     }
 
-    const appliedPromo = await resolvePromoForOrder({
+    const normalizedBookingDetails = normalizeBookingDetails(bookingDetails);
+    const appliedPromo = await resolvePromotionsForOrder({
+      paymentMethod,
       promoCode: requestedPromoCode,
       subtotal: nextOrderState.subtotal,
       source: order.source === "customer" ? "menu" : "pos",
-      excludeOrderId: order.id
+      excludeOrderId: order.id,
+      bookingDetails: normalizedBookingDetails
     });
 
-    nextOrderState.total = Number((nextOrderState.subtotal - appliedPromo.promoDiscount).toFixed(2));
+    const roundedPromo = applyPromoBillingRounding({
+      subtotal: nextOrderState.subtotal,
+      promoDiscount: appliedPromo.promoDiscount
+    });
+
+    nextOrderState.total = roundedPromo.total;
 
     const difference = Number((nextOrderState.total - previousTotal).toFixed(2));
     let adjustmentType = "none";
@@ -431,7 +490,11 @@ const updateOrder = async (req, res) => {
       adjustmentAmount = Math.abs(difference);
     }
 
-    const requiresImmediateAdjustment = !isQueuedOrder && hasCollectedPayment(previousPaymentMethod);
+    const requiresImmediateAdjustment =
+      !isQueuedOrder &&
+      hasCollectedPayment(previousPaymentMethod) &&
+      !isPartnerPaymentMethod(previousPaymentMethod) &&
+      !isPartnerPaymentMethod(paymentMethod);
 
     if (requiresImmediateAdjustment && adjustmentType !== "none" && !adjustmentMethod) {
       if (inventoryRestored) {
@@ -486,14 +549,20 @@ const updateOrder = async (req, res) => {
     Object.assign(order, {
       items: nextOrderState.orderItems,
       subtotal: nextOrderState.subtotal,
+      costTotal: nextOrderState.costTotal,
       total: nextOrderState.total,
       promoCodeId: appliedPromo.promoCodeId,
       promoCode: appliedPromo.promoCode,
-      promoDiscount: appliedPromo.promoDiscount,
+      promoDiscount: roundedPromo.promoDiscount,
       promoSnapshot: appliedPromo.promoSnapshot,
       paymentMethod,
       source: nextSource,
-      bookingDetails: normalizeBookingDetails(bookingDetails),
+      bookingDetails: {
+        ...normalizedBookingDetails,
+        partnerPromoIds: appliedPromo.selectedPromoIds || normalizedBookingDetails.partnerPromoIds || [],
+        partnerCommissionRate:
+          appliedPromo.partnerCommissionRate ?? normalizedBookingDetails.partnerCommissionRate ?? null
+      },
       staff: req.user.id,
       status: isQueuedOrder ? "food_serving" : order.status,
       editedAt: new Date(),
@@ -507,6 +576,8 @@ const updateOrder = async (req, res) => {
           newSubtotal: nextOrderState.subtotal,
           oldTotal: previousTotal,
           newTotal: nextOrderState.total,
+          oldCostTotal: previousCostTotal,
+          newCostTotal: nextOrderState.costTotal,
           adjustmentType,
           adjustmentAmount,
           adjustmentMethod,
@@ -515,7 +586,7 @@ const updateOrder = async (req, res) => {
           oldPromoCode: previousPromoCode,
           newPromoCode: appliedPromo.promoCode || null,
           oldPromoDiscount: previousPromoDiscount,
-          newPromoDiscount: Number(appliedPromo.promoDiscount || 0),
+          newPromoDiscount: Number(roundedPromo.promoDiscount || 0),
           oldItems: previousItems,
           newItems: nextItems,
           changes
@@ -551,6 +622,7 @@ const voidOrder = async (req, res) => {
   const previousItems = normalizeOrderItems(order.items);
   const previousSubtotal = Number(order.subtotal || 0);
   const previousTotal = Number(order.total || 0);
+  const previousCostTotal = Number(order.costTotal || 0);
   const previousPaymentMethod = order.paymentMethod;
   const previousPromoCode = order.promoCode || null;
   const previousPromoDiscount = Number(order.promoDiscount || 0);
@@ -568,6 +640,7 @@ const voidOrder = async (req, res) => {
   order.originalSubtotal = order.originalSubtotal ?? order.subtotal;
   order.originalTotal = order.originalTotal ?? order.total;
   order.subtotal = 0;
+  order.costTotal = 0;
   order.total = 0;
   order.status = "void";
   order.voidedAt = new Date();
@@ -583,6 +656,8 @@ const voidOrder = async (req, res) => {
       newSubtotal: 0,
       oldTotal: previousTotal,
       newTotal: 0,
+      oldCostTotal: previousCostTotal,
+      newCostTotal: 0,
       adjustmentType: requiresRefundMethod ? "void" : "none",
       adjustmentAmount: requiresRefundMethod ? refundAmount : 0,
       adjustmentMethod: requiresRefundMethod ? refundMethod : null,

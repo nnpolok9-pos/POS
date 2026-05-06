@@ -12,7 +12,8 @@ const {
   parsePromoDate,
   normalizePromoPayload,
   getPromoUsageStats,
-  validatePromoForOrder
+  validatePromoForOrder,
+  applyPromoBillingRounding
 } = require("../lib/promoLogic");
 
 const enrichPromo = async (promo) => {
@@ -77,13 +78,19 @@ const previewPromo = async (req, res) => {
       usageStats
     });
 
+    const roundedPromo = applyPromoBillingRounding({
+      subtotal,
+      promoDiscount: appliedPromo.promoDiscount
+    });
+
     res.json({
       code: appliedPromo.promoCode,
-      discount: appliedPromo.promoDiscount,
+      discount: roundedPromo.promoDiscount,
       subtotal,
-      total: Number((subtotal - appliedPromo.promoDiscount).toFixed(2)),
+      total: roundedPromo.total,
       promo: appliedPromo.promoSnapshot,
-      usage: usageStats
+      usage: usageStats,
+      roundedAdjustment: roundedPromo.roundedAdjustment
     });
   } catch (error) {
     res.status(400).json({ message: error.message });

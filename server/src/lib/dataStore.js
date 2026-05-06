@@ -4,19 +4,21 @@ const {
   mapUserRow,
   mapProductRow,
   mapPromoRow,
+  mapPartnerSettingRow,
   mapOrderRow,
   mapInventoryMovementRow,
   mapShopSettingsRow,
   stringifyJson,
   createId
 } = require("../config/db");
+const { buildDefaultPartnerSettings, createDefaultPartnerSetting, normalizePartnerSetting } = require("../utils/partnerSettings");
 
 const userColumns = `
   id, name, email, password_hash, avatar, role, is_active, created_at, updated_at
 `;
 
 const productColumns = `
-  id, name, khmer_name, price, regular_price, promotional_price, category, khmer_category,
+  id, name, khmer_name, price, regular_price, promotional_price, tentative_cost, category, khmer_category,
   description, khmer_description, image, stock, stock_unit, seasoning_per_order_consumption,
   expiry_date, product_type, combo_items, for_sale, sku, is_active, low_stock_threshold,
   created_at, updated_at
@@ -29,7 +31,7 @@ const promoColumns = `
 `;
 
 const orderColumns = `
-  id, order_id, items, sauce_items, total, subtotal, payment_method, booking_details, status,
+  id, order_id, items, sauce_items, total, subtotal, cost_total, payment_method, booking_details, status,
   queue_number, source, promo_code_id, promo_code, promo_discount, promo_snapshot,
   original_subtotal, original_total, staff_id, voided_at, voided_by, edited_at, edited_by,
   edit_history, served_at, served_by, created_at, updated_at
@@ -42,6 +44,10 @@ const movementColumns = `
 
 const settingsColumns = `
   id, settings_key, shop_name, address, logo, created_at, updated_at
+`;
+
+const partnerColumns = `
+  partner_key, partner_name, commission_rate, promo_config, is_active, created_at, updated_at
 `;
 
 const boolToInt = (value) => (value ? 1 : 0);
@@ -222,6 +228,7 @@ const saveProduct = async (product) => {
     price: Number(product.price || 0),
     regularPrice: Number(product.regularPrice || 0),
     promotionalPrice: Number(product.promotionalPrice || 0),
+    tentativeCost: Number(product.tentativeCost || 0),
     category: product.category,
     khmerCategory: product.khmerCategory || "",
     description: product.description || "",
@@ -244,6 +251,7 @@ const saveProduct = async (product) => {
       `UPDATE products
        SET name=:name, khmer_name=:khmerName, price=:price, regular_price=:regularPrice,
            promotional_price=:promotionalPrice, category=:category, khmer_category=:khmerCategory,
+           tentative_cost=:tentativeCost,
            description=:description, khmer_description=:khmerDescription, image=:image, stock=:stock,
            stock_unit=:stockUnit, seasoning_per_order_consumption=:seasoningPerOrderConsumption,
            expiry_date=:expiryDate, product_type=:productType, combo_items=:comboItems, for_sale=:forSale,
@@ -257,11 +265,11 @@ const saveProduct = async (product) => {
   await query(
     `INSERT INTO products (
       id, name, khmer_name, price, regular_price, promotional_price, category, khmer_category,
-      description, khmer_description, image, stock, stock_unit, seasoning_per_order_consumption,
+      tentative_cost, description, khmer_description, image, stock, stock_unit, seasoning_per_order_consumption,
       expiry_date, product_type, combo_items, for_sale, sku, is_active, low_stock_threshold
     ) VALUES (
       :id, :name, :khmerName, :price, :regularPrice, :promotionalPrice, :category, :khmerCategory,
-      :description, :khmerDescription, :image, :stock, :stockUnit, :seasoningPerOrderConsumption,
+      :tentativeCost, :description, :khmerDescription, :image, :stock, :stockUnit, :seasoningPerOrderConsumption,
       :expiryDate, :productType, :comboItems, :forSale, :sku, :isActive, :lowStockThreshold
     )`,
     params
@@ -375,6 +383,79 @@ const deletePromoById = async (id) => {
   await query(`DELETE FROM promo_codes WHERE id=:id`, { id });
 };
 
+const ensurePartnerSettings = async () => {
+  const existingRows = await query(`SELECT ${partnerColumns} FROM partner_settings`);
+  const existingKeys = new Set(existingRows.map((row) => String(row.partner_key)));
+
+  for (const defaultSetting of buildDefaultPartnerSettings()) {
+    if (existingKeys.has(defaultSetting.partnerKey)) {
+      continue;
+    }
+
+    await query(
+      `INSERT INTO partner_settings (partner_key, partner_name, commission_rate, promo_config, is_active)
+       VALUES (:partnerKey, :partnerName, :commissionRate, :promoConfig, :isActive)`,
+      {
+        partnerKey: defaultSetting.partnerKey,
+        partnerName: defaultSetting.partnerName,
+        commissionRate: Number(defaultSetting.commissionRate || 0),
+        promoConfig: stringifyJson(defaultSetting.promos, []),
+        isActive: boolToInt(defaultSetting.isActive ?? true)
+      }
+    );
+  }
+};
+
+const getAllPartnerSettings = async () => {
+  await ensurePartnerSettings();
+  const rows = await query(`SELECT ${partnerColumns} FROM partner_settings ORDER BY partner_name ASC`);
+  return rows.map(mapPartnerSettingRow);
+};
+
+const getPartnerSettingByKey = async (partnerKey) => {
+  if (!partnerKey) {
+    return null;
+  }
+
+  await ensurePartnerSettings();
+  const rows = await query(`SELECT ${partnerColumns} FROM partner_settings WHERE partner_key=:partnerKey LIMIT 1`, { partnerKey });
+  return mapPartnerSettingRow(rows[0]) || createDefaultPartnerSetting(partnerKey);
+};
+
+const savePartnerSetting = async (setting) => {
+  const normalized = normalizePartnerSetting(setting);
+  const existing = await getPartnerSettingByKey(normalized.partnerKey);
+
+  if (existing) {
+    await query(
+      `UPDATE partner_settings
+       SET partner_name=:partnerName, commission_rate=:commissionRate, promo_config=:promoConfig, is_active=:isActive
+       WHERE partner_key=:partnerKey`,
+      {
+        partnerKey: normalized.partnerKey,
+        partnerName: normalized.partnerName,
+        commissionRate: Number(normalized.commissionRate || 0),
+        promoConfig: stringifyJson(normalized.promos, []),
+        isActive: boolToInt(normalized.isActive ?? true)
+      }
+    );
+  } else {
+    await query(
+      `INSERT INTO partner_settings (partner_key, partner_name, commission_rate, promo_config, is_active)
+       VALUES (:partnerKey, :partnerName, :commissionRate, :promoConfig, :isActive)`,
+      {
+        partnerKey: normalized.partnerKey,
+        partnerName: normalized.partnerName,
+        commissionRate: Number(normalized.commissionRate || 0),
+        promoConfig: stringifyJson(normalized.promos, []),
+        isActive: boolToInt(normalized.isActive ?? true)
+      }
+    );
+  }
+
+  return getPartnerSettingByKey(normalized.partnerKey);
+};
+
 const getInventoryMovements = async ({ movementType = null, from = null, to = null, limit = null } = {}) => {
   const conditions = [];
   const params = {};
@@ -432,6 +513,7 @@ const saveOrder = async (order, connection = null) => {
     sauceItems: stringifyJson(order.sauceItems, []),
     total: Number(order.total || 0),
     subtotal: Number(order.subtotal || 0),
+    costTotal: Number(order.costTotal || 0),
     paymentMethod: order.paymentMethod || null,
     bookingDetails: stringifyJson(order.bookingDetails, {}),
     status: order.status,
@@ -458,7 +540,7 @@ const saveOrder = async (order, connection = null) => {
   if (order.id) {
     await runner(
       `UPDATE orders
-       SET order_id=:orderId, items=:items, sauce_items=:sauceItems, total=:total, subtotal=:subtotal,
+       SET order_id=:orderId, items=:items, sauce_items=:sauceItems, total=:total, subtotal=:subtotal, cost_total=:costTotal,
            payment_method=:paymentMethod, booking_details=:bookingDetails, status=:status, queue_number=:queueNumber,
            source=:source, promo_code_id=:promoCodeId, promo_code=:promoCode, promo_discount=:promoDiscount,
            promo_snapshot=:promoSnapshot, original_subtotal=:originalSubtotal, original_total=:originalTotal,
@@ -472,12 +554,12 @@ const saveOrder = async (order, connection = null) => {
 
   await runner(
     `INSERT INTO orders (
-      id, order_id, items, sauce_items, total, subtotal, payment_method, booking_details, status,
+      id, order_id, items, sauce_items, total, subtotal, cost_total, payment_method, booking_details, status,
       queue_number, source, promo_code_id, promo_code, promo_discount, promo_snapshot,
       original_subtotal, original_total, staff_id, voided_at, voided_by,
       edited_at, edited_by, edit_history, served_at, served_by
     ) VALUES (
-      :id, :orderId, :items, :sauceItems, :total, :subtotal, :paymentMethod, :bookingDetails, :status,
+      :id, :orderId, :items, :sauceItems, :total, :subtotal, :costTotal, :paymentMethod, :bookingDetails, :status,
       :queueNumber, :source, :promoCodeId, :promoCode, :promoDiscount, :promoSnapshot,
       :originalSubtotal, :originalTotal, :staffId, :voidedAt, :voidedBy,
       :editedAt, :editedBy, :editHistory, :servedAt, :servedBy
@@ -517,6 +599,9 @@ module.exports = {
   getPromoByCode,
   savePromo,
   deletePromoById,
+  getAllPartnerSettings,
+  getPartnerSettingByKey,
+  savePartnerSetting,
   getOrders,
   getOrderById,
   getOrderByPublicId,

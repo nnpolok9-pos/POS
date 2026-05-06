@@ -5,6 +5,7 @@ const {
   getDashboardSummary,
   getSalesRangeReport,
   getDeliveryPartnerSalesReport,
+  getTentativeProfitReport,
   getProductSalesReport,
   getCashPositionReport,
   getOrdersByDate
@@ -16,6 +17,7 @@ const router = express.Router();
 router.get("/sales", protect, authorize("master_admin", "admin", "checker"), getSalesReport);
 router.get("/sales-range", protect, authorize("master_admin", "admin", "checker"), getSalesRangeReport);
 router.get("/delivery-partner-sales", protect, authorize("master_admin", "admin", "checker"), getDeliveryPartnerSalesReport);
+router.get("/tentative-profit", protect, authorize("master_admin", "admin", "checker"), getTentativeProfitReport);
 router.get("/product-sales", protect, authorize("master_admin", "admin", "checker"), getProductSalesReport);
 router.get("/cash-position", protect, authorize("master_admin", "admin", "checker"), getCashPositionReport);
 router.get("/orders-by-date", protect, authorize("master_admin", "admin", "checker"), getOrdersByDate);

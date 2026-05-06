@@ -1,5 +1,5 @@
 const { getAllProducts } = require("./dataStore");
-const { isCompositeProductType, isBaseProductType, inferProductType, saveProduct } = require("./productLogic");
+const { isCompositeProductType, isBaseProductType, inferProductType, saveProduct, getEffectiveManualTentativeCost } = require("./productLogic");
 
 const normalizeOrderItems = (items = []) =>
   items.map((item) => ({
@@ -7,6 +7,7 @@ const normalizeOrderItems = (items = []) =>
     name: item.name,
     image: item.image || "",
     price: Number(item.price || 0),
+    costPerUnit: Number(item.costPerUnit || 0),
     quantity: Number(item.quantity || 0),
     productType: item.productType || "raw",
     components: (item.components || []).map((component) => ({
@@ -21,7 +22,8 @@ const normalizeOrderItems = (items = []) =>
       selectedName: alternative.selectedName,
       priceAdjustment: Number(alternative.priceAdjustment || 0)
     })),
-    subtotal: Number(item.subtotal || 0)
+    subtotal: Number(item.subtotal || 0),
+    costSubtotal: Number(item.costSubtotal || 0)
   }));
 
 const normalizeSelectedAlternativesInput = (selectedAlternatives = []) =>
@@ -129,11 +131,40 @@ const buildProductComponents = (product, quantity, productMap, selectedAlternati
   return [...componentMap.values()];
 };
 
+const calculateOrderItemCost = (product, productMap, selectedAlternativeMap = new Map(), trail = new Set()) => {
+  const normalizedType = inferProductType(product);
+  const productId = String(product?.id || product?._id || "");
+
+  if (normalizedType === "combo_type") {
+    if (!product?.comboItems?.length || trail.has(productId)) {
+      return 0;
+    }
+
+    const nextTrail = new Set(trail);
+    nextTrail.add(productId);
+
+    return product.comboItems.reduce((sum, comboItem) => {
+      const sourceProductId = String(comboItem.product?.id || comboItem.product?._id || comboItem.product);
+      const replacementProductId = comboItem.changeable ? selectedAlternativeMap.get(sourceProductId) : null;
+      const linkedProduct = productMap.get(replacementProductId || sourceProductId);
+
+      if (!linkedProduct) {
+        return sum;
+      }
+
+      return sum + calculateOrderItemCost(linkedProduct, productMap, selectedAlternativeMap, nextTrail) * Number(comboItem.quantity || 0);
+    }, 0);
+  }
+
+  return getEffectiveManualTentativeCost(product);
+};
+
 const buildOrderItemsFromProducts = async (requestedItems) => {
   const products = await getAllProducts();
   const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
   const orderItems = [];
   let subtotal = 0;
+  let costTotal = 0;
   const rawRequirements = new Map();
 
   for (const requestItem of requestedItems) {
@@ -192,7 +223,10 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
       const defaultUnitPrice = Number(product.price || 0) + linePriceAdjustment;
       const finalUnitPrice = unitPrice !== null ? unitPrice : defaultUnitPrice;
       const lineSubtotal = finalUnitPrice * quantity;
+      const costPerUnit = Number(calculateOrderItemCost(product, productMap, selectedAlternativeMap).toFixed(2));
+      const costSubtotal = Number((costPerUnit * quantity).toFixed(2));
       subtotal += lineSubtotal;
+      costTotal += costSubtotal;
 
       const components = buildProductComponents(product, quantity, productMap, selectedAlternativeMap).map((component) => {
         const rawKey = String(component.product);
@@ -210,28 +244,35 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
         name: product.name,
         image: product.image || "",
         price: finalUnitPrice,
+        costPerUnit,
         quantity,
         productType: product.productType,
         components,
         selectedAlternatives: selectedAlternativeDetails,
-        subtotal: lineSubtotal
+        subtotal: lineSubtotal,
+        costSubtotal
       });
       continue;
     }
 
     const finalUnitPrice = unitPrice !== null ? unitPrice : Number(product.price || 0);
     const lineSubtotal = finalUnitPrice * quantity;
+    const costPerUnit = Number(calculateOrderItemCost(product, productMap).toFixed(2));
+    const costSubtotal = Number((costPerUnit * quantity).toFixed(2));
     subtotal += lineSubtotal;
+    costTotal += costSubtotal;
     orderItems.push({
       product: product.id || product._id,
       name: product.name,
       image: product.image || "",
       price: finalUnitPrice,
+      costPerUnit,
       quantity,
       productType: inferProductType(product),
       components: [],
       selectedAlternatives: [],
-      subtotal: lineSubtotal
+      subtotal: lineSubtotal,
+      costSubtotal
     });
     rawRequirements.set(productId, (rawRequirements.get(productId) || 0) + quantity);
   }
@@ -244,7 +285,7 @@ const buildOrderItemsFromProducts = async (requestedItems) => {
     }
   }
 
-  return { orderItems, subtotal };
+  return { orderItems, subtotal, costTotal: Number(costTotal.toFixed(2)) };
 };
 
 const buildRawRequirements = (orderItems, sauceItems = []) => {

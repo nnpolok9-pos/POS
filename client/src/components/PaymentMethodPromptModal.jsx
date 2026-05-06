@@ -68,10 +68,13 @@ const PaymentMethodPromptModal = ({
   referencePlaceholder = "Enter partner sales ID",
   initialMethod = "",
   initialReference = "",
-  confirmLabel = "Confirm Selection"
+  confirmLabel = "Confirm Selection",
+  partnerSettingsByMethod = {},
+  initialSelectedPromoIds = []
 }) => {
   const [selectedMethod, setSelectedMethod] = useState("");
   const [referenceValue, setReferenceValue] = useState(initialReference || "");
+  const [selectedPromoIds, setSelectedPromoIds] = useState(initialSelectedPromoIds);
 
   useEffect(() => {
     if (!open) {
@@ -83,7 +86,8 @@ const PaymentMethodPromptModal = ({
 
     setSelectedMethod(allowAutoSelectedMethod ? initialMethod : "");
     setReferenceValue(initialReference || "");
-  }, [initialMethod, initialReference, methods, open, requireReferenceForMethods]);
+    setSelectedPromoIds(Array.isArray(initialSelectedPromoIds) ? initialSelectedPromoIds : []);
+  }, [initialMethod, initialReference, initialSelectedPromoIds, methods, open, requireReferenceForMethods]);
 
   if (!open) {
     return null;
@@ -91,10 +95,17 @@ const PaymentMethodPromptModal = ({
 
   const selectedMethodRequiresReference = Boolean(selectedMethod) && requireReferenceForMethods.includes(selectedMethod);
   const selectedMeta = selectedMethod ? methodMeta[selectedMethod] : null;
+  const selectedPartnerSetting = selectedMethod ? partnerSettingsByMethod[selectedMethod] : null;
+  const partnerPromos = (selectedPartnerSetting?.promos || []).filter((promo) => promo.isActive);
 
   const handleMethodClick = (method) => {
     if (requireReferenceForMethods.includes(method)) {
       setSelectedMethod(method);
+      const partnerDefaults = (partnerSettingsByMethod[method]?.promos || [])
+        .filter((promo) => promo.isActive && promo.isDefault)
+        .map((promo) => promo.id);
+      const shouldReuseInitialSelections = initialMethod === method && Array.isArray(initialSelectedPromoIds) && initialSelectedPromoIds.length > 0;
+      setSelectedPromoIds(shouldReuseInitialSelections ? initialSelectedPromoIds : partnerDefaults);
       return;
     }
 
@@ -106,7 +117,7 @@ const PaymentMethodPromptModal = ({
       return;
     }
 
-    onSelect(selectedMethod, { referenceValue: referenceValue.trim() });
+    onSelect(selectedMethod, { referenceValue: referenceValue.trim(), selectedPromoIds });
   };
 
   const gridClass =
@@ -185,6 +196,39 @@ const PaymentMethodPromptModal = ({
                 <p className="mt-2 text-xs text-slate-500">
                   The order will be placed only after a partner sales ID is entered.
                 </p>
+
+                {partnerPromos.length > 0 ? (
+                  <div className="mt-4 rounded-[1.4rem] border border-slate-100 bg-slate-50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Partner Promos</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {partnerPromos.map((promo) => {
+                        const selected = selectedPromoIds.includes(promo.id);
+                        return (
+                          <button
+                            key={promo.id}
+                            type="button"
+                            onClick={() =>
+                              setSelectedPromoIds((current) =>
+                                current.includes(promo.id) ? current.filter((promoId) => promoId !== promo.id) : [...current, promo.id]
+                              )
+                            }
+                            className={`rounded-2xl border px-3 py-2 text-left text-[13px] font-semibold transition ${
+                              selected
+                                ? "border-brand-300 bg-brand-50 text-brand-700"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-brand-200 hover:bg-brand-50"
+                            }`}
+                          >
+                            <div>{promo.name}</div>
+                            <div className="mt-1 text-[11px] font-medium opacity-80">
+                              {promo.discountType === "percentage" ? `${promo.discountValue}% off` : `${promo.discountValue} KHR off`}
+                              {promo.isDefault ? " · default" : ""}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

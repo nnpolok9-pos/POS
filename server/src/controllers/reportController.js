@@ -1,4 +1,4 @@
-const { getOrders, getAllProducts } = require("../lib/dataStore");
+const { getOrders, getAllProducts, getAllPartnerSettings } = require("../lib/dataStore");
 const { inferProductType, isCompositeProductType, buildCompositeRequirements } = require("../lib/productLogic");
 const {
   buildTimezoneDateRange,
@@ -48,6 +48,57 @@ const buildEmptyPaymentFlows = () =>
     acc[`${method}Out`] = 0;
     return acc;
   }, {});
+
+const roundReportAmount = (value) => Number(Number(value || 0).toFixed(2));
+
+const getPartnerKeyForOrder = (order) => {
+  if (PARTNER_PAYMENT_METHODS.includes(order?.paymentMethod)) {
+    return order.paymentMethod;
+  }
+
+  if (PARTNER_PAYMENT_METHODS.includes(order?.source)) {
+    return order.source;
+  }
+
+  return null;
+};
+
+const getPartnerCommissionRateForOrder = (order, partnerSettingsMap, partnerKey) =>
+  Number(
+    order?.bookingDetails?.partnerCommissionRate ??
+      order?.promoSnapshot?.commissionRate ??
+      partnerSettingsMap.get(partnerKey)?.commissionRate ??
+      0
+  );
+
+const getPartnerPromoDiscountForOrder = (order) =>
+  order?.promoSnapshot?.type === "partner" ? Number(order?.promoDiscount || 0) : 0;
+
+const getOrderFinancialMetrics = (order, partnerSettingsMap) => {
+  const grossSales = Number(order?.subtotal || 0);
+  const partnerKey = getPartnerKeyForOrder(order);
+  const partnerPromoDiscount = getPartnerPromoDiscountForOrder(order);
+  const salesAfterPartnerPromo = Number(order?.total || 0);
+  const commissionAmount = partnerKey
+    ? roundReportAmount((salesAfterPartnerPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
+    : 0;
+  const netSales = roundReportAmount(salesAfterPartnerPromo - commissionAmount);
+  const costOfGoodsSold = roundReportAmount(order?.costTotal || 0);
+  const tentativeProfit = roundReportAmount(netSales - costOfGoodsSold);
+  const profitMarginPercent = netSales > 0 ? roundReportAmount((tentativeProfit / netSales) * 100) : 0;
+
+  return {
+    partnerKey,
+    grossSales,
+    partnerPromoDiscount,
+    salesAfterPartnerPromo,
+    commissionAmount,
+    netSales,
+    costOfGoodsSold,
+    tentativeProfit,
+    profitMarginPercent
+  };
+};
 
 const getInitialPaymentTransaction = (order) => {
   const firstEdit = Array.isArray(order.editHistory) ? order.editHistory[0] : null;
@@ -246,7 +297,8 @@ const getSalesRangeReport = async (req, res) => {
     return res.status(400).json({ message: "Invalid date range" });
   }
   const { start, end } = range;
-  const allOrders = await getOrders();
+  const [allOrders, partnerSettings] = await Promise.all([getOrders(), getAllPartnerSettings()]);
+  const partnerSettingsMap = new Map(partnerSettings.map((setting) => [setting.partnerKey, setting]));
   const orders = allOrders.filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end);
 
   const grouped = new Map();
@@ -254,43 +306,52 @@ const getSalesRangeReport = async (req, res) => {
     const date = toReportDay(order.createdAt);
     const existing = grouped.get(date) || {
       totalSaleAmount: 0,
+      grossSales: 0,
+      partnerPromoDiscount: 0,
+      salesAfterPartnerPromo: 0,
+      commissionAmount: 0,
       numberOfOrder: 0,
-      cashIn: 0,
-      cashOut: 0,
-      cardIn: 0,
-      cardOut: 0,
-      qrIn: 0,
-      qrOut: 0,
-      grabIn: 0,
-      grabOut: 0,
-      foodpandaIn: 0,
-      foodpandaOut: 0,
-      e_gatesIn: 0,
-      e_gatesOut: 0,
-      wownowIn: 0,
-      wownowOut: 0
+      cash: 0,
+      card: 0,
+      qr: 0,
+      deliveryPartners: 0,
+      partners: {
+        grab: 0,
+        foodpanda: 0,
+        e_gates: 0,
+        wownow: 0
+      }
     };
 
     if (COMPLETED_STATUSES.includes(order.status)) {
-      existing.totalSaleAmount += Number(order.total || 0);
+      const grossSales = Number(order.subtotal || 0);
+      const partnerKey = getPartnerKeyForOrder(order);
+      const partnerPromoDiscount = getPartnerPromoDiscountForOrder(order);
+      const salesAfterPartnerPromo = Number(order.total || 0);
+      const commissionAmount = partnerKey
+        ? roundReportAmount((salesAfterPartnerPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
+        : 0;
+      const netSales = roundReportAmount(salesAfterPartnerPromo - commissionAmount);
+
+      existing.grossSales += grossSales;
+      existing.partnerPromoDiscount += partnerPromoDiscount;
+      existing.salesAfterPartnerPromo += salesAfterPartnerPromo;
+      existing.commissionAmount += commissionAmount;
+      existing.totalSaleAmount += netSales;
       existing.numberOfOrder += 1;
+
+      if (partnerKey) {
+        existing.deliveryPartners += netSales;
+        existing.partners[partnerKey] += netSales;
+      } else if (order.paymentMethod === "cash") {
+        existing.cash += salesAfterPartnerPromo;
+      } else if (order.paymentMethod === "card") {
+        existing.card += salesAfterPartnerPromo;
+      } else if (order.paymentMethod === "qr") {
+        existing.qr += salesAfterPartnerPromo;
+      }
     }
 
-    const flows = getOrderPaymentFlows(order);
-    existing.cashIn += Number(flows.cashIn || 0);
-    existing.cashOut += Number(flows.cashOut || 0);
-    existing.cardIn += Number(flows.cardIn || 0);
-    existing.cardOut += Number(flows.cardOut || 0);
-    existing.qrIn += Number(flows.qrIn || 0);
-    existing.qrOut += Number(flows.qrOut || 0);
-    existing.grabIn += Number(flows.grabIn || 0);
-    existing.grabOut += Number(flows.grabOut || 0);
-    existing.foodpandaIn += Number(flows.foodpandaIn || 0);
-    existing.foodpandaOut += Number(flows.foodpandaOut || 0);
-    existing.e_gatesIn += Number(flows.e_gatesIn || 0);
-    existing.e_gatesOut += Number(flows.e_gatesOut || 0);
-    existing.wownowIn += Number(flows.wownowIn || 0);
-    existing.wownowOut += Number(flows.wownowOut || 0);
     grouped.set(date, existing);
   });
 
@@ -299,23 +360,22 @@ const getSalesRangeReport = async (req, res) => {
     .map(([date, row], index) => ({
       sl: index + 1,
       date,
-      totalSaleAmount: row.totalSaleAmount,
+      totalSaleAmount: roundReportAmount(row.totalSaleAmount),
+      grossSales: roundReportAmount(row.grossSales),
+      partnerPromoDiscount: roundReportAmount(row.partnerPromoDiscount),
+      salesAfterPartnerPromo: roundReportAmount(row.salesAfterPartnerPromo),
+      commissionAmount: roundReportAmount(row.commissionAmount),
       numberOfOrder: row.numberOfOrder,
       paymentBy: {
-        cash: row.cashIn - row.cashOut,
-        card: row.cardIn - row.cardOut,
-        qr: row.qrIn - row.qrOut,
-        deliveryPartners:
-          row.grabIn -
-          row.grabOut +
-          (row.foodpandaIn - row.foodpandaOut) +
-          (row.e_gatesIn - row.e_gatesOut) +
-          (row.wownowIn - row.wownowOut),
+        cash: roundReportAmount(row.cash),
+        card: roundReportAmount(row.card),
+        qr: roundReportAmount(row.qr),
+        deliveryPartners: roundReportAmount(row.deliveryPartners),
         partners: {
-          grab: row.grabIn - row.grabOut,
-          foodpanda: row.foodpandaIn - row.foodpandaOut,
-          e_gates: row.e_gatesIn - row.e_gatesOut,
-          wownow: row.wownowIn - row.wownowOut
+          grab: roundReportAmount(row.partners.grab),
+          foodpanda: roundReportAmount(row.partners.foodpanda),
+          e_gates: roundReportAmount(row.partners.e_gates),
+          wownow: roundReportAmount(row.partners.wownow)
         }
       }
     }));
@@ -324,60 +384,65 @@ const getSalesRangeReport = async (req, res) => {
 };
 
 const getDeliveryPartnerSalesReport = async (req, res) => {
-  const { from, to } = req.query;
+  const { from, to, partner } = req.query;
   const range = buildTimezoneDateRange(from, to);
   if (!range) {
     return res.status(400).json({ message: "Invalid date range" });
   }
   const { start, end } = range;
-  const orders = (await getOrders()).filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end);
+  const selectedPartner = PARTNER_PAYMENT_METHODS.includes(partner) ? partner : null;
+  const [orders, partnerSettings] = await Promise.all([getOrders(), getAllPartnerSettings()]);
+  const partnerSettingsMap = new Map(partnerSettings.map((setting) => [setting.partnerKey, setting]));
+  const ordersInRange = orders.filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end);
   const grouped = new Map(
-    PARTNER_PAYMENT_METHODS.map((partnerKey) => [
+    (selectedPartner ? [selectedPartner] : PARTNER_PAYMENT_METHODS).map((partnerKey) => [
       partnerKey,
-      {
-        partner: partnerKey,
-        partnerLabel: PARTNER_LABELS[partnerKey] || partnerKey,
-        orderCount: 0,
-        completedOrders: 0,
-        grossSales: 0,
-        refunds: 0,
-        netSales: 0
-      }
+        {
+          partner: partnerKey,
+          partnerLabel: PARTNER_LABELS[partnerKey] || partnerKey,
+          orderCount: 0,
+          completedOrders: 0,
+          grossSales: 0,
+          salesAfterPromo: 0,
+          refunds: 0,
+          netSales: 0,
+          commissionAmount: 0,
+          settlementAmount: 0
+        }
     ])
   );
 
-  orders.forEach((order) => {
-    const flows = getOrderPaymentFlows(order);
-
-    PARTNER_PAYMENT_METHODS.forEach((partnerKey) => {
-      const partnerIn = Number(flows[`${partnerKey}In`] || 0);
-      const partnerOut = Number(flows[`${partnerKey}Out`] || 0);
-      const touched =
-        partnerIn > 0 ||
-        partnerOut > 0 ||
-        order.paymentMethod === partnerKey ||
-        order.source === partnerKey ||
-        (order.editHistory || []).some(
-          (entry) =>
-            entry.oldPaymentMethod === partnerKey ||
-            entry.newPaymentMethod === partnerKey ||
-            entry.adjustmentMethod === partnerKey
-        );
-
-      if (!touched) {
+    ordersInRange.forEach((order) => {
+      const partnerKey = getPartnerKeyForOrder(order);
+      if (!partnerKey || (selectedPartner && partnerKey !== selectedPartner)) {
         return;
       }
 
       const existing = grouped.get(partnerKey);
-      existing.orderCount += 1;
-      if (COMPLETED_STATUSES.includes(order.status)) {
-        existing.completedOrders += 1;
+      if (!existing) {
+        return;
       }
-      existing.grossSales += partnerIn;
-      existing.refunds += partnerOut;
-      existing.netSales += partnerIn - partnerOut;
+
+      if (COMPLETED_STATUSES.includes(order.status)) {
+        const grossSales = Number(order.subtotal || 0);
+        const salesAfterPromo = Number(order.total || 0);
+        const commissionAmount = roundReportAmount(
+          (salesAfterPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100
+        );
+        const netSales = roundReportAmount(salesAfterPromo - commissionAmount);
+
+        existing.orderCount += 1;
+        existing.completedOrders += 1;
+        existing.grossSales += grossSales;
+        existing.salesAfterPromo += salesAfterPromo;
+        existing.commissionAmount += commissionAmount;
+        existing.netSales += netSales;
+        existing.settlementAmount += netSales;
+      }
+
+      const flows = getOrderPaymentFlows(order);
+      existing.refunds += Number(flows[`${partnerKey}Out`] || 0);
     });
-  });
 
   const rows = [...grouped.values()].map((row, index) => ({
     sl: index + 1,
@@ -385,10 +450,13 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
     partnerLabel: row.partnerLabel,
     orderCount: row.orderCount,
     completedOrders: row.completedOrders,
-    grossSales: row.grossSales,
-    refunds: row.refunds,
-    netSales: row.netSales,
-    averageOrderValue: row.orderCount > 0 ? row.grossSales / row.orderCount : 0
+    grossSales: roundReportAmount(row.grossSales),
+    salesAfterPromo: roundReportAmount(row.salesAfterPromo),
+    refunds: roundReportAmount(row.refunds),
+    netSales: roundReportAmount(row.netSales),
+    commissionAmount: roundReportAmount(row.commissionAmount),
+    settlementAmount: roundReportAmount(row.settlementAmount),
+    averageOrderValue: row.orderCount > 0 ? roundReportAmount(row.salesAfterPromo / row.orderCount) : 0
   }));
 
   const summary = rows.reduce(
@@ -396,20 +464,26 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
       acc.totalOrders += row.orderCount;
       acc.totalCompletedOrders += row.completedOrders;
       acc.totalGrossSales += row.grossSales;
+      acc.totalSalesAfterPromo += row.salesAfterPromo;
       acc.totalRefunds += row.refunds;
       acc.totalNetSales += row.netSales;
+      acc.totalCommissionAmount += row.commissionAmount;
+      acc.totalSettlementAmount += row.settlementAmount;
       return acc;
     },
-    {
-      totalOrders: 0,
-      totalCompletedOrders: 0,
-      totalGrossSales: 0,
-      totalRefunds: 0,
-      totalNetSales: 0
-    }
-  );
+      {
+        totalOrders: 0,
+        totalCompletedOrders: 0,
+        totalGrossSales: 0,
+        totalSalesAfterPromo: 0,
+        totalRefunds: 0,
+        totalNetSales: 0,
+        totalCommissionAmount: 0,
+        totalSettlementAmount: 0
+      }
+    );
 
-  const topPartner = [...rows].sort((left, right) => right.netSales - left.netSales || right.orderCount - left.orderCount)[0] || null;
+  const topPartner = [...rows].sort((left, right) => right.settlementAmount - left.settlementAmount || right.orderCount - left.orderCount)[0] || null;
 
   res.json({
     from: start,
@@ -419,6 +493,216 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
       topPartner: topPartner?.partnerLabel || null
     },
     rows
+  });
+};
+
+const getTentativeProfitReport = async (req, res) => {
+  const { from, to, channel, partner } = req.query;
+  const range = buildTimezoneDateRange(from, to);
+  if (!range) {
+    return res.status(400).json({ message: "Invalid date range" });
+  }
+
+  const channelFilter = ["all", "counter", "partners"].includes(channel) ? channel : "all";
+  const selectedPartner = PARTNER_PAYMENT_METHODS.includes(partner) ? partner : null;
+  const { start, end } = range;
+  const [allOrders, partnerSettings] = await Promise.all([getOrders(), getAllPartnerSettings()]);
+  const partnerSettingsMap = new Map(partnerSettings.map((setting) => [setting.partnerKey, setting]));
+
+  const filteredOrders = allOrders.filter((order) => {
+    const createdAt = new Date(order.createdAt);
+    if (createdAt < start || createdAt > end || !COMPLETED_STATUSES.includes(order.status)) {
+      return false;
+    }
+
+    const partnerKey = getPartnerKeyForOrder(order);
+
+    if (channelFilter === "counter" && partnerKey) {
+      return false;
+    }
+
+    if (channelFilter === "partners" && !partnerKey) {
+      return false;
+    }
+
+    if (selectedPartner && partnerKey !== selectedPartner) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const dailyGrouped = new Map();
+  const partnerGrouped = new Map();
+  const summary = {
+    totalOrders: 0,
+    totalItems: 0,
+    grossSales: 0,
+    partnerPromoDiscount: 0,
+    salesAfterPartnerPromo: 0,
+    commissionAmount: 0,
+    netSales: 0,
+    costOfGoodsSold: 0,
+    tentativeProfit: 0,
+    counterGrossSales: 0,
+    counterNetSales: 0,
+    partnerGrossSales: 0,
+    partnerPromoSalesDiscount: 0,
+    partnerSalesAfterPromo: 0,
+    partnerCommissionAmount: 0,
+    partnerNetSales: 0
+  };
+
+  filteredOrders.forEach((order) => {
+    const metrics = getOrderFinancialMetrics(order, partnerSettingsMap);
+    const reportDay = toReportDay(order.createdAt);
+    const isPartnerOrder = Boolean(metrics.partnerKey);
+    const itemCount = (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+    const dailyRow = dailyGrouped.get(reportDay) || {
+      totalOrders: 0,
+      totalItems: 0,
+      grossSales: 0,
+      partnerPromoDiscount: 0,
+      salesAfterPartnerPromo: 0,
+      commissionAmount: 0,
+      netSales: 0,
+      costOfGoodsSold: 0,
+      tentativeProfit: 0,
+      counterGrossSales: 0,
+      counterNetSales: 0,
+      partnerGrossSales: 0,
+      partnerNetSales: 0
+    };
+
+    dailyRow.totalOrders += 1;
+    dailyRow.totalItems += itemCount;
+    dailyRow.grossSales += metrics.grossSales;
+    dailyRow.partnerPromoDiscount += metrics.partnerPromoDiscount;
+    dailyRow.salesAfterPartnerPromo += metrics.salesAfterPartnerPromo;
+    dailyRow.commissionAmount += metrics.commissionAmount;
+    dailyRow.netSales += metrics.netSales;
+    dailyRow.costOfGoodsSold += metrics.costOfGoodsSold;
+    dailyRow.tentativeProfit += metrics.tentativeProfit;
+    if (isPartnerOrder) {
+      dailyRow.partnerGrossSales += metrics.grossSales;
+      dailyRow.partnerNetSales += metrics.netSales;
+    } else {
+      dailyRow.counterGrossSales += metrics.grossSales;
+      dailyRow.counterNetSales += metrics.netSales;
+    }
+    dailyGrouped.set(reportDay, dailyRow);
+
+    summary.totalOrders += 1;
+    summary.totalItems += itemCount;
+    summary.grossSales += metrics.grossSales;
+    summary.partnerPromoDiscount += metrics.partnerPromoDiscount;
+    summary.salesAfterPartnerPromo += metrics.salesAfterPartnerPromo;
+    summary.commissionAmount += metrics.commissionAmount;
+    summary.netSales += metrics.netSales;
+    summary.costOfGoodsSold += metrics.costOfGoodsSold;
+    summary.tentativeProfit += metrics.tentativeProfit;
+    if (isPartnerOrder) {
+      summary.partnerGrossSales += metrics.grossSales;
+      summary.partnerPromoSalesDiscount += metrics.partnerPromoDiscount;
+      summary.partnerSalesAfterPromo += metrics.salesAfterPartnerPromo;
+      summary.partnerCommissionAmount += metrics.commissionAmount;
+      summary.partnerNetSales += metrics.netSales;
+    } else {
+      summary.counterGrossSales += metrics.grossSales;
+      summary.counterNetSales += metrics.netSales;
+    }
+
+    if (metrics.partnerKey) {
+      const existingPartner = partnerGrouped.get(metrics.partnerKey) || {
+        partner: metrics.partnerKey,
+        partnerLabel: PARTNER_LABELS[metrics.partnerKey] || metrics.partnerKey,
+        orderCount: 0,
+        grossSales: 0,
+        partnerPromoDiscount: 0,
+        salesAfterPartnerPromo: 0,
+        commissionAmount: 0,
+        netSales: 0,
+        costOfGoodsSold: 0,
+        tentativeProfit: 0
+      };
+
+      existingPartner.orderCount += 1;
+      existingPartner.grossSales += metrics.grossSales;
+      existingPartner.partnerPromoDiscount += metrics.partnerPromoDiscount;
+      existingPartner.salesAfterPartnerPromo += metrics.salesAfterPartnerPromo;
+      existingPartner.commissionAmount += metrics.commissionAmount;
+      existingPartner.netSales += metrics.netSales;
+      existingPartner.costOfGoodsSold += metrics.costOfGoodsSold;
+      existingPartner.tentativeProfit += metrics.tentativeProfit;
+      partnerGrouped.set(metrics.partnerKey, existingPartner);
+    }
+  });
+
+  const rows = [...dailyGrouped.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, row], index) => ({
+      sl: index + 1,
+      date,
+      totalOrders: row.totalOrders,
+      totalItems: row.totalItems,
+      grossSales: roundReportAmount(row.grossSales),
+      partnerPromoDiscount: roundReportAmount(row.partnerPromoDiscount),
+      salesAfterPartnerPromo: roundReportAmount(row.salesAfterPartnerPromo),
+      commissionAmount: roundReportAmount(row.commissionAmount),
+      netSales: roundReportAmount(row.netSales),
+      costOfGoodsSold: roundReportAmount(row.costOfGoodsSold),
+      tentativeProfit: roundReportAmount(row.tentativeProfit),
+      profitMarginPercent: row.netSales > 0 ? roundReportAmount((row.tentativeProfit / row.netSales) * 100) : 0,
+      counterGrossSales: roundReportAmount(row.counterGrossSales),
+      counterNetSales: roundReportAmount(row.counterNetSales),
+      partnerGrossSales: roundReportAmount(row.partnerGrossSales),
+      partnerNetSales: roundReportAmount(row.partnerNetSales)
+    }));
+
+  const partnerRows = [...partnerGrouped.values()]
+    .sort((left, right) => right.tentativeProfit - left.tentativeProfit || right.netSales - left.netSales)
+    .map((row, index) => ({
+      sl: index + 1,
+      partner: row.partner,
+      partnerLabel: row.partnerLabel,
+      orderCount: row.orderCount,
+      grossSales: roundReportAmount(row.grossSales),
+      partnerPromoDiscount: roundReportAmount(row.partnerPromoDiscount),
+      salesAfterPartnerPromo: roundReportAmount(row.salesAfterPartnerPromo),
+      commissionAmount: roundReportAmount(row.commissionAmount),
+      netSales: roundReportAmount(row.netSales),
+      costOfGoodsSold: roundReportAmount(row.costOfGoodsSold),
+      tentativeProfit: roundReportAmount(row.tentativeProfit),
+      profitMarginPercent: row.netSales > 0 ? roundReportAmount((row.tentativeProfit / row.netSales) * 100) : 0
+    }));
+
+  res.json({
+    from: start,
+    to: end,
+    channel: channelFilter,
+    partner: selectedPartner,
+    summary: {
+      ...summary,
+      grossSales: roundReportAmount(summary.grossSales),
+      partnerPromoDiscount: roundReportAmount(summary.partnerPromoDiscount),
+      salesAfterPartnerPromo: roundReportAmount(summary.salesAfterPartnerPromo),
+      commissionAmount: roundReportAmount(summary.commissionAmount),
+      netSales: roundReportAmount(summary.netSales),
+      costOfGoodsSold: roundReportAmount(summary.costOfGoodsSold),
+      tentativeProfit: roundReportAmount(summary.tentativeProfit),
+      counterGrossSales: roundReportAmount(summary.counterGrossSales),
+      counterNetSales: roundReportAmount(summary.counterNetSales),
+      partnerGrossSales: roundReportAmount(summary.partnerGrossSales),
+      partnerPromoSalesDiscount: roundReportAmount(summary.partnerPromoSalesDiscount),
+      partnerSalesAfterPromo: roundReportAmount(summary.partnerSalesAfterPromo),
+      partnerCommissionAmount: roundReportAmount(summary.partnerCommissionAmount),
+      partnerNetSales: roundReportAmount(summary.partnerNetSales),
+      profitMarginPercent: summary.netSales > 0 ? roundReportAmount((summary.tentativeProfit / summary.netSales) * 100) : 0,
+      averageOrderValue: summary.totalOrders > 0 ? roundReportAmount(summary.netSales / summary.totalOrders) : 0
+    },
+    rows,
+    partnerRows
   });
 };
 
@@ -583,6 +867,7 @@ module.exports = {
   getDashboardSummary,
   getSalesRangeReport,
   getDeliveryPartnerSalesReport,
+  getTentativeProfitReport,
   getProductSalesReport,
   getCashPositionReport,
   getOrdersByDate

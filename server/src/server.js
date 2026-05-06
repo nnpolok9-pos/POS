@@ -15,6 +15,7 @@ const reportRoutes = require("./routes/reportRoutes");
 const userRoutes = require("./routes/userRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const shopSettingsRoutes = require("./routes/shopSettingsRoutes");
+const partnerSettingsRoutes = require("./routes/partnerSettingsRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
@@ -41,6 +42,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/shop-settings", shopSettingsRoutes);
+app.use("/api/partners", partnerSettingsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

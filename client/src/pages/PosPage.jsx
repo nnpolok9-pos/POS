@@ -9,6 +9,7 @@ import ProductCard from "../components/ProductCard";
 import { usePosSidebar } from "../context/PosSidebarContext";
 import { useShopSettings } from "../context/ShopSettingsContext";
 import { orderService } from "../services/orderService";
+import { partnerService } from "../services/partnerService";
 import { productService } from "../services/productService";
 import { promoService } from "../services/promoService";
 import { currency } from "../utils/format";
@@ -105,6 +106,8 @@ const PosPage = ({ mode = "counter" }) => {
   const [paymentPromptOpen, setPaymentPromptOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [partnerSalesId, setPartnerSalesId] = useState("");
+  const [partnerSettings, setPartnerSettings] = useState([]);
+  const [partnerPromoIds, setPartnerPromoIds] = useState([]);
   const [customerInfo, setCustomerInfo] = useState({
     customerName: "",
     customerPhone: "",
@@ -127,6 +130,7 @@ const PosPage = ({ mode = "counter" }) => {
     promoRequestIdRef.current += 1;
     setPromoCode("");
     setAppliedPromo(null);
+    setPartnerPromoIds([]);
   };
 
   const handlePaymentMethodChange = (value) => {
@@ -222,7 +226,13 @@ const PosPage = ({ mode = "counter" }) => {
   }, [appliedPromo?.discount, cart, editingOrder]);
 
   const editingHasCollectedPayment = ["cash", "card", "qr", ...PARTNER_METHODS].includes(editingOrder?.paymentMethod || "");
-  const requiresAdjustmentMethod = Boolean(editingOrder && editingOrder.status !== "queued" && editingHasCollectedPayment && editingDifference !== 0);
+  const requiresAdjustmentMethod = Boolean(
+    editingOrder &&
+      editingOrder.status !== "queued" &&
+      editingHasCollectedPayment &&
+      !partnerOrderContext &&
+      editingDifference !== 0
+  );
   const paymentMethodOptions = useMemo(() => {
     if (partnerOrderContext) {
       return PARTNER_METHODS;
@@ -260,6 +270,8 @@ const PosPage = ({ mode = "counter" }) => {
       try {
         const data = await productService.getProducts();
         setProducts(data);
+        const partnerData = await partnerService.getPartners();
+        setPartnerSettings(partnerData);
 
         const editOrderId = searchParams.get("editOrder");
         if (!editOrderId) {
@@ -267,6 +279,7 @@ const PosPage = ({ mode = "counter" }) => {
           setCart([]);
           setPaymentMethod("");
           setPartnerSalesId("");
+          setPartnerPromoIds([]);
           setPaymentMethodError(false);
           setAdjustmentMethod("");
           resetPromoState();
@@ -299,6 +312,10 @@ const PosPage = ({ mode = "counter" }) => {
         setEditingOrder(order);
         setPaymentMethod(order.paymentMethod || "");
         setPartnerSalesId(order.bookingDetails?.partnerSalesId || "");
+        setPartnerPromoIds(
+          order.bookingDetails?.partnerPromoIds ||
+            (order.promoSnapshot?.type === "partner" ? (order.promoSnapshot.promotions || []).map((promo) => promo.id) : [])
+        );
         setPaymentMethodError(false);
         setAdjustmentMethod("");
         setPromoCode(order.promoCode || "");
@@ -418,6 +435,10 @@ const PosPage = ({ mode = "counter" }) => {
   }, [products, editingOrder]);
 
   const categoryOptions = useMemo(() => buildCategoryOptions(productsForSale), [productsForSale]);
+  const partnerSettingsByMethod = useMemo(
+    () => Object.fromEntries(partnerSettings.map((setting) => [setting.partnerKey, setting])),
+    [partnerSettings]
+  );
   const totalCartItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const cartQuantityMap = useMemo(() => new Map(cart.map((item) => [item.id, item.quantity])), [cart]);
 
@@ -514,7 +535,8 @@ const PosPage = ({ mode = "counter" }) => {
         paymentMethod: selectedPaymentMethod,
         bookingDetails: {
           ...customerInfo,
-          partnerSalesId: partnerOrderContext ? String(options?.referenceValue ?? partnerSalesId ?? "").trim() : ""
+          partnerSalesId: partnerOrderContext ? String(options?.referenceValue ?? partnerSalesId ?? "").trim() : "",
+          partnerPromoIds: partnerOrderContext ? (options?.selectedPromoIds ?? partnerPromoIds ?? []) : []
         },
         adjustmentMethod: editingOrder ? adjustmentMethod || null : null,
         promoCode: normalizedPromoCode || null
@@ -540,15 +562,16 @@ const PosPage = ({ mode = "counter" }) => {
       const order = editingOrder ? await orderService.updateOrder(editingOrder.id, payload) : await orderService.createOrder(payload);
 
       toast.success(editingOrder ? `Order ${order.orderId} updated` : `Order ${order.orderId} sent to food serving`);
-      setLatestOrder(order);
-      setCart([]);
-      setEditingOrder(null);
-      setPaymentMethod("");
-      setPartnerSalesId("");
-      setPaymentMethodError(false);
-      setPaymentPromptOpen(false);
-      setAdjustmentMethod("");
-      resetPromoState();
+        setLatestOrder(order);
+        setCart([]);
+        setEditingOrder(null);
+        setPaymentMethod("");
+        setPartnerSalesId("");
+        setPartnerPromoIds([]);
+        setPaymentMethodError(false);
+        setPaymentPromptOpen(false);
+        setAdjustmentMethod("");
+        resetPromoState();
       setCustomerInfo({
         customerName: "",
         customerPhone: "",
@@ -581,6 +604,7 @@ const PosPage = ({ mode = "counter" }) => {
     setPaymentMethod(method);
     if (partnerOrderContext) {
       setPartnerSalesId(String(options.referenceValue || "").trim());
+      setPartnerPromoIds(Array.isArray(options.selectedPromoIds) ? options.selectedPromoIds : []);
     }
     setPaymentMethodError(false);
     setPaymentPromptOpen(false);
@@ -592,6 +616,7 @@ const PosPage = ({ mode = "counter" }) => {
     setCart([]);
     setPaymentMethod("");
     setPartnerSalesId("");
+    setPartnerPromoIds([]);
     setPaymentMethodError(false);
     setPaymentPromptOpen(false);
     setAdjustmentMethod("");
@@ -609,6 +634,7 @@ const PosPage = ({ mode = "counter" }) => {
     setPaymentMethodError(false);
     setPaymentPromptOpen(false);
     setPartnerSalesId("");
+    setPartnerPromoIds([]);
     setAdjustmentMethod("");
     resetPromoState();
     setCustomerInfo({
@@ -884,6 +910,8 @@ const PosPage = ({ mode = "counter" }) => {
         initialMethod={paymentMethod}
         initialReference={partnerSalesId}
         confirmLabel={editingOrder ? "Update Partner Order" : "Place Partner Order"}
+        partnerSettingsByMethod={partnerSettingsByMethod}
+        initialSelectedPromoIds={partnerPromoIds}
       />
     </>
   );

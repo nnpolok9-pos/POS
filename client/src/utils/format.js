@@ -49,6 +49,12 @@ export const currency = (value) => {
   return `${parts.khr} (${parts.usd})`;
 };
 
+export const formatPercent = (value, maximumFractionDigits = 2) =>
+  `${Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits
+  })}%`;
+
 export const formatPaymentMethodLabel = (value, fallback = "Unpaid") => {
   if (!value) {
     return fallback;

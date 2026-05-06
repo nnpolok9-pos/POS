@@ -23,6 +23,8 @@ const partnerSalesColumns = [
   { header: "Gross Sales", key: "grossSales" },
   { header: "Refunds", key: "refunds" },
   { header: "Net Sales", key: "netSales" },
+  { header: "Commission", key: "commissionAmount" },
+  { header: "Settlement", key: "settlementAmount" },
   { header: "Average Order", key: "averageOrderValue" }
 ];
 
@@ -37,7 +39,11 @@ const DeliveryPartnerSalesReportPage = () => {
   const loadReport = async () => {
     setLoading(true);
     try {
-      const data = await reportService.getDeliveryPartnerSales({ from, to });
+      const data = await reportService.getDeliveryPartnerSales({
+        from,
+        to,
+        partner: selectedPartner === "all" ? undefined : selectedPartner
+      });
       setReport(data);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to load delivery partner report");
@@ -61,10 +67,7 @@ const DeliveryPartnerSalesReportPage = () => {
     [report.rows]
   );
 
-  const visibleRows = useMemo(
-    () => (report.rows || []).filter((row) => selectedPartner === "all" || row.partner === selectedPartner),
-    [report.rows, selectedPartner]
-  );
+  const visibleRows = useMemo(() => report.rows || [], [report.rows]);
 
   const visibleSummary = useMemo(
     () =>
@@ -75,6 +78,8 @@ const DeliveryPartnerSalesReportPage = () => {
           acc.totalGrossSales += Number(row.grossSales || 0);
           acc.totalRefunds += Number(row.refunds || 0);
           acc.totalNetSales += Number(row.netSales || 0);
+          acc.totalCommissionAmount += Number(row.commissionAmount || 0);
+          acc.totalSettlementAmount += Number(row.settlementAmount || 0);
           return acc;
         },
         {
@@ -82,7 +87,9 @@ const DeliveryPartnerSalesReportPage = () => {
           totalCompletedOrders: 0,
           totalGrossSales: 0,
           totalRefunds: 0,
-          totalNetSales: 0
+          totalNetSales: 0,
+          totalCommissionAmount: 0,
+          totalSettlementAmount: 0
         }
       ),
     [visibleRows]
@@ -100,6 +107,8 @@ const DeliveryPartnerSalesReportPage = () => {
       grossSales: Number(row.grossSales || 0).toFixed(2),
       refunds: Number(row.refunds || 0).toFixed(2),
       netSales: Number(row.netSales || 0).toFixed(2),
+      commissionAmount: Number(row.commissionAmount || 0).toFixed(2),
+      settlementAmount: Number(row.settlementAmount || 0).toFixed(2),
       averageOrderValue: Number(row.averageOrderValue || 0).toFixed(2)
     })) || [];
 
@@ -149,13 +158,15 @@ const DeliveryPartnerSalesReportPage = () => {
                 </div>
                 <h1 className="mt-2.5 font-display text-xl font-bold text-slate-900 sm:text-2xl">Delivery Partner Sales Report</h1>
                 <p className="mt-1.5 text-[13px] leading-5 text-slate-500">
-                  Review Grab, Foodpanda, E-Gates, and WOWNOW sales performance for any selected date range.
+                  Review Grab, Foodpanda, E-Gates, and WOWNOW sales performance, commission deduction, and final settlement for any selected date range.
                 </p>
               </div>
 
               <div className="rounded-full border border-[#cbbba5] bg-[#fffaf0] px-4 py-2.5 shadow-sm">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Selected Date Range</p>
-                <p className="mt-1 text-[13px] font-semibold text-slate-800">{from} to {to}</p>
+                <p className="mt-1 text-[13px] font-semibold text-slate-800">
+                  {from} to {to}
+                </p>
               </div>
             </div>
 
@@ -195,7 +206,7 @@ const DeliveryPartnerSalesReportPage = () => {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <div className={`${statCardClass} border border-[#d9e0eb] bg-[#e8eef7]`}>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -229,11 +240,22 @@ const DeliveryPartnerSalesReportPage = () => {
               </div>
             </div>
           </div>
+          <div className={`${statCardClass} border border-[#efe2ca] bg-[#fff8ea]`}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Commission</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(visibleSummary.totalCommissionAmount || 0)}</p>
+              </div>
+              <div className="rounded-full bg-white/55 p-3 text-amber-500">
+                <WalletCards size={18} />
+              </div>
+            </div>
+          </div>
           <div className={`${statCardClass} bg-[#171d31] text-white`}>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Net Sales</p>
-                <p className="mt-2 text-2xl font-bold">{currency(visibleSummary.totalNetSales || 0)}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Settlement</p>
+                <p className="mt-2 text-2xl font-bold">{currency(visibleSummary.totalSettlementAmount || 0)}</p>
                 <p className="mt-1 text-xs text-slate-300">Top Partner: {visibleTopPartner}</p>
               </div>
               <div className="rounded-full bg-white/10 p-3 text-white">
@@ -248,7 +270,7 @@ const DeliveryPartnerSalesReportPage = () => {
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Partner-wise Summary</h2>
-            <p className="text-xs text-slate-500">Each delivery app is summarized here with its gross sales, refunds, and net balance.</p>
+            <p className="text-xs text-slate-500">Each delivery app is summarized here with gross sales, refunds, commission deduction, and final settlement.</p>
           </div>
           <p className="text-xs font-medium text-slate-400">
             {selectedPartnerLabel} · {from} to {to}
@@ -261,9 +283,11 @@ const DeliveryPartnerSalesReportPage = () => {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-900">{row.partnerLabel}</p>
-                  <p className="mt-1 text-xs text-slate-500">{row.orderCount} orders · {row.completedOrders} completed</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {row.orderCount} orders · {row.completedOrders} completed
+                  </p>
                 </div>
-                <p className="text-sm font-bold text-brand-600">{currency(row.netSales)}</p>
+                <p className="text-sm font-bold text-brand-600">{currency(row.settlementAmount)}</p>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                 <div>
@@ -273,6 +297,14 @@ const DeliveryPartnerSalesReportPage = () => {
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Refunds</p>
                   <p className="mt-1 text-slate-700">{currency(row.refunds)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Commission</p>
+                  <p className="mt-1 text-slate-700">{currency(row.commissionAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Settlement</p>
+                  <p className="mt-1 font-semibold text-brand-600">{currency(row.settlementAmount)}</p>
                 </div>
                 <div className="col-span-2">
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Average Order</p>
@@ -294,6 +326,8 @@ const DeliveryPartnerSalesReportPage = () => {
                 <th className="pb-3 pr-4">Gross Sales</th>
                 <th className="pb-3 pr-4">Refunds</th>
                 <th className="pb-3 pr-4">Net Sales</th>
+                <th className="pb-3 pr-4">Commission</th>
+                <th className="pb-3 pr-4">Settlement</th>
                 <th className="pb-3">Average Order</th>
               </tr>
             </thead>
@@ -306,7 +340,9 @@ const DeliveryPartnerSalesReportPage = () => {
                   <td className="py-3 pr-4 text-slate-700">{row.completedOrders}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.grossSales)}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.refunds)}</td>
-                  <td className="py-3 pr-4 font-bold text-brand-600">{currency(row.netSales)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.netSales)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.commissionAmount)}</td>
+                  <td className="py-3 pr-4 font-bold text-brand-600">{currency(row.settlementAmount)}</td>
                   <td className="py-3 text-slate-700">{currency(row.averageOrderValue)}</td>
                 </tr>
               ))}

@@ -131,6 +131,41 @@ const calculatePromoDiscount = (promoSnapshot, subtotal) => {
   return Number(discount.toFixed(2));
 };
 
+const roundUpToNextHundred = (value) => {
+  const numericValue = Number(value || 0);
+
+  if (numericValue <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(numericValue / 100) * 100;
+};
+
+const applyPromoBillingRounding = ({ subtotal, promoDiscount }) => {
+  const numericSubtotal = Number(subtotal || 0);
+  const numericPromoDiscount = Number(promoDiscount || 0);
+  const discountedTotal = Math.max(0, Number((numericSubtotal - numericPromoDiscount).toFixed(2)));
+
+  if (numericPromoDiscount <= 0) {
+    return {
+      subtotal: numericSubtotal,
+      promoDiscount: numericPromoDiscount,
+      total: discountedTotal,
+      roundedAdjustment: 0
+    };
+  }
+
+  const roundedTotal = roundUpToNextHundred(discountedTotal);
+  const effectivePromoDiscount = Math.max(0, Number((numericSubtotal - roundedTotal).toFixed(2)));
+
+  return {
+    subtotal: numericSubtotal,
+    promoDiscount: effectivePromoDiscount,
+    total: roundedTotal,
+    roundedAdjustment: Number((roundedTotal - discountedTotal).toFixed(2))
+  };
+};
+
 const getPromoUsageStats = ({ promoId, orders, excludeOrderId = null, at = new Date() }) => {
   const filteredOrders = (orders || []).filter(
     (order) =>
@@ -209,6 +244,7 @@ module.exports = {
   normalizePromoPayload,
   buildPromoSnapshot,
   calculatePromoDiscount,
+  applyPromoBillingRounding,
   getPromoUsageStats,
   validatePromoForOrder
 };

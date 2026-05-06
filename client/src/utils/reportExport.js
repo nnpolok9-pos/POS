@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 
-const buildWorkbook = ({ sheetName, columns, rows, shopProfile, title, summaryLines = [] }) => {
+const buildWorkbook = ({ sheetName, columns, rows, shopProfile, title, summaryLines = [], extraSheets = [] }) => {
   const worksheetRows = rows.map((row) =>
     columns.reduce((accumulator, column) => {
       accumulator[column.header] = row[column.key];
@@ -28,6 +28,21 @@ const buildWorkbook = ({ sheetName, columns, rows, shopProfile, title, summaryLi
   worksheet["!cols"] = columnWidths;
 
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+  extraSheets.forEach((sheet) => {
+    const extraRows = (sheet.rows || []).map((row) =>
+      (sheet.columns || []).reduce((accumulator, column) => {
+        accumulator[column.header] = row[column.key];
+        return accumulator;
+      }, {})
+    );
+    const extraWorksheet = XLSX.utils.json_to_sheet(extraRows);
+    extraWorksheet["!cols"] = (sheet.columns || []).map((column) => ({
+      wch: Math.max(column.header.length + 4, 16)
+    }));
+    XLSX.utils.book_append_sheet(workbook, extraWorksheet, sheet.sheetName || "Sheet");
+  });
+
   return workbook;
 };
 
@@ -47,8 +62,8 @@ const getImageDataUrl = async (imageUrl) => {
   });
 };
 
-export const exportReportToExcel = ({ fileName, sheetName, columns, rows, shopProfile, title, summaryLines = [] }) => {
-  const workbook = buildWorkbook({ sheetName, columns, rows, shopProfile, title, summaryLines });
+export const exportReportToExcel = ({ fileName, sheetName, columns, rows, shopProfile, title, summaryLines = [], extraSheets = [] }) => {
+  const workbook = buildWorkbook({ sheetName, columns, rows, shopProfile, title, summaryLines, extraSheets });
   XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
 

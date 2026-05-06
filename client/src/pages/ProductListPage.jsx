@@ -29,6 +29,7 @@ const stockUnitLabel = (unit) =>
   })[unit] || "Piece";
 const categoryLabel = (category) => (/^raw$/i.test(category || "") ? "Base" : category);
 const isCompositeType = (type) => ["combo", "combo_type"].includes(type);
+const showsTentativeCost = (product) => product.forSale !== false && ["raw", "combo", "combo_type"].includes(product.productType);
 
 const mapInventoryBreakdownMaterials = (row) => {
   if (!row) {
@@ -392,6 +393,12 @@ const ProductListPage = () => {
                       </div>
                     </div>
                     <div>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Tentative Cost</p>
+                      <p className="mt-1 font-semibold text-slate-900">
+                        {showsTentativeCost(product) ? currency(product.tentativeCost || 0) : "-"}
+                      </p>
+                    </div>
+                    <div>
                       <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Inventory</p>
                       <p className="mt-1 font-semibold text-slate-900">{product.stock}</p>
                       <p className="text-xs text-slate-500">{isCompositeType(product.productType) ? "Calculated from linked items" : "Base stock"}</p>
@@ -468,6 +475,7 @@ const ProductListPage = () => {
                 <th className="pb-3 pr-4">Unit</th>
                 <th className="pb-3 pr-4">For Sale</th>
                 <th className="pb-3 pr-4">Price</th>
+                <th className="pb-3 pr-4">Tentative Cost</th>
                 <th className="pb-3 pr-4">Inventory</th>
                 <th className="pb-3 pr-4">Status</th>
                 <th className="pb-3 pr-4">Updated</th>
@@ -505,6 +513,9 @@ const ProductListPage = () => {
                       )}
                       <span className="font-semibold text-slate-900">{currency(product.promotionalPrice ?? product.price)}</span>
                     </div>
+                  </td>
+                  <td className="py-4 pr-4">
+                    <span className="font-semibold text-slate-900">{showsTentativeCost(product) ? currency(product.tentativeCost || 0) : "-"}</span>
                   </td>
                   <td className="py-4 pr-4">
                     <p className="font-semibold text-slate-900">{product.stock}</p>

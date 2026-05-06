@@ -7,7 +7,7 @@ const ReportsPage = () => {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="font-display text-xl font-bold text-slate-900 sm:text-2xl">Reports</h1>
-            <p className="mt-1 text-[13px] text-slate-500">Generate date-based sales, delivery partner, and product performance reports.</p>
+            <p className="mt-1 text-[13px] text-slate-500">Generate date-based sales, tentative profit, delivery partner, and product performance reports.</p>
           </div>
           <div className="flex flex-wrap gap-2 rounded-3xl border border-slate-100 bg-white/80 p-1.5">
             <NavLink
@@ -25,6 +25,14 @@ const ReportsPage = () => {
               }
             >
               Sales Transactions
+            </NavLink>
+            <NavLink
+              to="/reports/tentative-profit"
+              className={({ isActive }) =>
+                `rounded-2xl px-3.5 py-2 text-[13px] font-semibold transition ${isActive ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`
+              }
+            >
+              Tentative Profit
             </NavLink>
             <NavLink
               to="/reports/product-sales"

@@ -19,6 +19,37 @@ const DEFAULTS = {
   sqlitePath: process.env.DB_SQLITE_PATH || path.join(process.cwd(), "data", "local-pos.sqlite")
 };
 
+const normalizeNameWord = (word) => {
+  const cleaned = String(word || "").trim();
+  if (!cleaned) {
+    return "";
+  }
+
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+};
+
+const sanitizeUserName = (name, email = "") => {
+  const rawName = String(name || "").trim();
+  const fallbackEmail = String(email || "").trim().toLowerCase();
+  const source = rawName || fallbackEmail;
+
+  if (!source) {
+    return "User";
+  }
+
+  if (source.includes("@")) {
+    const localPart = source.split("@")[0] || "";
+    const parts = localPart
+      .split(/[._-]+/)
+      .map(normalizeNameWord)
+      .filter(Boolean);
+
+    return parts.join(" ") || "User";
+  }
+
+  return rawName;
+};
+
 const mysqlSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
@@ -47,6 +78,7 @@ const mysqlSchemaStatements = [
     price DECIMAL(12,2) NOT NULL DEFAULT 0,
     regular_price DECIMAL(12,2) NOT NULL DEFAULT 0,
     promotional_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    tentative_cost DECIMAL(12,2) NOT NULL DEFAULT 0,
     category VARCHAR(191) NOT NULL,
     khmer_category VARCHAR(191) NOT NULL DEFAULT '',
     description TEXT NOT NULL,
@@ -88,6 +120,15 @@ const mysqlSchemaStatements = [
     INDEX idx_promo_code (code),
     INDEX idx_promo_active (is_active)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS partner_settings (
+    partner_key ENUM('grab','foodpanda','e_gates','wownow') PRIMARY KEY,
+    partner_name VARCHAR(191) NOT NULL,
+    commission_rate DECIMAL(8,2) NOT NULL DEFAULT 0,
+    promo_config JSON NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   `CREATE TABLE IF NOT EXISTS inventory_movements (
     id VARCHAR(36) PRIMARY KEY,
     product_id VARCHAR(36) NOT NULL,
@@ -112,6 +153,7 @@ const mysqlSchemaStatements = [
     sauce_items JSON NOT NULL,
     total DECIMAL(12,2) NOT NULL DEFAULT 0,
     subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
+    cost_total DECIMAL(12,2) NOT NULL DEFAULT 0,
     payment_method ENUM('cash','card','qr','due_on_serve','grab','foodpanda','e_gates','wownow') NULL,
     booking_details JSON NOT NULL,
     status ENUM('queued','food_serving','completed','void','quote_prepared','confirmed') NOT NULL DEFAULT 'food_serving',
@@ -169,6 +211,7 @@ const sqliteSchemaStatements = [
     price REAL NOT NULL DEFAULT 0,
     regular_price REAL NOT NULL DEFAULT 0,
     promotional_price REAL NOT NULL DEFAULT 0,
+    tentative_cost REAL NOT NULL DEFAULT 0,
     category TEXT NOT NULL,
     khmer_category TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
@@ -208,6 +251,15 @@ const sqliteSchemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS partner_settings (
+    partner_key TEXT PRIMARY KEY,
+    partner_name TEXT NOT NULL,
+    commission_rate REAL NOT NULL DEFAULT 0,
+    promo_config TEXT NOT NULL DEFAULT '[]',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
   `CREATE INDEX IF NOT EXISTS idx_promo_code ON promo_codes (code)`,
   `CREATE INDEX IF NOT EXISTS idx_promo_active ON promo_codes (is_active)`,
   `CREATE TABLE IF NOT EXISTS inventory_movements (
@@ -234,6 +286,7 @@ const sqliteSchemaStatements = [
     sauce_items TEXT NOT NULL DEFAULT '[]',
     total REAL NOT NULL DEFAULT 0,
     subtotal REAL NOT NULL DEFAULT 0,
+    cost_total REAL NOT NULL DEFAULT 0,
     payment_method TEXT NULL,
     booking_details TEXT NOT NULL DEFAULT '{}',
     status TEXT NOT NULL DEFAULT 'food_serving',
@@ -288,6 +341,13 @@ const sqliteSchemaStatements = [
     WHEN NEW.updated_at = OLD.updated_at
     BEGIN
       UPDATE promo_codes SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END`,
+  `CREATE TRIGGER IF NOT EXISTS trg_partner_settings_updated_at
+    AFTER UPDATE ON partner_settings
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+    BEGIN
+      UPDATE partner_settings SET updated_at = CURRENT_TIMESTAMP WHERE partner_key = NEW.partner_key;
     END`,
   `CREATE TRIGGER IF NOT EXISTS trg_orders_updated_at
     AFTER UPDATE ON orders
@@ -442,10 +502,12 @@ const connectDB = async () => {
     sqliteDb.pragma("foreign_keys = ON");
     runSqliteStatements(sqliteDb, sqliteSchemaStatements);
     ensureSqliteColumn(sqliteDb, "users", "avatar", "avatar TEXT NOT NULL DEFAULT ''");
+    ensureSqliteColumn(sqliteDb, "products", "tentative_cost", "tentative_cost REAL NOT NULL DEFAULT 0");
     ensureSqliteColumn(sqliteDb, "orders", "promo_code_id", "promo_code_id TEXT NULL");
     ensureSqliteColumn(sqliteDb, "orders", "promo_code", "promo_code TEXT NULL");
     ensureSqliteColumn(sqliteDb, "orders", "promo_discount", "promo_discount REAL NOT NULL DEFAULT 0");
     ensureSqliteColumn(sqliteDb, "orders", "promo_snapshot", "promo_snapshot TEXT NULL");
+    ensureSqliteColumn(sqliteDb, "orders", "cost_total", "cost_total REAL NOT NULL DEFAULT 0");
     runSqliteStatements(sqliteDb, [
       `CREATE INDEX IF NOT EXISTS idx_orders_promo_code_id ON orders (promo_code_id)`
     ]);
@@ -460,10 +522,12 @@ const connectDB = async () => {
   try {
     await runMysqlSchemaStatements(connection);
     await ensureMysqlColumn(connection, "users", "avatar", "`avatar` TEXT NULL");
+    await ensureMysqlColumn(connection, "products", "tentative_cost", "`tentative_cost` DECIMAL(12,2) NOT NULL DEFAULT 0");
     await ensureMysqlColumn(connection, "orders", "promo_code_id", "`promo_code_id` VARCHAR(36) NULL");
     await ensureMysqlColumn(connection, "orders", "promo_code", "`promo_code` VARCHAR(64) NULL");
     await ensureMysqlColumn(connection, "orders", "promo_discount", "`promo_discount` DECIMAL(12,2) NOT NULL DEFAULT 0");
     await ensureMysqlColumn(connection, "orders", "promo_snapshot", "`promo_snapshot` JSON NULL");
+    await ensureMysqlColumn(connection, "orders", "cost_total", "`cost_total` DECIMAL(12,2) NOT NULL DEFAULT 0");
     await ensureMysqlOrderPaymentMethodSupport(connection);
     await ensureMysqlOrderSourceSupport(connection);
     console.log("MySQL connected");
@@ -568,7 +632,7 @@ const mapUserRow = (row) => {
   return {
     id: row.id,
     _id: row.id,
-    name: row.name,
+    name: sanitizeUserName(row.name, row.email),
     email: row.email,
     password: row.password_hash,
     avatar: row.avatar || "",
@@ -608,6 +672,7 @@ const mapProductRow = (row) => {
     price: Number(row.price || 0),
     regularPrice: Number(row.regular_price || 0),
     promotionalPrice: Number(row.promotional_price || 0),
+    tentativeCost: Number(row.tentative_cost || 0),
     category: row.category,
     khmerCategory: row.khmer_category || "",
     description: row.description || "",
@@ -680,6 +745,22 @@ const mapPromoRow = (row) => {
   };
 };
 
+const mapPartnerSettingRow = (row) => {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    partnerKey: row.partner_key,
+    partnerName: row.partner_name,
+    commissionRate: Number(row.commission_rate || 0),
+    promos: parseJson(row.promo_config, []),
+    isActive: Boolean(row.is_active),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+};
+
 const mapOrderRow = (row) => {
   if (!row) {
     return null;
@@ -693,6 +774,7 @@ const mapOrderRow = (row) => {
     sauceItems: parseJson(row.sauce_items, []),
     total: Number(row.total || 0),
     subtotal: Number(row.subtotal || 0),
+    costTotal: Number(row.cost_total || 0),
     paymentMethod: row.payment_method,
     bookingDetails: parseJson(row.booking_details, {}),
     status: row.status,
@@ -731,6 +813,7 @@ module.exports = {
   mapProductRow,
   mapInventoryMovementRow,
   mapPromoRow,
+  mapPartnerSettingRow,
   mapOrderRow,
   createId: () => randomUUID()
 };
