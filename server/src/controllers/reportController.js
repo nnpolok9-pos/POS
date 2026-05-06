@@ -14,6 +14,7 @@ const COMPLETED_STATUSES = ["completed", "confirmed"];
 const POS_PAYMENT_METHODS = ["cash", "card", "qr"];
 const PARTNER_PAYMENT_METHODS = ["grab", "foodpanda", "e_gates", "wownow"];
 const PAYMENT_METHODS = [...POS_PAYMENT_METHODS, ...PARTNER_PAYMENT_METHODS];
+const LEGACY_PARTNER_PROMO_START_DAY = "2026-01-01";
 const LEGACY_PARTNER_PROMO_END_DAY = "2026-04-06";
 const LEGACY_PARTNER_PROMO_PERCENT = 15;
 const PARTNER_LABELS = {
@@ -170,7 +171,10 @@ const getOrderFinancialMetrics = (order, partnerSettingsMap, productMap = new Ma
   const grossSales = Number(order?.subtotal || 0);
   const partnerKey = getPartnerKeyForOrder(order);
   const orderReportDay = toReportDay(order?.createdAt || new Date());
-  const shouldUseLegacyPartnerPromo = Boolean(partnerKey) && orderReportDay <= LEGACY_PARTNER_PROMO_END_DAY;
+  const shouldUseLegacyPartnerPromo =
+    Boolean(partnerKey) &&
+    orderReportDay >= LEGACY_PARTNER_PROMO_START_DAY &&
+    orderReportDay <= LEGACY_PARTNER_PROMO_END_DAY;
 
   let partnerPromoDiscount = 0;
   let counterPromoDiscount = 0;
