@@ -554,7 +554,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               <span className="mb-2 block text-sm font-semibold text-slate-600">Tentative Cost Per Production (Auto)</span>
               <input value={Number(comboTentativeCost || 0).toFixed(2)} readOnly className="input bg-slate-50 text-slate-700" />
               <span className="mt-2 block text-xs text-slate-500">
-                Combo cost is calculated automatically from linked A La Catre and Combined items.
+                Combo cost is calculated automatically from linked A La Catre and Combined item costs. If a linked item has no manual tentative cost, the system uses 40% of that linked item's offer price. It is not calculated from 40% of the combo selling price.
               </span>
             </label>
           )}

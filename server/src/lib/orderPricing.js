@@ -63,6 +63,16 @@ const buildRequestedItems = (items) => {
   });
 };
 
+const buildSelectedAlternativeMapFromOrderItem = (item = {}) =>
+  new Map(
+    (Array.isArray(item.selectedAlternatives) ? item.selectedAlternatives : [])
+      .map((alternative) => [
+        String(alternative.sourceProduct || alternative.sourceProductId || ""),
+        String(alternative.selectedProduct || alternative.selectedProductId || "")
+      ])
+      .filter(([sourceProductId, selectedProductId]) => sourceProductId && selectedProductId)
+  );
+
 const buildProductComponents = (product, quantity, productMap, selectedAlternativeMap = new Map(), trail = new Set()) => {
   const productId = String(product.id || product._id);
 
@@ -407,6 +417,8 @@ const buildSeasoningItems = async () => {
 module.exports = {
   normalizeOrderItems,
   buildRequestedItems,
+  buildSelectedAlternativeMapFromOrderItem,
+  calculateOrderItemCost,
   buildOrderItemsFromProducts,
   applyInventoryForItems,
   restoreInventoryForOrderItems,

@@ -1,5 +1,6 @@
 const { getOrders, getAllProducts, getAllPartnerSettings } = require("../lib/dataStore");
 const { inferProductType, isCompositeProductType, buildCompositeRequirements } = require("../lib/productLogic");
+const { calculateOrderItemCost, buildSelectedAlternativeMapFromOrderItem } = require("../lib/orderPricing");
 const {
   buildTimezoneDateRange,
   buildTimezoneDayRange,
@@ -74,7 +75,43 @@ const getPartnerCommissionRateForOrder = (order, partnerSettingsMap, partnerKey)
 const getPartnerPromoDiscountForOrder = (order) =>
   order?.promoSnapshot?.type === "partner" ? Number(order?.promoDiscount || 0) : 0;
 
-const getOrderFinancialMetrics = (order, partnerSettingsMap) => {
+const getStoredOrderCost = (order) => {
+  const directCost = Number(order?.costTotal || 0);
+  if (directCost > 0) {
+    return roundReportAmount(directCost);
+  }
+
+  const itemLevelCost = roundReportAmount(
+    (order?.items || []).reduce((sum, item) => {
+      const costSubtotal = Number(item?.costSubtotal || 0);
+      if (costSubtotal > 0) {
+        return sum + costSubtotal;
+      }
+
+      const costPerUnit = Number(item?.costPerUnit || 0);
+      const quantity = Number(item?.quantity || 0);
+      return sum + costPerUnit * quantity;
+    }, 0)
+  );
+
+  return itemLevelCost > 0 ? itemLevelCost : 0;
+};
+
+const calculateFallbackOrderCostFromProducts = (order, productMap) =>
+  roundReportAmount(
+    (order?.items || []).reduce((sum, item) => {
+      const product = productMap.get(String(item?.product || ""));
+      if (!product) {
+        return sum;
+      }
+
+      const selectedAlternativeMap = buildSelectedAlternativeMapFromOrderItem(item);
+      const costPerUnit = Number(calculateOrderItemCost(product, productMap, selectedAlternativeMap).toFixed(2));
+      return sum + costPerUnit * Number(item?.quantity || 0);
+    }, 0)
+  );
+
+const getOrderFinancialMetrics = (order, partnerSettingsMap, productMap = new Map()) => {
   const grossSales = Number(order?.subtotal || 0);
   const partnerKey = getPartnerKeyForOrder(order);
   const partnerPromoDiscount = getPartnerPromoDiscountForOrder(order);
@@ -83,7 +120,8 @@ const getOrderFinancialMetrics = (order, partnerSettingsMap) => {
     ? roundReportAmount((salesAfterPartnerPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
     : 0;
   const netSales = roundReportAmount(salesAfterPartnerPromo - commissionAmount);
-  const costOfGoodsSold = roundReportAmount(order?.costTotal || 0);
+  const storedCost = getStoredOrderCost(order);
+  const costOfGoodsSold = storedCost > 0 ? storedCost : calculateFallbackOrderCostFromProducts(order, productMap);
   const tentativeProfit = roundReportAmount(netSales - costOfGoodsSold);
   const profitMarginPercent = netSales > 0 ? roundReportAmount((tentativeProfit / netSales) * 100) : 0;
 
@@ -297,8 +335,9 @@ const getSalesRangeReport = async (req, res) => {
     return res.status(400).json({ message: "Invalid date range" });
   }
   const { start, end } = range;
-  const [allOrders, partnerSettings] = await Promise.all([getOrders(), getAllPartnerSettings()]);
+  const [allOrders, partnerSettings, products] = await Promise.all([getOrders(), getAllPartnerSettings(), getAllProducts()]);
   const partnerSettingsMap = new Map(partnerSettings.map((setting) => [setting.partnerKey, setting]));
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
   const orders = allOrders.filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end);
 
   const grouped = new Map();
@@ -554,7 +593,7 @@ const getTentativeProfitReport = async (req, res) => {
   };
 
   filteredOrders.forEach((order) => {
-    const metrics = getOrderFinancialMetrics(order, partnerSettingsMap);
+    const metrics = getOrderFinancialMetrics(order, partnerSettingsMap, productMap);
     const reportDay = toReportDay(order.createdAt);
     const isPartnerOrder = Boolean(metrics.partnerKey);
     const itemCount = (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
