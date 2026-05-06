@@ -72,8 +72,31 @@ const getPartnerCommissionRateForOrder = (order, partnerSettingsMap, partnerKey)
       0
   );
 
-const getPartnerPromoDiscountForOrder = (order) =>
-  order?.promoSnapshot?.type === "partner" ? Number(order?.promoDiscount || 0) : 0;
+const getPartnerPromoDiscountForOrder = (order) => {
+  const subtotal = Number(order?.subtotal || 0);
+  const total = Number(order?.total || 0);
+  const explicitPromoDiscount = Number(order?.promoDiscount || 0);
+  const snapshotPromotionDiscount = Array.isArray(order?.promoSnapshot?.promotions)
+    ? roundReportAmount(
+        order.promoSnapshot.promotions.reduce(
+          (sum, promotion) => sum + Number(promotion?.discountApplied || 0),
+          0
+        )
+      )
+    : 0;
+  const computedDiscountFromTotals =
+    subtotal > total ? roundReportAmount(subtotal - total) : 0;
+
+  if (order?.promoSnapshot?.type === "partner") {
+    return explicitPromoDiscount > 0
+      ? explicitPromoDiscount
+      : snapshotPromotionDiscount > 0
+        ? snapshotPromotionDiscount
+        : computedDiscountFromTotals;
+  }
+
+  return getPartnerKeyForOrder(order) ? computedDiscountFromTotals : 0;
+};
 
 const getStoredOrderCost = (order) => {
   const directCost = Number(order?.costTotal || 0);
