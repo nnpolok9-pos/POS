@@ -545,8 +545,9 @@ const getTentativeProfitReport = async (req, res) => {
   const channelFilter = ["all", "counter", "partners"].includes(channel) ? channel : "all";
   const selectedPartner = PARTNER_PAYMENT_METHODS.includes(partner) ? partner : null;
   const { start, end } = range;
-  const [allOrders, partnerSettings] = await Promise.all([getOrders(), getAllPartnerSettings()]);
+  const [allOrders, partnerSettings, products] = await Promise.all([getOrders(), getAllPartnerSettings(), getAllProducts()]);
   const partnerSettingsMap = new Map(partnerSettings.map((setting) => [setting.partnerKey, setting]));
+  const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
 
   const filteredOrders = allOrders.filter((order) => {
     const createdAt = new Date(order.createdAt);
