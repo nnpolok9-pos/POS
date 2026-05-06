@@ -1,6 +1,7 @@
 const { getOrders, getAllProducts, getAllPartnerSettings } = require("../lib/dataStore");
 const { inferProductType, isCompositeProductType, buildCompositeRequirements } = require("../lib/productLogic");
 const { calculateOrderItemCost, buildSelectedAlternativeMapFromOrderItem } = require("../lib/orderPricing");
+const { applyPromoBillingRounding } = require("../lib/promoLogic");
 const {
   buildTimezoneDateRange,
   buildTimezoneDayRange,
@@ -13,6 +14,8 @@ const COMPLETED_STATUSES = ["completed", "confirmed"];
 const POS_PAYMENT_METHODS = ["cash", "card", "qr"];
 const PARTNER_PAYMENT_METHODS = ["grab", "foodpanda", "e_gates", "wownow"];
 const PAYMENT_METHODS = [...POS_PAYMENT_METHODS, ...PARTNER_PAYMENT_METHODS];
+const LEGACY_PARTNER_PROMO_END_DAY = "2026-04-06";
+const LEGACY_PARTNER_PROMO_PERCENT = 15;
 const PARTNER_LABELS = {
   grab: "Grab",
   foodpanda: "Foodpanda",
@@ -98,6 +101,35 @@ const getPartnerPromoDiscountForOrder = (order) => {
   return getPartnerKeyForOrder(order) ? computedDiscountFromTotals : 0;
 };
 
+const getCounterPromoDiscountForOrder = (order) => {
+  if (getPartnerKeyForOrder(order)) {
+    return 0;
+  }
+
+  return Math.max(0, Number(order?.promoDiscount || 0));
+};
+
+const getLegacyPartnerPromoMetrics = (order) => {
+  const subtotal = Number(order?.subtotal || 0);
+
+  if (subtotal <= 0) {
+    return {
+      partnerPromoDiscount: 0,
+      salesAfterPromo: 0
+    };
+  }
+
+  const roundedPromo = applyPromoBillingRounding({
+    subtotal,
+    promoDiscount: (subtotal * LEGACY_PARTNER_PROMO_PERCENT) / 100
+  });
+
+  return {
+    partnerPromoDiscount: Number(roundedPromo.promoDiscount || 0),
+    salesAfterPromo: Number(roundedPromo.total || 0)
+  };
+};
+
 const getStoredOrderCost = (order) => {
   const directCost = Number(order?.costTotal || 0);
   if (directCost > 0) {
@@ -137,12 +169,32 @@ const calculateFallbackOrderCostFromProducts = (order, productMap) =>
 const getOrderFinancialMetrics = (order, partnerSettingsMap, productMap = new Map()) => {
   const grossSales = Number(order?.subtotal || 0);
   const partnerKey = getPartnerKeyForOrder(order);
-  const partnerPromoDiscount = getPartnerPromoDiscountForOrder(order);
-  const salesAfterPartnerPromo = Number(order?.total || 0);
+  const orderReportDay = toReportDay(order?.createdAt || new Date());
+  const shouldUseLegacyPartnerPromo = Boolean(partnerKey) && orderReportDay <= LEGACY_PARTNER_PROMO_END_DAY;
+
+  let partnerPromoDiscount = 0;
+  let counterPromoDiscount = 0;
+  let salesAfterPromo = Number(order?.total || 0);
+
+  if (partnerKey) {
+    if (shouldUseLegacyPartnerPromo) {
+      const legacyMetrics = getLegacyPartnerPromoMetrics(order);
+      partnerPromoDiscount = legacyMetrics.partnerPromoDiscount;
+      salesAfterPromo = legacyMetrics.salesAfterPromo;
+    } else {
+      partnerPromoDiscount = getPartnerPromoDiscountForOrder(order);
+      salesAfterPromo = Number(order?.total || 0);
+    }
+  } else {
+    counterPromoDiscount = getCounterPromoDiscountForOrder(order);
+    salesAfterPromo = Number(order?.total || 0);
+  }
+
+  const totalPromoDiscount = roundReportAmount(counterPromoDiscount + partnerPromoDiscount);
   const commissionAmount = partnerKey
-    ? roundReportAmount((salesAfterPartnerPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
+    ? roundReportAmount((salesAfterPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
     : 0;
-  const netSales = roundReportAmount(salesAfterPartnerPromo - commissionAmount);
+  const netSales = roundReportAmount(salesAfterPromo - commissionAmount);
   const storedCost = getStoredOrderCost(order);
   const costOfGoodsSold = storedCost > 0 ? storedCost : calculateFallbackOrderCostFromProducts(order, productMap);
   const tentativeProfit = roundReportAmount(netSales - costOfGoodsSold);
@@ -151,8 +203,11 @@ const getOrderFinancialMetrics = (order, partnerSettingsMap, productMap = new Ma
   return {
     partnerKey,
     grossSales,
+    counterPromoDiscount,
     partnerPromoDiscount,
-    salesAfterPartnerPromo,
+    totalPromoDiscount,
+    salesAfterPromo,
+    salesAfterPartnerPromo: salesAfterPromo,
     commissionAmount,
     netSales,
     costOfGoodsSold,
@@ -601,7 +656,9 @@ const getTentativeProfitReport = async (req, res) => {
     totalOrders: 0,
     totalItems: 0,
     grossSales: 0,
+    counterPromoDiscount: 0,
     partnerPromoDiscount: 0,
+    totalPromoDiscount: 0,
     salesAfterPartnerPromo: 0,
     commissionAmount: 0,
     netSales: 0,
@@ -626,7 +683,9 @@ const getTentativeProfitReport = async (req, res) => {
       totalOrders: 0,
       totalItems: 0,
       grossSales: 0,
+      counterPromoDiscount: 0,
       partnerPromoDiscount: 0,
+      totalPromoDiscount: 0,
       salesAfterPartnerPromo: 0,
       commissionAmount: 0,
       netSales: 0,
@@ -641,8 +700,10 @@ const getTentativeProfitReport = async (req, res) => {
     dailyRow.totalOrders += 1;
     dailyRow.totalItems += itemCount;
     dailyRow.grossSales += metrics.grossSales;
+    dailyRow.counterPromoDiscount += metrics.counterPromoDiscount;
     dailyRow.partnerPromoDiscount += metrics.partnerPromoDiscount;
-    dailyRow.salesAfterPartnerPromo += metrics.salesAfterPartnerPromo;
+    dailyRow.totalPromoDiscount += metrics.totalPromoDiscount;
+    dailyRow.salesAfterPartnerPromo += metrics.salesAfterPromo;
     dailyRow.commissionAmount += metrics.commissionAmount;
     dailyRow.netSales += metrics.netSales;
     dailyRow.costOfGoodsSold += metrics.costOfGoodsSold;
@@ -659,8 +720,10 @@ const getTentativeProfitReport = async (req, res) => {
     summary.totalOrders += 1;
     summary.totalItems += itemCount;
     summary.grossSales += metrics.grossSales;
+    summary.counterPromoDiscount += metrics.counterPromoDiscount;
     summary.partnerPromoDiscount += metrics.partnerPromoDiscount;
-    summary.salesAfterPartnerPromo += metrics.salesAfterPartnerPromo;
+    summary.totalPromoDiscount += metrics.totalPromoDiscount;
+    summary.salesAfterPartnerPromo += metrics.salesAfterPromo;
     summary.commissionAmount += metrics.commissionAmount;
     summary.netSales += metrics.netSales;
     summary.costOfGoodsSold += metrics.costOfGoodsSold;
@@ -668,7 +731,7 @@ const getTentativeProfitReport = async (req, res) => {
     if (isPartnerOrder) {
       summary.partnerGrossSales += metrics.grossSales;
       summary.partnerPromoSalesDiscount += metrics.partnerPromoDiscount;
-      summary.partnerSalesAfterPromo += metrics.salesAfterPartnerPromo;
+      summary.partnerSalesAfterPromo += metrics.salesAfterPromo;
       summary.partnerCommissionAmount += metrics.commissionAmount;
       summary.partnerNetSales += metrics.netSales;
     } else {
@@ -693,7 +756,7 @@ const getTentativeProfitReport = async (req, res) => {
       existingPartner.orderCount += 1;
       existingPartner.grossSales += metrics.grossSales;
       existingPartner.partnerPromoDiscount += metrics.partnerPromoDiscount;
-      existingPartner.salesAfterPartnerPromo += metrics.salesAfterPartnerPromo;
+      existingPartner.salesAfterPartnerPromo += metrics.salesAfterPromo;
       existingPartner.commissionAmount += metrics.commissionAmount;
       existingPartner.netSales += metrics.netSales;
       existingPartner.costOfGoodsSold += metrics.costOfGoodsSold;
@@ -710,7 +773,9 @@ const getTentativeProfitReport = async (req, res) => {
       totalOrders: row.totalOrders,
       totalItems: row.totalItems,
       grossSales: roundReportAmount(row.grossSales),
+      counterPromoDiscount: roundReportAmount(row.counterPromoDiscount),
       partnerPromoDiscount: roundReportAmount(row.partnerPromoDiscount),
+      totalPromoDiscount: roundReportAmount(row.totalPromoDiscount),
       salesAfterPartnerPromo: roundReportAmount(row.salesAfterPartnerPromo),
       commissionAmount: roundReportAmount(row.commissionAmount),
       netSales: roundReportAmount(row.netSales),
@@ -748,7 +813,9 @@ const getTentativeProfitReport = async (req, res) => {
     summary: {
       ...summary,
       grossSales: roundReportAmount(summary.grossSales),
+      counterPromoDiscount: roundReportAmount(summary.counterPromoDiscount),
       partnerPromoDiscount: roundReportAmount(summary.partnerPromoDiscount),
+      totalPromoDiscount: roundReportAmount(summary.totalPromoDiscount),
       salesAfterPartnerPromo: roundReportAmount(summary.salesAfterPartnerPromo),
       commissionAmount: roundReportAmount(summary.commissionAmount),
       netSales: roundReportAmount(summary.netSales),

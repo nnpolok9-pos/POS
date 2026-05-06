@@ -56,6 +56,13 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
   const isCustomerQueue = order.source === "customer" && order.status === "queued";
   const currentVoidRefundMethod = order.status === "void" ? getCurrentVoidRefundMethod(order) : null;
   const sourceLogo = partnerLogos[order.source];
+  const itemSubtotal = Number(
+    order?.subtotal ||
+      (order?.items || []).reduce((sum, item) => sum + Number(item?.subtotal || 0), 0)
+  );
+  const promoDiscount = Number(order?.promoDiscount || 0);
+  const finalTotal = Number(order?.total || 0);
+  const hasPromoAdjustment = promoDiscount > 0 || Math.abs(itemSubtotal - finalTotal) > 0.0001;
 
   return createPortal(
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4 sm:p-6" onClick={onClose}>
@@ -144,6 +151,26 @@ const OrderDetailModal = ({ open, order, onClose, onPrint, onEdit, onVoid, onEdi
                     <span className="shrink-0 self-end text-right font-bold text-slate-900 sm:self-auto">{currency(item.subtotal)}</span>
                   </div>
                 ))}
+              </div>
+              <div className="border-t border-slate-100 bg-slate-50/70 px-5 py-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-4 text-sm text-slate-600">
+                    <span>Items Subtotal</span>
+                    <span className="font-semibold text-slate-900">{currency(itemSubtotal)}</span>
+                  </div>
+                  {hasPromoAdjustment ? (
+                    <>
+                      <div className="flex items-center justify-between gap-4 text-sm text-slate-600">
+                        <span>Promo Discount</span>
+                        <span className="font-semibold text-emerald-700">-{currency(promoDiscount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 border-t border-slate-200 pt-2 text-sm">
+                        <span className="font-semibold text-slate-700">Final Total</span>
+                        <span className="text-base font-bold text-slate-900">{currency(finalTotal)}</span>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
               </div>
             </div>
 

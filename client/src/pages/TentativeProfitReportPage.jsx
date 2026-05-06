@@ -35,6 +35,8 @@ const dailyColumns = [
   { header: "Orders", key: "totalOrders" },
   { header: "Items", key: "totalItems" },
   { header: "Gross Sales", key: "grossSales" },
+  { header: "Total Promo", key: "totalPromoDiscount" },
+  { header: "Counter Promo", key: "counterPromoDiscount" },
   { header: "Partner Promo", key: "partnerPromoDiscount" },
   { header: "After Promo", key: "salesAfterPartnerPromo" },
   { header: "Commission", key: "commissionAmount" },
@@ -106,6 +108,8 @@ const TentativeProfitReportPage = () => {
       totalOrders: row.totalOrders,
       totalItems: row.totalItems,
       grossSales: Number(row.grossSales || 0).toFixed(2),
+      totalPromoDiscount: Number(row.totalPromoDiscount || 0).toFixed(2),
+      counterPromoDiscount: Number(row.counterPromoDiscount || 0).toFixed(2),
       partnerPromoDiscount: Number(row.partnerPromoDiscount || 0).toFixed(2),
       salesAfterPartnerPromo: Number(row.salesAfterPartnerPromo || 0).toFixed(2),
       commissionAmount: Number(row.commissionAmount || 0).toFixed(2),
@@ -193,7 +197,7 @@ const TentativeProfitReportPage = () => {
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Selected Filters</p>
                 <p className="mt-1 text-[13px] font-semibold text-slate-800">{from} to {to}</p>
                 <p className="mt-1 text-[12px] text-slate-500">
-                  {selectedChannelLabel} · {selectedPartnerLabel}
+                  {selectedChannelLabel} • {selectedPartnerLabel}
                 </p>
               </div>
             </div>
@@ -284,9 +288,11 @@ const TentativeProfitReportPage = () => {
           <div className={`${statCardClass} border border-[#f0ddda] bg-[#fff0ed]`}>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Partner Promo</p>
-                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(summary.partnerPromoDiscount || 0)}</p>
-                <p className="mt-1 text-xs text-slate-500">After promo {currency(summary.salesAfterPartnerPromo || 0)}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Total Promo</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(summary.totalPromoDiscount || 0)}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Counter {currency(summary.counterPromoDiscount || 0)} • Partner {currency(summary.partnerPromoDiscount || 0)}
+                </p>
               </div>
               <div className="rounded-full bg-white/55 p-3 text-rose-500">
                 <Truck size={18} />
@@ -319,11 +325,18 @@ const TentativeProfitReportPage = () => {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-[1.25rem] border border-slate-100 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Counter Gross</p>
             <p className="mt-2 text-xl font-bold text-slate-900">{currency(summary.counterGrossSales || 0)}</p>
             <p className="mt-1 text-xs text-slate-500">Net {currency(summary.counterNetSales || 0)}</p>
+          </div>
+          <div className="rounded-[1.25rem] border border-slate-100 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Counter Promo</p>
+            <p className="mt-2 text-xl font-bold text-slate-900">{currency(summary.counterPromoDiscount || 0)}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              After promo {currency((summary.counterGrossSales || 0) - (summary.counterPromoDiscount || 0))}
+            </p>
           </div>
           <div className="rounded-[1.25rem] border border-slate-100 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Partner Gross</p>
@@ -350,7 +363,7 @@ const TentativeProfitReportPage = () => {
             <p className="text-xs text-slate-500">Each day shows gross sales, partner promo impact, commission deduction, stored cost, and final tentative profit.</p>
           </div>
           <p className="text-xs font-medium text-slate-400">
-            {selectedChannelLabel} · {selectedPartnerLabel}
+            {selectedChannelLabel} • {selectedPartnerLabel}
           </p>
         </div>
 
@@ -361,7 +374,7 @@ const TentativeProfitReportPage = () => {
                 <div>
                   <p className="font-semibold text-brand-600">{row.date}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {row.totalOrders} orders · {row.totalItems} items
+                    {row.totalOrders} orders • {row.totalItems} items
                   </p>
                 </div>
                 <p className="text-sm font-bold text-emerald-600">{currency(row.tentativeProfit)}</p>
@@ -370,6 +383,14 @@ const TentativeProfitReportPage = () => {
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Gross</p>
                   <p className="mt-1 text-slate-700">{currency(row.grossSales)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Total Promo</p>
+                  <p className="mt-1 text-slate-700">{currency(row.totalPromoDiscount)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Counter Promo</p>
+                  <p className="mt-1 text-slate-700">{currency(row.counterPromoDiscount)}</p>
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Partner Promo</p>
@@ -417,7 +438,9 @@ const TentativeProfitReportPage = () => {
                 <th className="pb-3 pr-4">Orders</th>
                 <th className="pb-3 pr-4">Items</th>
                 <th className="pb-3 pr-4">Gross</th>
-                <th className="pb-3 pr-4">Promo</th>
+                <th className="pb-3 pr-4">Total Promo</th>
+                <th className="pb-3 pr-4">Counter Promo</th>
+                <th className="pb-3 pr-4">Partner Promo</th>
                 <th className="pb-3 pr-4">After Promo</th>
                 <th className="pb-3 pr-4">Commission</th>
                 <th className="pb-3 pr-4">Net Sales</th>
@@ -434,6 +457,8 @@ const TentativeProfitReportPage = () => {
                   <td className="py-3 pr-4 text-slate-700">{row.totalOrders}</td>
                   <td className="py-3 pr-4 text-slate-700">{row.totalItems}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.grossSales)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.totalPromoDiscount)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.counterPromoDiscount)}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.partnerPromoDiscount)}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.salesAfterPartnerPromo)}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.commissionAmount)}</td>
@@ -473,7 +498,7 @@ const TentativeProfitReportPage = () => {
                   <p className="mt-1 text-slate-700">{currency(row.grossSales)}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Promo</p>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Partner Promo</p>
                   <p className="mt-1 text-slate-700">{currency(row.partnerPromoDiscount)}</p>
                 </div>
                 <div>
@@ -509,7 +534,7 @@ const TentativeProfitReportPage = () => {
                 <th className="pb-3 pr-4">Partner</th>
                 <th className="pb-3 pr-4">Orders</th>
                 <th className="pb-3 pr-4">Gross</th>
-                <th className="pb-3 pr-4">Promo</th>
+                <th className="pb-3 pr-4">Partner Promo</th>
                 <th className="pb-3 pr-4">After Promo</th>
                 <th className="pb-3 pr-4">Commission</th>
                 <th className="pb-3 pr-4">Net Sales</th>

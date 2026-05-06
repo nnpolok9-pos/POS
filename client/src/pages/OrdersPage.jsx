@@ -63,6 +63,7 @@ const partnerLogos = {
 const hasCollectedPayment = (order) => ["cash", "card", "qr", "grab", "foodpanda", "e_gates", "wownow"].includes(order?.paymentMethod || "");
 const isDueOnServeOrder = (order) => order?.paymentMethod === "due_on_serve";
 const getOrderEditPath = (order) => (isPartnerSource(order) ? "/partner-pos" : "/pos");
+const getOrderListSaleAmount = (order) => (isPartnerSource(order) ? Number(order?.subtotal || order?.total || 0) : Number(order?.total || 0));
 const getOrderStatusLabel = (order) =>
   order.status === "void" ? "Void" : order.status === "queued" ? "Queued" : order.status === "food_serving" ? "Food Serving" : "Completed";
 const requiresVoidRefundMethod = (order) => Number(order?.total || 0) > 0 && hasCollectedPayment(order);
@@ -252,7 +253,7 @@ const OrdersPage = () => {
     orderFrom: formatOrderSourceLabel(order.source),
     paymentMethod: formatPaymentMethodLabel(order.paymentMethod, "-"),
     items: order.items.length,
-    saleAmount: Number(order.total || 0).toFixed(2),
+    saleAmount: getOrderListSaleAmount(order).toFixed(2),
     status: getOrderStatusLabel(order)
   }));
 
@@ -587,7 +588,7 @@ const OrdersPage = () => {
                 </div>
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Sale Amount</p>
-                  <p className="mt-1 font-bold text-brand-600">{currency(order.total)}</p>
+                  <p className="mt-1 font-bold text-brand-600">{currency(getOrderListSaleAmount(order))}</p>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -693,7 +694,7 @@ const OrdersPage = () => {
                   <td className="py-3 pr-4 text-slate-600">{getServeTimeLabel(order)}</td>
                   <td className="py-3 pr-4 text-slate-600">{order.staff ? formatUserDisplayName(order.staff?.name, order.staff?.email) : "Staff"}</td>
                   <td className="py-3 pr-4 text-slate-600">{order.items.length}</td>
-                  <td className="py-3 pr-4 font-bold text-brand-600">{currency(order.total)}</td>
+                  <td className="py-3 pr-4 font-bold text-brand-600">{currency(getOrderListSaleAmount(order))}</td>
                   <td className="py-3 pr-4">
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold ${
