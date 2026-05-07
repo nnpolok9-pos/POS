@@ -1,4 +1,4 @@
-import { CalendarRange, CheckCircle2, Download, Eye, FileSpreadsheet, Pencil, Printer, ReceiptText, Trash2, WalletCards } from "lucide-react";
+import { CalendarRange, CheckCircle2, Download, Eye, FileSpreadsheet, Grid2x2, Pencil, Printer, ReceiptText, Store, Trash2, WalletCards } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -50,6 +50,14 @@ const statusFilterStyles = {
   completed: "border-[#dce7df] bg-[#eef4ef]",
   void: "border-[#f0dede] bg-[#f8eeee]"
 };
+const sourceFilterOptions = [
+  { key: "all", label: "All" },
+  { key: "counter", label: "Counter" },
+  { key: "grab", label: "Grab" },
+  { key: "foodpanda", label: "Foodpanda" },
+  { key: "e_gates", label: "E-Gates" },
+  { key: "wownow", label: "WOWNOW" }
+];
 
 const getServeTimeLabel = (order) => (["void", "queued"].includes(order.status) ? "N/A" : formatServeTime(order.createdAt, order.servedAt));
 const isCustomerQueueOrder = (order) => order?.source === "customer" && order?.status === "queued";
@@ -94,6 +102,19 @@ const getCurrentVoidRefundMethod = (order) =>
     .reverse()
     .find((entry) => ["void_edit", "void"].includes(entry?.adjustmentType))?.adjustmentMethod || "";
 const requiresVoidEditRefundMethod = (order) => Number(order?.originalTotal || 0) > 0 && hasCollectedPayment(order);
+const matchesSourceFilter = (order, sourceFilter) => {
+  if (sourceFilter === "all") {
+    return true;
+  }
+
+  if (sourceFilter === "counter") {
+    return !isPartnerSource(order);
+  }
+
+  return order?.source === sourceFilter || order?.paymentMethod === sourceFilter;
+};
+const getSourceFilterLabel = (sourceFilter) =>
+  sourceFilterOptions.find((option) => option.key === sourceFilter)?.label || "All";
 
 const OrdersPage = () => {
   const navigate = useNavigate();
@@ -112,6 +133,7 @@ const OrdersPage = () => {
   const [to, setTo] = useState(initialDateRange.to);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [appliedDateRange, setAppliedDateRange] = useState(initialDateRange);
   const [voidingOrder, setVoidingOrder] = useState(null);
   const [voidDialogMode, setVoidDialogMode] = useState("void");
@@ -266,7 +288,8 @@ const OrdersPage = () => {
     }
   };
 
-  const exportRows = orders.map((order, index) => ({
+  const sourceFilteredOrders = orders.filter((order) => matchesSourceFilter(order, sourceFilter));
+  const exportRows = sourceFilteredOrders.map((order, index) => ({
     sl: index + 1,
     orderId: order.orderId,
     date: formatDate(order.createdAt),
@@ -304,8 +327,8 @@ const OrdersPage = () => {
 
     const summaryLines =
       canUseDateRange
-        ? [`Date Range: ${from} to ${to}`, `Total Orders: ${orders.length}`]
-        : ["Current order history", `Total Orders: ${orders.length}`];
+        ? [`Date Range: ${from} to ${to}`, `Source: ${getSourceFilterLabel(sourceFilter)}`, `Total Orders: ${sourceFilteredOrders.length}`]
+        : [`Current order history`, `Source: ${getSourceFilterLabel(sourceFilter)}`, `Total Orders: ${sourceFilteredOrders.length}`];
 
     await exportReportToPdf({
       title: "Order History",
@@ -317,13 +340,13 @@ const OrdersPage = () => {
     });
   };
 
-  const queuedCount = orders.filter((order) => order.status === "queued").length;
-  const completedCount = orders.filter((order) => order.status === "completed").length;
-  const foodServingCount = orders.filter((order) => order.status === "food_serving").length;
-  const voidCount = orders.filter((order) => order.status === "void").length;
-  const totalSales = orders.reduce((sum, order) => sum + Number(order?.subtotal || order?.total || 0), 0);
-  const totalNetSales = orders.reduce((sum, order) => sum + getOrderNetSalesAmount(order), 0);
-  const filteredOrders = orders.filter((order) => (statusFilter === "all" ? true : order.status === statusFilter));
+  const queuedCount = sourceFilteredOrders.filter((order) => order.status === "queued").length;
+  const completedCount = sourceFilteredOrders.filter((order) => order.status === "completed").length;
+  const foodServingCount = sourceFilteredOrders.filter((order) => order.status === "food_serving").length;
+  const voidCount = sourceFilteredOrders.filter((order) => order.status === "void").length;
+  const totalSales = sourceFilteredOrders.reduce((sum, order) => sum + Number(order?.subtotal || order?.total || 0), 0);
+  const totalNetSales = sourceFilteredOrders.reduce((sum, order) => sum + getOrderNetSalesAmount(order), 0);
+  const filteredOrders = sourceFilteredOrders.filter((order) => (statusFilter === "all" ? true : order.status === statusFilter));
 
   const canEditOrder = (order) => {
     if (order.status === "void") {
@@ -469,7 +492,7 @@ const OrdersPage = () => {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Orders</p>
-              <p className="mt-2 text-2xl font-bold text-slate-900">{orders.length}</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">{sourceFilteredOrders.length}</p>
             </div>
             <div className="rounded-full bg-white/55 p-3 text-slate-500">
               <ReceiptText size={18} />
@@ -534,13 +557,53 @@ const OrdersPage = () => {
         </div>
       </div>
 
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        {sourceFilterOptions.map((option) => {
+          const isActive = sourceFilter === option.key;
+          const partnerLogo = partnerLogos[option.key];
+
+          return (
+            <button
+              key={option.key}
+              type="button"
+              title={option.label}
+              aria-label={option.label}
+              onClick={() => setSourceFilter(option.key)}
+              className={`flex h-14 w-14 items-center justify-center rounded-2xl border bg-white shadow-sm transition hover:-translate-y-0.5 ${
+                isActive ? "border-slate-900 ring-2 ring-slate-300" : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              {option.key === "all" ? (
+                <Grid2x2 size={20} className={isActive ? "text-slate-900" : "text-slate-500"} />
+              ) : option.key === "counter" ? (
+                <Store size={20} className={isActive ? "text-slate-900" : "text-slate-500"} />
+              ) : (
+                <img src={partnerLogo} alt={option.label} className="h-8 w-8 rounded-lg object-cover" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-500">
-          Showing: <span className="font-semibold text-slate-700">{statusFilter === "all" ? "All Orders" : statusFilter === "queued" ? "Queued" : statusFilter === "food_serving" ? "Food Serving" : statusFilter === "completed" ? "Completed" : "Void"}</span>
+          Showing:{" "}
+          <span className="font-semibold text-slate-700">
+            {statusFilter === "all" ? "All Orders" : statusFilter === "queued" ? "Queued" : statusFilter === "food_serving" ? "Food Serving" : statusFilter === "completed" ? "Completed" : "Void"}
+          </span>{" "}
+          <span className="text-slate-400">•</span>{" "}
+          <span className="font-semibold text-slate-700">{getSourceFilterLabel(sourceFilter)}</span>
         </p>
-        {statusFilter !== "all" && (
-          <button type="button" onClick={() => setStatusFilter("all")} className="text-sm font-semibold text-brand-600 hover:underline">
-            Clear Filter
+        {(statusFilter !== "all" || sourceFilter !== "all") && (
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter("all");
+              setSourceFilter("all");
+            }}
+            className="text-sm font-semibold text-brand-600 hover:underline"
+          >
+            Clear Filters
           </button>
         )}
       </div>
