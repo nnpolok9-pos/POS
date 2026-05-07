@@ -55,6 +55,7 @@ const buildEmptyPaymentFlows = () =>
   }, {});
 
 const roundReportAmount = (value) => Number(Number(value || 0).toFixed(2));
+const getOrderGrossSales = (order) => Number(order?.subtotal || order?.total || 0);
 
 const getPartnerKeyForOrder = (order) => {
   if (PARTNER_PAYMENT_METHODS.includes(order?.paymentMethod)) {
@@ -361,11 +362,11 @@ const getSalesReport = async (_req, res) => {
 
   res.json({
     daily: {
-      totalSales: dailyOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+      totalSales: dailyOrders.reduce((sum, order) => sum + getOrderGrossSales(order), 0),
       orderCount: dailyOrders.length
     },
     monthly: {
-      totalSales: monthlyOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+      totalSales: monthlyOrders.reduce((sum, order) => sum + getOrderGrossSales(order), 0),
       orderCount: monthlyOrders.length
     },
     topSelling
@@ -403,7 +404,7 @@ const getDashboardSummary = async (_req, res) => {
   }, 0);
 
   res.json({
-    totalRevenue: completedOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+    totalRevenue: completedOrders.reduce((sum, order) => sum + getOrderGrossSales(order), 0),
     totalOrders: completedOrders.length,
     lowStockCount,
     productCount: products.length

@@ -299,7 +299,8 @@ const OrdersPage = () => {
   const completedCount = orders.filter((order) => order.status === "completed").length;
   const foodServingCount = orders.filter((order) => order.status === "food_serving").length;
   const voidCount = orders.filter((order) => order.status === "void").length;
-  const totalSales = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+  const totalSales = orders.reduce((sum, order) => sum + Number(order?.subtotal || order?.total || 0), 0);
+  const totalNetSales = orders.reduce((sum, order) => sum + Number(order?.total || 0), 0);
   const filteredOrders = orders.filter((order) => (statusFilter === "all" ? true : order.status === statusFilter));
 
   const canEditOrder = (order) => {
@@ -502,9 +503,7 @@ const OrdersPage = () => {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Visible Sales</p>
               <p className="mt-2 text-2xl font-bold">{currency(totalSales)}</p>
-              <p className="mt-1 text-xs text-slate-300">
-                {appliedDateRange ? `${appliedDateRange.from} to ${appliedDateRange.to}` : "Today"}
-              </p>
+              <p className="mt-1 text-xs text-slate-300">Net Sales {currency(totalNetSales)}</p>
             </div>
             <div className="rounded-full bg-white/10 p-3 text-white">
               <WalletCards size={18} />
