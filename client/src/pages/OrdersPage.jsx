@@ -60,10 +60,32 @@ const partnerLogos = {
   e_gates: eGatesLogo,
   wownow: wownowLogo
 };
+const partnerCommissionDefaults = {
+  grab: 27.5,
+  foodpanda: 27.5,
+  e_gates: 22,
+  wownow: 22
+};
 const hasCollectedPayment = (order) => ["cash", "card", "qr", "grab", "foodpanda", "e_gates", "wownow"].includes(order?.paymentMethod || "");
 const isDueOnServeOrder = (order) => order?.paymentMethod === "due_on_serve";
 const getOrderEditPath = (order) => (isPartnerSource(order) ? "/partner-pos" : "/pos");
 const getOrderListSaleAmount = (order) => (isPartnerSource(order) ? Number(order?.subtotal || order?.total || 0) : Number(order?.total || 0));
+const getOrderNetSalesAmount = (order) => {
+  const finalTotal = Number(order?.total || 0);
+  if (!isPartnerSource(order)) {
+    return finalTotal;
+  }
+
+  const partnerKey = order?.paymentMethod || order?.source;
+  const commissionRate = Number(
+    order?.bookingDetails?.partnerCommissionRate ??
+      order?.promoSnapshot?.commissionRate ??
+      partnerCommissionDefaults[partnerKey] ??
+      0
+  );
+
+  return Number((finalTotal - finalTotal * (commissionRate / 100)).toFixed(2));
+};
 const getOrderStatusLabel = (order) =>
   order.status === "void" ? "Void" : order.status === "queued" ? "Queued" : order.status === "food_serving" ? "Food Serving" : "Completed";
 const requiresVoidRefundMethod = (order) => Number(order?.total || 0) > 0 && hasCollectedPayment(order);
@@ -300,7 +322,7 @@ const OrdersPage = () => {
   const foodServingCount = orders.filter((order) => order.status === "food_serving").length;
   const voidCount = orders.filter((order) => order.status === "void").length;
   const totalSales = orders.reduce((sum, order) => sum + Number(order?.subtotal || order?.total || 0), 0);
-  const totalNetSales = orders.reduce((sum, order) => sum + Number(order?.total || 0), 0);
+  const totalNetSales = orders.reduce((sum, order) => sum + getOrderNetSalesAmount(order), 0);
   const filteredOrders = orders.filter((order) => (statusFilter === "all" ? true : order.status === statusFilter));
 
   const canEditOrder = (order) => {
