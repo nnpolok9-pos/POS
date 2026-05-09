@@ -47,7 +47,7 @@ const settingsColumns = `
 `;
 
 const partnerColumns = `
-  partner_key, partner_name, commission_rate, promo_config, is_active, created_at, updated_at
+  partner_key, partner_name, commission_rate, advertisement_roi_rate, promo_config, is_active, created_at, updated_at
 `;
 
 const boolToInt = (value) => (value ? 1 : 0);
@@ -393,12 +393,13 @@ const ensurePartnerSettings = async () => {
     }
 
     await query(
-      `INSERT INTO partner_settings (partner_key, partner_name, commission_rate, promo_config, is_active)
-       VALUES (:partnerKey, :partnerName, :commissionRate, :promoConfig, :isActive)`,
+      `INSERT INTO partner_settings (partner_key, partner_name, commission_rate, advertisement_roi_rate, promo_config, is_active)
+       VALUES (:partnerKey, :partnerName, :commissionRate, :advertisementRoiRate, :promoConfig, :isActive)`,
       {
         partnerKey: defaultSetting.partnerKey,
         partnerName: defaultSetting.partnerName,
         commissionRate: Number(defaultSetting.commissionRate || 0),
+        advertisementRoiRate: Number(defaultSetting.advertisementRoiRate || 0),
         promoConfig: stringifyJson(defaultSetting.promos, []),
         isActive: boolToInt(defaultSetting.isActive ?? true)
       }
@@ -429,24 +430,27 @@ const savePartnerSetting = async (setting) => {
   if (existing) {
     await query(
       `UPDATE partner_settings
-       SET partner_name=:partnerName, commission_rate=:commissionRate, promo_config=:promoConfig, is_active=:isActive
+       SET partner_name=:partnerName, commission_rate=:commissionRate, advertisement_roi_rate=:advertisementRoiRate,
+           promo_config=:promoConfig, is_active=:isActive
        WHERE partner_key=:partnerKey`,
       {
         partnerKey: normalized.partnerKey,
         partnerName: normalized.partnerName,
         commissionRate: Number(normalized.commissionRate || 0),
+        advertisementRoiRate: Number(normalized.advertisementRoiRate || 0),
         promoConfig: stringifyJson(normalized.promos, []),
         isActive: boolToInt(normalized.isActive ?? true)
       }
     );
   } else {
     await query(
-      `INSERT INTO partner_settings (partner_key, partner_name, commission_rate, promo_config, is_active)
-       VALUES (:partnerKey, :partnerName, :commissionRate, :promoConfig, :isActive)`,
+      `INSERT INTO partner_settings (partner_key, partner_name, commission_rate, advertisement_roi_rate, promo_config, is_active)
+       VALUES (:partnerKey, :partnerName, :commissionRate, :advertisementRoiRate, :promoConfig, :isActive)`,
       {
         partnerKey: normalized.partnerKey,
         partnerName: normalized.partnerName,
         commissionRate: Number(normalized.commissionRate || 0),
+        advertisementRoiRate: Number(normalized.advertisementRoiRate || 0),
         promoConfig: stringifyJson(normalized.promos, []),
         isActive: boolToInt(normalized.isActive ?? true)
       }

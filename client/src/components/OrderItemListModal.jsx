@@ -1,5 +1,6 @@
-import { X } from "lucide-react";
+import { CheckCircle2, ShoppingBag, X } from "lucide-react";
 import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState } from "react";
 import { imageUrl } from "../utils/format";
 
 const VISIBLE_PRODUCT_TYPES = new Set(["raw", "combo"]);
@@ -79,12 +80,35 @@ const aggregatePreparationItems = (order, productCatalog = []) => {
 
   return [...itemMap.values()].sort((left, right) => left.name.localeCompare(right.name));
 };
-const OrderItemListModal = ({ open, order, productCatalog = [], onClose }) => {
+const OrderItemListModal = ({ open, order, productCatalog = [], onClose, onServe, canServe = false, serving = false }) => {
   if (!open || !order) {
     return null;
   }
 
-  const preparationItems = aggregatePreparationItems(order, productCatalog);
+  const preparationItems = useMemo(() => aggregatePreparationItems(order, productCatalog), [order, productCatalog]);
+  const [baggedKeys, setBaggedKeys] = useState(new Set());
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setBaggedKeys(new Set());
+  }, [open, order?.id, order?.orderId]);
+
+  const allPrepared = preparationItems.length > 0 && preparationItems.every((item) => baggedKeys.has(item.key));
+
+  const togglePrepared = (itemKey) => {
+    setBaggedKeys((current) => {
+      const next = new Set(current);
+      if (next.has(itemKey)) {
+        next.delete(itemKey);
+      } else {
+        next.add(itemKey);
+      }
+      return next;
+    });
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-[85] overflow-y-auto bg-slate-950/55 p-4 sm:p-6" onClick={onClose}>
@@ -109,28 +133,53 @@ const OrderItemListModal = ({ open, order, productCatalog = [], onClose }) => {
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Preparation Items</p>
-                  <p className="mt-1 text-sm text-slate-500">Only meal and combo saleable items are listed here for faster kitchen preparation.</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Tap each prepared item to mark it as added to the bag. Final saleable items are shown here, not raw/base ingredients.
+                  </p>
                 </div>
-                <p className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700">{preparationItems.length} items</p>
+                <div className="flex flex-col items-end gap-2">
+                  <p className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700">{preparationItems.length} items</p>
+                  <p className="text-xs font-medium text-slate-500">
+                    {baggedKeys.size}/{preparationItems.length} bagged
+                  </p>
+                </div>
               </div>
 
               {preparationItems.length ? (
                 <div className="space-y-3">
                   {preparationItems.map((item, index) => (
-                    <div key={item.key} className="flex items-center justify-between gap-4 rounded-2xl bg-white px-4 py-3">
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => togglePrepared(item.key)}
+                      className={`flex w-full items-center justify-between gap-4 rounded-2xl border px-4 py-3 text-left transition ${
+                        baggedKeys.has(item.key)
+                          ? "border-emerald-200 bg-emerald-50 shadow-sm"
+                          : "border-transparent bg-white hover:border-slate-200"
+                      }`}
+                    >
                       <div className="flex items-center gap-3">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white">
-                          {index + 1}
+                        <span
+                          className={`flex h-9 w-9 items-center justify-center rounded-2xl text-sm font-bold ${
+                            baggedKeys.has(item.key) ? "bg-emerald-600 text-white" : "bg-slate-900 text-white"
+                          }`}
+                        >
+                          {baggedKeys.has(item.key) ? <CheckCircle2 size={16} /> : index + 1}
                         </span>
                         <img
                           src={imageUrl(item.image)}
                           alt={item.name}
                           className="h-12 w-12 rounded-2xl border border-slate-100 bg-slate-50 object-cover"
                         />
-                        <p className="text-base font-semibold text-slate-900">{item.name}</p>
+                        <div>
+                          <p className="text-base font-semibold text-slate-900">{item.name}</p>
+                          <p className={`mt-1 text-xs font-medium ${baggedKeys.has(item.key) ? "text-emerald-700" : "text-slate-500"}`}>
+                            {baggedKeys.has(item.key) ? "Added to bag" : "Tap when ready"}
+                          </p>
+                        </div>
                       </div>
                       <span className="rounded-full bg-orange-50 px-3 py-1 text-sm font-bold text-orange-600">x{item.quantity}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -138,6 +187,18 @@ const OrderItemListModal = ({ open, order, productCatalog = [], onClose }) => {
                   No preparation items found for this order.
                 </div>
               )}
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-3">
+              <button type="button" onClick={onClose} className="btn-secondary">
+                Close
+              </button>
+              {canServe && allPrepared ? (
+                <button type="button" onClick={onServe} disabled={serving} className="btn-primary gap-2">
+                  <ShoppingBag size={16} />
+                  {serving ? "Serving..." : "Serve Order"}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

@@ -124,6 +124,7 @@ const mysqlSchemaStatements = [
     partner_key ENUM('grab','foodpanda','e_gates','wownow') PRIMARY KEY,
     partner_name VARCHAR(191) NOT NULL,
     commission_rate DECIMAL(8,2) NOT NULL DEFAULT 0,
+    advertisement_roi_rate DECIMAL(8,2) NOT NULL DEFAULT 14,
     promo_config JSON NOT NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -255,6 +256,7 @@ const sqliteSchemaStatements = [
     partner_key TEXT PRIMARY KEY,
     partner_name TEXT NOT NULL,
     commission_rate REAL NOT NULL DEFAULT 0,
+    advertisement_roi_rate REAL NOT NULL DEFAULT 14,
     promo_config TEXT NOT NULL DEFAULT '[]',
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -523,6 +525,7 @@ const connectDB = async () => {
     await runMysqlSchemaStatements(connection);
     await ensureMysqlColumn(connection, "users", "avatar", "`avatar` TEXT NULL");
     await ensureMysqlColumn(connection, "products", "tentative_cost", "`tentative_cost` DECIMAL(12,2) NOT NULL DEFAULT 0");
+    await ensureMysqlColumn(connection, "partner_settings", "advertisement_roi_rate", "`advertisement_roi_rate` DECIMAL(8,2) NOT NULL DEFAULT 14");
     await ensureMysqlColumn(connection, "orders", "promo_code_id", "`promo_code_id` VARCHAR(36) NULL");
     await ensureMysqlColumn(connection, "orders", "promo_code", "`promo_code` VARCHAR(64) NULL");
     await ensureMysqlColumn(connection, "orders", "promo_discount", "`promo_discount` DECIMAL(12,2) NOT NULL DEFAULT 0");
@@ -754,6 +757,7 @@ const mapPartnerSettingRow = (row) => {
     partnerKey: row.partner_key,
     partnerName: row.partner_name,
     commissionRate: Number(row.commission_rate || 0),
+    advertisementRoiRate: Number(row.advertisement_roi_rate || 14),
     promos: parseJson(row.promo_config, []),
     isActive: Boolean(row.is_active),
     createdAt: row.created_at,

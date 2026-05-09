@@ -39,7 +39,13 @@ const normalizeBookingDetails = (bookingDetails = {}) => ({
   partnerCommissionRate:
     bookingDetails.partnerCommissionRate === null || bookingDetails.partnerCommissionRate === undefined || bookingDetails.partnerCommissionRate === ""
       ? null
-      : Number(bookingDetails.partnerCommissionRate)
+      : Number(bookingDetails.partnerCommissionRate),
+  partnerAdvertisementRoiRate:
+    bookingDetails.partnerAdvertisementRoiRate === null ||
+    bookingDetails.partnerAdvertisementRoiRate === undefined ||
+    bookingDetails.partnerAdvertisementRoiRate === ""
+      ? null
+      : Number(bookingDetails.partnerAdvertisementRoiRate)
 });
 
 const buildQueueNumber = (orderId = "") => orderId.split("-").pop() || orderId;
@@ -165,6 +171,7 @@ const resolvePromotionsForOrder = async ({
     promoDiscount: partnerPromotion.promoDiscount,
     promoSnapshot: partnerPromotion.promoSnapshot,
     partnerCommissionRate: Number(partnerSetting?.commissionRate || 0),
+    partnerAdvertisementRoiRate: Number(partnerSetting?.advertisementRoiRate || 0),
     selectedPromoIds: partnerPromotion.selectedPromoIds
   };
 };
@@ -249,7 +256,9 @@ const createOrder = async (req, res) => {
         ...normalizedBookingDetails,
         partnerPromoIds: appliedPromo.selectedPromoIds || normalizedBookingDetails.partnerPromoIds || [],
         partnerCommissionRate:
-          appliedPromo.partnerCommissionRate ?? normalizedBookingDetails.partnerCommissionRate ?? null
+          appliedPromo.partnerCommissionRate ?? normalizedBookingDetails.partnerCommissionRate ?? null,
+        partnerAdvertisementRoiRate:
+          appliedPromo.partnerAdvertisementRoiRate ?? normalizedBookingDetails.partnerAdvertisementRoiRate ?? null
       },
       staff: req.user.id,
       status: "food_serving",
@@ -557,12 +566,14 @@ const updateOrder = async (req, res) => {
       promoSnapshot: appliedPromo.promoSnapshot,
       paymentMethod,
       source: nextSource,
-      bookingDetails: {
-        ...normalizedBookingDetails,
-        partnerPromoIds: appliedPromo.selectedPromoIds || normalizedBookingDetails.partnerPromoIds || [],
-        partnerCommissionRate:
-          appliedPromo.partnerCommissionRate ?? normalizedBookingDetails.partnerCommissionRate ?? null
-      },
+        bookingDetails: {
+          ...normalizedBookingDetails,
+          partnerPromoIds: appliedPromo.selectedPromoIds || normalizedBookingDetails.partnerPromoIds || [],
+          partnerCommissionRate:
+            appliedPromo.partnerCommissionRate ?? normalizedBookingDetails.partnerCommissionRate ?? null,
+          partnerAdvertisementRoiRate:
+            appliedPromo.partnerAdvertisementRoiRate ?? normalizedBookingDetails.partnerAdvertisementRoiRate ?? null
+        },
       staff: req.user.id,
       status: isQueuedOrder ? "food_serving" : order.status,
       editedAt: new Date(),

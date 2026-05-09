@@ -424,15 +424,7 @@ const OrdersPage = () => {
       return false;
     }
 
-    const productMap = new Map(productCatalog.map((product) => [String(product.id || product._id), product]));
-
-    return order.items.some((item) => {
-      const product = productMap.get(String(item.product));
-      const normalizedCategory = String(product?.category || "").trim().toLowerCase();
-      const normalizedType = String(product?.productType || "").trim().toLowerCase();
-
-      return normalizedCategory === "meal" || normalizedCategory === "combo" || normalizedType === "combo_type";
-    });
+    return Array.isArray(order.items) && order.items.length > 0;
   };
 
   return (
@@ -901,7 +893,21 @@ const OrdersPage = () => {
         onSelect={handlePlaceQueuedOrder}
         methods={["cash", "card", "qr"]}
       />
-      <OrderItemListModal open={Boolean(itemListOrder)} order={itemListOrder} productCatalog={productCatalog} onClose={() => setItemListOrder(null)} />
+      <OrderItemListModal
+        open={Boolean(itemListOrder)}
+        order={itemListOrder}
+        productCatalog={productCatalog}
+        onClose={() => setItemListOrder(null)}
+        canServe={canMutateOrders && itemListOrder?.status === "food_serving"}
+        serving={serveSubmitting}
+        onServe={() => {
+          const orderToServe = itemListOrder;
+          setItemListOrder(null);
+          if (orderToServe) {
+            openServeDialog(orderToServe);
+          }
+        }}
+      />
       <RefundMethodModal
         open={Boolean(voidingOrder)}
         order={voidingOrder}

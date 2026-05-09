@@ -1,4 +1,4 @@
-import { CheckCircle2, Percent, Plus, Save, Trash2 } from "lucide-react";
+import { CheckCircle2, Megaphone, Percent, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
@@ -99,6 +99,7 @@ const ManagePartnersPage = () => {
       partnerKey: activePartner.partnerKey,
       partnerName: activePartner.partnerName,
       commissionRate: activePartner.commissionRate ?? 0,
+      advertisementRoiRate: activePartner.advertisementRoiRate ?? 0,
       isActive: activePartner.isActive !== false,
       promos: (activePartner.promos || []).map(normalizePromoForForm)
     });
@@ -141,6 +142,7 @@ const ManagePartnersPage = () => {
       const payload = {
         partnerName: form.partnerName,
         commissionRate: Number(form.commissionRate || 0),
+        advertisementRoiRate: Number(form.advertisementRoiRate || 0),
         isActive: form.isActive !== false,
         promos: form.promos.map((promo) => ({
           ...promo,
@@ -157,6 +159,7 @@ const ManagePartnersPage = () => {
         partnerKey: saved.partnerKey,
         partnerName: saved.partnerName,
         commissionRate: saved.commissionRate ?? 0,
+        advertisementRoiRate: saved.advertisementRoiRate ?? 0,
         isActive: saved.isActive !== false,
         promos: (saved.promos || []).map(normalizePromoForForm)
       });
@@ -241,10 +244,14 @@ const ManagePartnersPage = () => {
               </label>
             </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-4">
+            <div className="mt-5 grid gap-4 md:grid-cols-5">
               <div className="rounded-3xl bg-white p-5">
                 <p className="text-sm text-slate-500">Commission Rate</p>
                 <p className="mt-2 text-3xl font-bold text-slate-900">{Number(form.commissionRate || 0)}%</p>
+              </div>
+              <div className="rounded-3xl bg-white p-5">
+                <p className="text-sm text-slate-500">Ad ROI Rate</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">{Number(form.advertisementRoiRate || 0)}%</p>
               </div>
               <div className="rounded-3xl bg-white p-5">
                 <p className="text-sm text-slate-500">Partner Promos</p>
@@ -376,6 +383,31 @@ const ManagePartnersPage = () => {
                   <p className="mt-3 text-xs text-slate-500">
                     Example: if the partner settles {currency(10000)} and commission is {Number(form.commissionRate || 0)}%, the deducted commission is{" "}
                     <span className="font-semibold text-slate-700">{currency((10000 * Number(form.commissionRate || 0)) / 100)}</span>.
+                  </p>
+                </div>
+
+                <div className="rounded-[1.8rem] border border-slate-100 bg-white p-4 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl bg-rose-50 p-3 text-rose-600">
+                      <Megaphone size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">Advertisement ROI</h3>
+                      <p className="text-sm text-slate-500">This marketing cost is deducted after promo and commission to show realistic partner profitability.</p>
+                    </div>
+                  </div>
+                  <label className="mb-2 mt-4 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">ROI Rate (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.advertisementRoiRate}
+                    onChange={(event) => setForm((current) => ({ ...current, advertisementRoiRate: event.target.value }))}
+                    className="input"
+                  />
+                  <p className="mt-3 text-xs text-slate-500">
+                    Example: if sales after promo are {currency(10000)} and ROI is {Number(form.advertisementRoiRate || 0)}%, the ad cost becomes{" "}
+                    <span className="font-semibold text-slate-700">{currency((10000 * Number(form.advertisementRoiRate || 0)) / 100)}</span>.
                   </p>
                 </div>
 

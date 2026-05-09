@@ -77,6 +77,14 @@ const getPartnerCommissionRateForOrder = (order, partnerSettingsMap, partnerKey)
       0
   );
 
+const getPartnerAdvertisementRoiRateForOrder = (order, partnerSettingsMap, partnerKey) =>
+  Number(
+    order?.bookingDetails?.partnerAdvertisementRoiRate ??
+      order?.promoSnapshot?.advertisementRoiRate ??
+      partnerSettingsMap.get(partnerKey)?.advertisementRoiRate ??
+      0
+  );
+
 const getPartnerPromoDiscountForOrder = (order) => {
   const subtotal = Number(order?.subtotal || 0);
   const total = Number(order?.total || 0);
@@ -200,9 +208,13 @@ const getOrderFinancialMetrics = (order, partnerSettingsMap, productMap = new Ma
     ? roundReportAmount((salesAfterPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
     : 0;
   const netSales = roundReportAmount(salesAfterPromo - commissionAmount);
+  const advertisingRoiCost = partnerKey
+    ? roundReportAmount((salesAfterPromo * getPartnerAdvertisementRoiRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
+    : 0;
+  const netSalesAfterAdvertising = roundReportAmount(netSales - advertisingRoiCost);
   const storedCost = getStoredOrderCost(order);
   const costOfGoodsSold = storedCost > 0 ? storedCost : calculateFallbackOrderCostFromProducts(order, productMap);
-  const tentativeProfit = roundReportAmount(netSales - costOfGoodsSold);
+  const tentativeProfit = roundReportAmount(netSalesAfterAdvertising - costOfGoodsSold);
   const profitMarginPercent = netSales > 0 ? roundReportAmount((tentativeProfit / netSales) * 100) : 0;
 
   return {
@@ -215,6 +227,8 @@ const getOrderFinancialMetrics = (order, partnerSettingsMap, productMap = new Ma
     salesAfterPartnerPromo: salesAfterPromo,
     commissionAmount,
     netSales,
+    advertisingRoiCost,
+    netSalesAfterAdvertising,
     costOfGoodsSold,
     tentativeProfit,
     profitMarginPercent
@@ -322,7 +336,8 @@ const calculateProductInventory = (product, productMap) => {
 };
 
 const getSalesReport = async (_req, res) => {
-  const allOrders = await getOrders();
+  const [allOrders, partnerSettings] = await Promise.all([getOrders(), getAllPartnerSettings()]);
+  const partnerSettingsMap = new Map(partnerSettings.map((setting) => [setting.partnerKey, setting]));
   const todayRange = buildTimezoneTodayRange();
   const monthRange = buildTimezoneMonthRange();
   const completedOrders = allOrders.filter((order) => COMPLETED_STATUSES.includes(order.status));
@@ -363,10 +378,26 @@ const getSalesReport = async (_req, res) => {
   res.json({
     daily: {
       totalSales: dailyOrders.reduce((sum, order) => sum + getOrderGrossSales(order), 0),
+      netSales: dailyOrders.reduce(
+        (sum, order) => sum + getOrderFinancialMetrics(order, partnerSettingsMap).netSales,
+        0
+      ),
+      netSalesAfterAdvertising: dailyOrders.reduce(
+        (sum, order) => sum + getOrderFinancialMetrics(order, partnerSettingsMap).netSalesAfterAdvertising,
+        0
+      ),
       orderCount: dailyOrders.length
     },
     monthly: {
       totalSales: monthlyOrders.reduce((sum, order) => sum + getOrderGrossSales(order), 0),
+      netSales: monthlyOrders.reduce(
+        (sum, order) => sum + getOrderFinancialMetrics(order, partnerSettingsMap).netSales,
+        0
+      ),
+      netSalesAfterAdvertising: monthlyOrders.reduce(
+        (sum, order) => sum + getOrderFinancialMetrics(order, partnerSettingsMap).netSalesAfterAdvertising,
+        0
+      ),
       orderCount: monthlyOrders.length
     },
     topSelling
@@ -395,16 +426,31 @@ const getLowStockProducts = async (_req, res) => {
 };
 
 const getDashboardSummary = async (_req, res) => {
-  const [orders, products] = await Promise.all([getOrders(), getAllProducts()]);
+  const [orders, products, partnerSettings] = await Promise.all([getOrders(), getAllProducts(), getAllPartnerSettings()]);
   const completedOrders = orders.filter((order) => COMPLETED_STATUSES.includes(order.status));
   const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
+  const partnerSettingsMap = new Map(partnerSettings.map((setting) => [setting.partnerKey, setting]));
   const lowStockCount = products.reduce((count, product) => {
     const inventory = calculateProductInventory(product, productMap);
     return count + (inventory.lowStock ? 1 : 0);
   }, 0);
 
+  const financialSummary = completedOrders.reduce(
+    (acc, order) => {
+      const metrics = getOrderFinancialMetrics(order, partnerSettingsMap, productMap);
+      acc.netSales += metrics.netSales;
+      acc.advertisingRoiCost += metrics.advertisingRoiCost;
+      acc.netSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
+      return acc;
+    },
+    { netSales: 0, advertisingRoiCost: 0, netSalesAfterAdvertising: 0 }
+  );
+
   res.json({
     totalRevenue: completedOrders.reduce((sum, order) => sum + getOrderGrossSales(order), 0),
+    totalNetSales: roundReportAmount(financialSummary.netSales),
+    totalAdvertisingRoiCost: roundReportAmount(financialSummary.advertisingRoiCost),
+    totalNetSalesAfterAdvertising: roundReportAmount(financialSummary.netSalesAfterAdvertising),
     totalOrders: completedOrders.length,
     lowStockCount,
     productCount: products.length
@@ -453,18 +499,24 @@ const getSalesRangeReport = async (req, res) => {
       const commissionAmount = partnerKey
         ? roundReportAmount((salesAfterPartnerPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
         : 0;
+      const advertisingRoiCost = partnerKey
+        ? roundReportAmount((salesAfterPartnerPromo * getPartnerAdvertisementRoiRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
+        : 0;
       const netSales = roundReportAmount(salesAfterPartnerPromo - commissionAmount);
+      const netSalesAfterAdvertising = roundReportAmount(netSales - advertisingRoiCost);
 
       existing.grossSales += grossSales;
       existing.partnerPromoDiscount += partnerPromoDiscount;
       existing.salesAfterPartnerPromo += salesAfterPartnerPromo;
       existing.commissionAmount += commissionAmount;
+      existing.advertisingRoiCost += advertisingRoiCost;
+      existing.netSalesAfterAdvertising += netSalesAfterAdvertising;
       existing.totalSaleAmount += netSales;
       existing.numberOfOrder += 1;
 
       if (partnerKey) {
-        existing.deliveryPartners += netSales;
-        existing.partners[partnerKey] += netSales;
+        existing.deliveryPartners += netSalesAfterAdvertising;
+        existing.partners[partnerKey] += netSalesAfterAdvertising;
       } else if (order.paymentMethod === "cash") {
         existing.cash += salesAfterPartnerPromo;
       } else if (order.paymentMethod === "card") {
@@ -529,6 +581,8 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
           refunds: 0,
           netSales: 0,
           commissionAmount: 0,
+          advertisingRoiCost: 0,
+          netSalesAfterAdvertising: 0,
           settlementAmount: 0
         }
     ])
@@ -551,14 +605,20 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
         const commissionAmount = roundReportAmount(
           (salesAfterPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100
         );
+        const advertisingRoiCost = roundReportAmount(
+          (salesAfterPromo * getPartnerAdvertisementRoiRateForOrder(order, partnerSettingsMap, partnerKey)) / 100
+        );
         const netSales = roundReportAmount(salesAfterPromo - commissionAmount);
+        const netSalesAfterAdvertising = roundReportAmount(netSales - advertisingRoiCost);
 
         existing.orderCount += 1;
         existing.completedOrders += 1;
         existing.grossSales += grossSales;
         existing.salesAfterPromo += salesAfterPromo;
         existing.commissionAmount += commissionAmount;
+        existing.advertisingRoiCost += advertisingRoiCost;
         existing.netSales += netSales;
+        existing.netSalesAfterAdvertising += netSalesAfterAdvertising;
         existing.settlementAmount += netSales;
       }
 
@@ -577,6 +637,8 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
     refunds: roundReportAmount(row.refunds),
     netSales: roundReportAmount(row.netSales),
     commissionAmount: roundReportAmount(row.commissionAmount),
+    advertisingRoiCost: roundReportAmount(row.advertisingRoiCost),
+    netSalesAfterAdvertising: roundReportAmount(row.netSalesAfterAdvertising),
     settlementAmount: roundReportAmount(row.settlementAmount),
     averageOrderValue: row.orderCount > 0 ? roundReportAmount(row.salesAfterPromo / row.orderCount) : 0
   }));
@@ -590,6 +652,8 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
       acc.totalRefunds += row.refunds;
       acc.totalNetSales += row.netSales;
       acc.totalCommissionAmount += row.commissionAmount;
+      acc.totalAdvertisingRoiCost += row.advertisingRoiCost;
+      acc.totalNetSalesAfterAdvertising += row.netSalesAfterAdvertising;
       acc.totalSettlementAmount += row.settlementAmount;
       return acc;
     },
@@ -601,6 +665,8 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
         totalRefunds: 0,
         totalNetSales: 0,
         totalCommissionAmount: 0,
+        totalAdvertisingRoiCost: 0,
+        totalNetSalesAfterAdvertising: 0,
         totalSettlementAmount: 0
       }
     );
@@ -667,17 +733,23 @@ const getTentativeProfitReport = async (req, res) => {
     salesAfterPartnerPromo: 0,
     commissionAmount: 0,
     netSales: 0,
+    advertisingRoiCost: 0,
+    netSalesAfterAdvertising: 0,
     costOfGoodsSold: 0,
     tentativeProfit: 0,
     counterGrossSales: 0,
     counterNetSales: 0,
+    counterAdvertisingRoiCost: 0,
+    counterNetSalesAfterAdvertising: 0,
     counterCostOfGoodsSold: 0,
     counterTentativeProfit: 0,
     partnerGrossSales: 0,
     partnerPromoSalesDiscount: 0,
     partnerSalesAfterPromo: 0,
     partnerCommissionAmount: 0,
+    partnerAdvertisingRoiCost: 0,
     partnerNetSales: 0,
+    partnerNetSalesAfterAdvertising: 0,
     partnerCostOfGoodsSold: 0,
     partnerTentativeProfit: 0
   };
@@ -698,12 +770,18 @@ const getTentativeProfitReport = async (req, res) => {
       salesAfterPartnerPromo: 0,
       commissionAmount: 0,
       netSales: 0,
+      advertisingRoiCost: 0,
+      netSalesAfterAdvertising: 0,
       costOfGoodsSold: 0,
       tentativeProfit: 0,
       counterGrossSales: 0,
       counterNetSales: 0,
+      counterAdvertisingRoiCost: 0,
+      counterNetSalesAfterAdvertising: 0,
       partnerGrossSales: 0,
-      partnerNetSales: 0
+      partnerNetSales: 0,
+      partnerAdvertisingRoiCost: 0,
+      partnerNetSalesAfterAdvertising: 0
     };
 
     dailyRow.totalOrders += 1;
@@ -715,14 +793,20 @@ const getTentativeProfitReport = async (req, res) => {
     dailyRow.salesAfterPartnerPromo += metrics.salesAfterPromo;
     dailyRow.commissionAmount += metrics.commissionAmount;
     dailyRow.netSales += metrics.netSales;
+    dailyRow.advertisingRoiCost += metrics.advertisingRoiCost;
+    dailyRow.netSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
     dailyRow.costOfGoodsSold += metrics.costOfGoodsSold;
     dailyRow.tentativeProfit += metrics.tentativeProfit;
     if (isPartnerOrder) {
       dailyRow.partnerGrossSales += metrics.grossSales;
       dailyRow.partnerNetSales += metrics.netSales;
+      dailyRow.partnerAdvertisingRoiCost += metrics.advertisingRoiCost;
+      dailyRow.partnerNetSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
     } else {
       dailyRow.counterGrossSales += metrics.grossSales;
       dailyRow.counterNetSales += metrics.netSales;
+      dailyRow.counterAdvertisingRoiCost += metrics.advertisingRoiCost;
+      dailyRow.counterNetSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
     }
     dailyGrouped.set(reportDay, dailyRow);
 
@@ -735,6 +819,8 @@ const getTentativeProfitReport = async (req, res) => {
     summary.salesAfterPartnerPromo += metrics.salesAfterPromo;
     summary.commissionAmount += metrics.commissionAmount;
     summary.netSales += metrics.netSales;
+    summary.advertisingRoiCost += metrics.advertisingRoiCost;
+    summary.netSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
     summary.costOfGoodsSold += metrics.costOfGoodsSold;
     summary.tentativeProfit += metrics.tentativeProfit;
     if (isPartnerOrder) {
@@ -742,12 +828,16 @@ const getTentativeProfitReport = async (req, res) => {
       summary.partnerPromoSalesDiscount += metrics.partnerPromoDiscount;
       summary.partnerSalesAfterPromo += metrics.salesAfterPromo;
       summary.partnerCommissionAmount += metrics.commissionAmount;
+      summary.partnerAdvertisingRoiCost += metrics.advertisingRoiCost;
       summary.partnerNetSales += metrics.netSales;
+      summary.partnerNetSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
       summary.partnerCostOfGoodsSold += metrics.costOfGoodsSold;
       summary.partnerTentativeProfit += metrics.tentativeProfit;
     } else {
       summary.counterGrossSales += metrics.grossSales;
       summary.counterNetSales += metrics.netSales;
+      summary.counterAdvertisingRoiCost += metrics.advertisingRoiCost;
+      summary.counterNetSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
       summary.counterCostOfGoodsSold += metrics.costOfGoodsSold;
       summary.counterTentativeProfit += metrics.tentativeProfit;
     }
@@ -762,6 +852,8 @@ const getTentativeProfitReport = async (req, res) => {
         salesAfterPartnerPromo: 0,
         commissionAmount: 0,
         netSales: 0,
+        advertisingRoiCost: 0,
+        netSalesAfterAdvertising: 0,
         costOfGoodsSold: 0,
         tentativeProfit: 0
       };
@@ -772,6 +864,8 @@ const getTentativeProfitReport = async (req, res) => {
       existingPartner.salesAfterPartnerPromo += metrics.salesAfterPromo;
       existingPartner.commissionAmount += metrics.commissionAmount;
       existingPartner.netSales += metrics.netSales;
+      existingPartner.advertisingRoiCost += metrics.advertisingRoiCost;
+      existingPartner.netSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
       existingPartner.costOfGoodsSold += metrics.costOfGoodsSold;
       existingPartner.tentativeProfit += metrics.tentativeProfit;
       partnerGrouped.set(metrics.partnerKey, existingPartner);
@@ -792,13 +886,19 @@ const getTentativeProfitReport = async (req, res) => {
       salesAfterPartnerPromo: roundReportAmount(row.salesAfterPartnerPromo),
       commissionAmount: roundReportAmount(row.commissionAmount),
       netSales: roundReportAmount(row.netSales),
+      advertisingRoiCost: roundReportAmount(row.advertisingRoiCost),
+      netSalesAfterAdvertising: roundReportAmount(row.netSalesAfterAdvertising),
       costOfGoodsSold: roundReportAmount(row.costOfGoodsSold),
       tentativeProfit: roundReportAmount(row.tentativeProfit),
       profitMarginPercent: row.netSales > 0 ? roundReportAmount((row.tentativeProfit / row.netSales) * 100) : 0,
       counterGrossSales: roundReportAmount(row.counterGrossSales),
       counterNetSales: roundReportAmount(row.counterNetSales),
+      counterAdvertisingRoiCost: roundReportAmount(row.counterAdvertisingRoiCost),
+      counterNetSalesAfterAdvertising: roundReportAmount(row.counterNetSalesAfterAdvertising),
       partnerGrossSales: roundReportAmount(row.partnerGrossSales),
-      partnerNetSales: roundReportAmount(row.partnerNetSales)
+      partnerNetSales: roundReportAmount(row.partnerNetSales),
+      partnerAdvertisingRoiCost: roundReportAmount(row.partnerAdvertisingRoiCost),
+      partnerNetSalesAfterAdvertising: roundReportAmount(row.partnerNetSalesAfterAdvertising)
     }));
 
   const partnerRows = [...partnerGrouped.values()]
@@ -813,6 +913,8 @@ const getTentativeProfitReport = async (req, res) => {
       salesAfterPartnerPromo: roundReportAmount(row.salesAfterPartnerPromo),
       commissionAmount: roundReportAmount(row.commissionAmount),
       netSales: roundReportAmount(row.netSales),
+      advertisingRoiCost: roundReportAmount(row.advertisingRoiCost),
+      netSalesAfterAdvertising: roundReportAmount(row.netSalesAfterAdvertising),
       costOfGoodsSold: roundReportAmount(row.costOfGoodsSold),
       tentativeProfit: roundReportAmount(row.tentativeProfit),
       profitMarginPercent: row.netSales > 0 ? roundReportAmount((row.tentativeProfit / row.netSales) * 100) : 0
@@ -832,17 +934,23 @@ const getTentativeProfitReport = async (req, res) => {
       salesAfterPartnerPromo: roundReportAmount(summary.salesAfterPartnerPromo),
       commissionAmount: roundReportAmount(summary.commissionAmount),
       netSales: roundReportAmount(summary.netSales),
+      advertisingRoiCost: roundReportAmount(summary.advertisingRoiCost),
+      netSalesAfterAdvertising: roundReportAmount(summary.netSalesAfterAdvertising),
       costOfGoodsSold: roundReportAmount(summary.costOfGoodsSold),
       tentativeProfit: roundReportAmount(summary.tentativeProfit),
       counterGrossSales: roundReportAmount(summary.counterGrossSales),
       counterNetSales: roundReportAmount(summary.counterNetSales),
+      counterAdvertisingRoiCost: roundReportAmount(summary.counterAdvertisingRoiCost),
+      counterNetSalesAfterAdvertising: roundReportAmount(summary.counterNetSalesAfterAdvertising),
       counterCostOfGoodsSold: roundReportAmount(summary.counterCostOfGoodsSold),
       counterTentativeProfit: roundReportAmount(summary.counterTentativeProfit),
       partnerGrossSales: roundReportAmount(summary.partnerGrossSales),
       partnerPromoSalesDiscount: roundReportAmount(summary.partnerPromoSalesDiscount),
       partnerSalesAfterPromo: roundReportAmount(summary.partnerSalesAfterPromo),
       partnerCommissionAmount: roundReportAmount(summary.partnerCommissionAmount),
+      partnerAdvertisingRoiCost: roundReportAmount(summary.partnerAdvertisingRoiCost),
       partnerNetSales: roundReportAmount(summary.partnerNetSales),
+      partnerNetSalesAfterAdvertising: roundReportAmount(summary.partnerNetSalesAfterAdvertising),
       partnerCostOfGoodsSold: roundReportAmount(summary.partnerCostOfGoodsSold),
       partnerTentativeProfit: roundReportAmount(summary.partnerTentativeProfit),
       profitMarginPercent: summary.netSales > 0 ? roundReportAmount((summary.tentativeProfit / summary.netSales) * 100) : 0,

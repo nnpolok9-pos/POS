@@ -16,10 +16,18 @@ const DEFAULT_PARTNER_COMMISSIONS = {
   wownow: 22
 };
 
+const DEFAULT_PARTNER_ADVERTISEMENT_ROI = {
+  foodpanda: 14,
+  grab: 14,
+  e_gates: 14,
+  wownow: 14
+};
+
 const createDefaultPartnerSetting = (partnerKey) => ({
   partnerKey,
   partnerName: PARTNER_LABELS[partnerKey] || partnerKey,
   commissionRate: DEFAULT_PARTNER_COMMISSIONS[partnerKey] ?? 0,
+  advertisementRoiRate: DEFAULT_PARTNER_ADVERTISEMENT_ROI[partnerKey] ?? 14,
   isActive: true,
   promos: []
 });
@@ -53,6 +61,7 @@ const normalizePartnerSetting = (setting = {}) => {
     partnerKey,
     partnerName: String(setting.partnerName || PARTNER_LABELS[partnerKey] || partnerKey).trim(),
     commissionRate: Number(setting.commissionRate || 0),
+    advertisementRoiRate: Number(setting.advertisementRoiRate ?? DEFAULT_PARTNER_ADVERTISEMENT_ROI[partnerKey] ?? 14),
     isActive: setting.isActive !== false,
     promos: Array.isArray(setting.promos) ? setting.promos.map((promo, index) => normalizePartnerPromo(promo, index)) : []
   };
@@ -123,6 +132,7 @@ const applyPartnerPromotions = ({ partnerSetting, subtotal, selectedPromoIds = [
           partner: normalizedSetting.partnerKey,
           partnerName: normalizedSetting.partnerName,
           commissionRate: Number(normalizedSetting.commissionRate || 0),
+          advertisementRoiRate: Number(normalizedSetting.advertisementRoiRate || 0),
           promotions: appliedPromotions
         }
       : null,
@@ -133,6 +143,7 @@ const applyPartnerPromotions = ({ partnerSetting, subtotal, selectedPromoIds = [
 module.exports = {
   PARTNER_KEYS,
   PARTNER_LABELS,
+  DEFAULT_PARTNER_ADVERTISEMENT_ROI,
   buildDefaultPartnerSettings,
   createDefaultPartnerSetting,
   normalizePartnerPromo,
