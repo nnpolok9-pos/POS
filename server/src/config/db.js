@@ -758,7 +758,7 @@ const mapPartnerSettingRow = (row) => {
     partnerKey: row.partner_key,
     partnerName: row.partner_name,
     commissionRate: Number(row.commission_rate || 0),
-    advertisementRoiRate: Number(row.advertisement_roi_rate || 14),
+    advertisementRoiRate: Number(row.advertisement_roi_rate ?? 14),
     promos: parseJson(row.promo_config, []),
     isActive: Boolean(row.is_active),
     createdAt: row.created_at,
