@@ -1,4 +1,4 @@
-import { CheckCircle2, Megaphone, Percent, Plus, Save, Trash2 } from "lucide-react";
+﻿import { CheckCircle2, Megaphone, Percent, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { NavLink, useNavigate, useParams } from "react-router-dom";
@@ -210,7 +210,7 @@ const ManagePartnersPage = () => {
                 <div className="mt-3">
                   <p className="font-semibold text-slate-900">{meta.label}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {partner?.isActive === false ? "Inactive" : "Active"} · {partner?.promos?.length || 0} promos
+                    {partner?.isActive === false ? "Inactive" : "Active"} - {partner?.promos?.length || 0} promos
                   </p>
                 </div>
               </NavLink>
@@ -415,10 +415,10 @@ const ManagePartnersPage = () => {
                 <div className="rounded-[1.8rem] border border-slate-100 bg-white p-4 shadow-sm">
                   <h3 className="text-lg font-bold text-slate-900">Partner POS Behavior</h3>
                   <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                    <li>• Default promos are preselected automatically when this partner is chosen.</li>
-                    <li>• Staff can still change the selected promos during create or edit.</li>
-                    <li>• Partner order ID remains required before placing the order.</li>
-                    <li>• Commission is shown in delivery partner reporting for settlement tracking.</li>
+                    <li>- Default promos are preselected automatically when this partner is chosen.</li>
+                    <li>- Staff can still change the selected promos during create or edit.</li>
+                    <li>- Partner order ID remains required before placing the order.</li>
+                    <li>- Commission is shown in delivery partner reporting for settlement tracking.</li>
                   </ul>
                 </div>
               </div>
@@ -431,3 +431,4 @@ const ManagePartnersPage = () => {
 };
 
 export default ManagePartnersPage;
+

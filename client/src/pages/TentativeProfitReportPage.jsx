@@ -60,8 +60,8 @@ const dailyColumns = [
   { header: "Partner Promo", key: "partnerPromoDiscount" },
   { header: "After Promo", key: "salesAfterPartnerPromo" },
   { header: "Commission", key: "commissionAmount" },
-  { header: "ROI Cost", key: "advertisingRoiCost" },
   { header: "Net Sales", key: "netSales" },
+  { header: "ROI Cost", key: "advertisingRoiCost" },
   { header: "Net After Ad", key: "netSalesAfterAdvertising" },
   { header: "Cost", key: "costOfGoodsSold" },
   { header: "Tentative Profit", key: "tentativeProfit" },
@@ -76,8 +76,8 @@ const channelColumns = [
   { header: "Promo", key: "partnerPromoDiscount" },
   { header: "After Promo", key: "salesAfterPartnerPromo" },
   { header: "Commission", key: "commissionAmount" },
-  { header: "ROI Cost", key: "advertisingRoiCost" },
   { header: "Net Sales", key: "netSales" },
+  { header: "ROI Cost", key: "advertisingRoiCost" },
   { header: "Net After Ad", key: "netSalesAfterAdvertising" },
   { header: "Cost", key: "costOfGoodsSold" },
   { header: "Tentative Profit", key: "tentativeProfit" },
@@ -125,8 +125,8 @@ const DailyRowMobileCard = ({ row }) => (
         <MobileMetric label="Counter Promo" value={formatMoneyCell(row.counterPromoDiscount)} />
         <MobileMetric label="Partner Promo" value={formatMoneyCell(row.partnerPromoDiscount)} />
         <MobileMetric label="Commission" value={formatMoneyCell(row.commissionAmount)} />
-        <MobileMetric label="ROI Cost" value={formatMoneyCell(row.advertisingRoiCost)} />
         <MobileMetric label="Net Sales" value={formatMoneyCell(row.netSales)} tone="strong" />
+        <MobileMetric label="ROI Cost" value={formatMoneyCell(row.advertisingRoiCost)} />
         <MobileMetric label="Net After Ad" value={formatMoneyCell(row.netSalesAfterAdvertising)} tone="strong" />
         <MobileMetric label="Cost" value={formatMoneyCell(row.costOfGoodsSold)} />
         <MobileMetric label="Margin %" value={formatPercent(row.profitMarginPercent)} />
@@ -166,8 +166,8 @@ const ChannelRowMobileCard = ({ row }) => (
         <MobileMetric label="Promo" value={formatMoneyCell(row.partnerPromoDiscount)} />
         <MobileMetric label="After Promo" value={formatMoneyCell(row.salesAfterPartnerPromo)} />
         <MobileMetric label="Commission" value={formatMoneyCell(row.commissionAmount)} />
-        <MobileMetric label="ROI Cost" value={formatMoneyCell(row.advertisingRoiCost)} />
         <MobileMetric label="Net Sales" value={formatMoneyCell(row.netSales)} tone="strong" />
+        <MobileMetric label="ROI Cost" value={formatMoneyCell(row.advertisingRoiCost)} />
         <MobileMetric label="Net After Ad" value={formatMoneyCell(row.netSalesAfterAdvertising)} tone="strong" />
         <MobileMetric label="Cost" value={formatMoneyCell(row.costOfGoodsSold)} />
         <MobileMetric label="Margin %" value={formatPercent(row.profitMarginPercent)} />
@@ -599,8 +599,8 @@ const TentativeProfitReportPage = () => {
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.partnerPromoDiscount)}</td>
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.salesAfterPartnerPromo)}</td>
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.commissionAmount)}</td>
-                    <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.advertisingRoiCost)}</td>
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.netSales)}</td>
+                    <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.advertisingRoiCost)}</td>
                     <td className="px-3 py-3 font-medium text-slate-900">{formatMoneyCell(row.netSalesAfterAdvertising)}</td>
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.costOfGoodsSold)}</td>
                     <td className="px-3 py-3 font-semibold text-emerald-600">{formatMoneyCell(row.tentativeProfit)}</td>
@@ -683,8 +683,8 @@ const TentativeProfitReportPage = () => {
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.partnerPromoDiscount)}</td>
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.salesAfterPartnerPromo)}</td>
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.commissionAmount)}</td>
-                    <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.advertisingRoiCost)}</td>
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.netSales)}</td>
+                    <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.advertisingRoiCost)}</td>
                     <td className="px-3 py-3 font-medium text-slate-900">{formatMoneyCell(row.netSalesAfterAdvertising)}</td>
                     <td className="px-3 py-3 text-slate-700">{formatMoneyCell(row.costOfGoodsSold)}</td>
                     <td className="px-3 py-3 font-semibold text-emerald-600">{formatMoneyCell(row.tentativeProfit)}</td>
