@@ -9,6 +9,7 @@ const PARTNER_LABELS = {
 
 const PARTNER_PROMO_DISCOUNT_TYPES = ["fixed", "percentage"];
 
+
 const DEFAULT_PARTNER_COMMISSIONS = {
   foodpanda: 27.5,
   grab: 27.5,

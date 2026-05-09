@@ -22,6 +22,7 @@ const { normalizePromoCode, getPromoUsageStats, validatePromoForOrder, applyProm
 const { buildTimezoneDayRange } = require("../utils/reportDateRange");
 const { applyPartnerPromotions } = require("../utils/partnerSettings");
 
+
 const PARTNER_PAYMENT_METHODS = ["grab", "foodpanda", "e_gates", "wownow"];
 const COLLECTED_PAYMENT_METHODS = ["cash", "card", "qr", ...PARTNER_PAYMENT_METHODS];
 const ALLOWED_PAYMENT_METHODS = [...COLLECTED_PAYMENT_METHODS, "due_on_serve"];

@@ -23,8 +23,10 @@ const PARTNER_LABELS = {
   e_gates: "E-Gates",
   wownow: "WOWNOW"
 };
+const PARTNER_DISPLAY_ORDER = ["grab", "foodpanda", "e_gates", "wownow"];
 const isVoidHistoryEntry = (entry) => ["void", "void_edit"].includes(entry?.adjustmentType);
 const hasCollectedPayment = (paymentMethod) => PAYMENT_METHODS.includes(paymentMethod);
+
 
 const toReportDay = (dateValue) =>
   new Intl.DateTimeFormat("en-CA", {
@@ -215,7 +217,8 @@ const getOrderFinancialMetrics = (order, partnerSettingsMap, productMap = new Ma
   const storedCost = getStoredOrderCost(order);
   const costOfGoodsSold = storedCost > 0 ? storedCost : calculateFallbackOrderCostFromProducts(order, productMap);
   const tentativeProfit = roundReportAmount(netSalesAfterAdvertising - costOfGoodsSold);
-  const profitMarginPercent = netSales > 0 ? roundReportAmount((tentativeProfit / netSales) * 100) : 0;
+  const profitMarginPercent =
+    netSalesAfterAdvertising > 0 ? roundReportAmount((tentativeProfit / netSalesAfterAdvertising) * 100) : 0;
 
   return {
     partnerKey,
@@ -478,6 +481,8 @@ const getSalesRangeReport = async (req, res) => {
       partnerPromoDiscount: 0,
       salesAfterPartnerPromo: 0,
       commissionAmount: 0,
+      advertisingRoiCost: 0,
+      netSalesAfterAdvertising: 0,
       numberOfOrder: 0,
       cash: 0,
       card: 0,
@@ -492,37 +497,26 @@ const getSalesRangeReport = async (req, res) => {
     };
 
     if (COMPLETED_STATUSES.includes(order.status)) {
-      const grossSales = Number(order.subtotal || 0);
-      const partnerKey = getPartnerKeyForOrder(order);
-      const partnerPromoDiscount = getPartnerPromoDiscountForOrder(order);
-      const salesAfterPartnerPromo = Number(order.total || 0);
-      const commissionAmount = partnerKey
-        ? roundReportAmount((salesAfterPartnerPromo * getPartnerCommissionRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
-        : 0;
-      const advertisingRoiCost = partnerKey
-        ? roundReportAmount((salesAfterPartnerPromo * getPartnerAdvertisementRoiRateForOrder(order, partnerSettingsMap, partnerKey)) / 100)
-        : 0;
-      const netSales = roundReportAmount(salesAfterPartnerPromo - commissionAmount);
-      const netSalesAfterAdvertising = roundReportAmount(netSales - advertisingRoiCost);
+      const metrics = getOrderFinancialMetrics(order, partnerSettingsMap, productMap);
 
-      existing.grossSales += grossSales;
-      existing.partnerPromoDiscount += partnerPromoDiscount;
-      existing.salesAfterPartnerPromo += salesAfterPartnerPromo;
-      existing.commissionAmount += commissionAmount;
-      existing.advertisingRoiCost += advertisingRoiCost;
-      existing.netSalesAfterAdvertising += netSalesAfterAdvertising;
-      existing.totalSaleAmount += netSales;
+      existing.grossSales += metrics.grossSales;
+      existing.partnerPromoDiscount += metrics.partnerPromoDiscount;
+      existing.salesAfterPartnerPromo += metrics.salesAfterPromo;
+      existing.commissionAmount += metrics.commissionAmount;
+      existing.advertisingRoiCost += metrics.advertisingRoiCost;
+      existing.netSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
+      existing.totalSaleAmount += metrics.netSales;
       existing.numberOfOrder += 1;
 
-      if (partnerKey) {
-        existing.deliveryPartners += netSalesAfterAdvertising;
-        existing.partners[partnerKey] += netSalesAfterAdvertising;
+      if (metrics.partnerKey) {
+        existing.deliveryPartners += metrics.netSalesAfterAdvertising;
+        existing.partners[metrics.partnerKey] += metrics.netSalesAfterAdvertising;
       } else if (order.paymentMethod === "cash") {
-        existing.cash += salesAfterPartnerPromo;
+        existing.cash += metrics.salesAfterPromo;
       } else if (order.paymentMethod === "card") {
-        existing.card += salesAfterPartnerPromo;
+        existing.card += metrics.salesAfterPromo;
       } else if (order.paymentMethod === "qr") {
-        existing.qr += salesAfterPartnerPromo;
+        existing.qr += metrics.salesAfterPromo;
       }
     }
 
@@ -890,7 +884,10 @@ const getTentativeProfitReport = async (req, res) => {
       netSalesAfterAdvertising: roundReportAmount(row.netSalesAfterAdvertising),
       costOfGoodsSold: roundReportAmount(row.costOfGoodsSold),
       tentativeProfit: roundReportAmount(row.tentativeProfit),
-      profitMarginPercent: row.netSales > 0 ? roundReportAmount((row.tentativeProfit / row.netSales) * 100) : 0,
+      profitMarginPercent:
+        row.netSalesAfterAdvertising > 0
+          ? roundReportAmount((row.tentativeProfit / row.netSalesAfterAdvertising) * 100)
+          : 0,
       counterGrossSales: roundReportAmount(row.counterGrossSales),
       counterNetSales: roundReportAmount(row.counterNetSales),
       counterAdvertisingRoiCost: roundReportAmount(row.counterAdvertisingRoiCost),
@@ -902,7 +899,11 @@ const getTentativeProfitReport = async (req, res) => {
     }));
 
   const partnerRows = [...partnerGrouped.values()]
-    .sort((left, right) => right.tentativeProfit - left.tentativeProfit || right.netSales - left.netSales)
+    .sort(
+      (left, right) =>
+        PARTNER_DISPLAY_ORDER.indexOf(left.partner) - PARTNER_DISPLAY_ORDER.indexOf(right.partner) ||
+        left.partnerLabel.localeCompare(right.partnerLabel)
+    )
     .map((row, index) => ({
       sl: index + 1,
       partner: row.partner,
@@ -917,7 +918,10 @@ const getTentativeProfitReport = async (req, res) => {
       netSalesAfterAdvertising: roundReportAmount(row.netSalesAfterAdvertising),
       costOfGoodsSold: roundReportAmount(row.costOfGoodsSold),
       tentativeProfit: roundReportAmount(row.tentativeProfit),
-      profitMarginPercent: row.netSales > 0 ? roundReportAmount((row.tentativeProfit / row.netSales) * 100) : 0
+      profitMarginPercent:
+        row.netSalesAfterAdvertising > 0
+          ? roundReportAmount((row.tentativeProfit / row.netSalesAfterAdvertising) * 100)
+          : 0
     }));
 
   res.json({
@@ -953,7 +957,10 @@ const getTentativeProfitReport = async (req, res) => {
       partnerNetSalesAfterAdvertising: roundReportAmount(summary.partnerNetSalesAfterAdvertising),
       partnerCostOfGoodsSold: roundReportAmount(summary.partnerCostOfGoodsSold),
       partnerTentativeProfit: roundReportAmount(summary.partnerTentativeProfit),
-      profitMarginPercent: summary.netSales > 0 ? roundReportAmount((summary.tentativeProfit / summary.netSales) * 100) : 0,
+      profitMarginPercent:
+        summary.netSalesAfterAdvertising > 0
+          ? roundReportAmount((summary.tentativeProfit / summary.netSalesAfterAdvertising) * 100)
+          : 0,
       averageOrderValue: summary.totalOrders > 0 ? roundReportAmount(summary.netSales / summary.totalOrders) : 0
     },
     rows,

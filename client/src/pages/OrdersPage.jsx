@@ -24,6 +24,7 @@ import { currency, formatDate, formatOrderSourceLabel, formatPaymentMethodLabel,
 import { printReceipt } from "../utils/printReceipt";
 import { exportReportToExcel, exportReportToPdf } from "../utils/reportExport";
 
+
 const todayString = () => getLocalDateInputValue();
 
 const orderHistoryColumns = [
@@ -74,25 +75,78 @@ const partnerCommissionDefaults = {
   e_gates: 22,
   wownow: 22
 };
+const partnerAdvertisementRoiDefaults = {
+  grab: 14,
+  foodpanda: 14,
+  e_gates: 14,
+  wownow: 14
+};
+const REPORT_TIMEZONE = "Asia/Bangkok";
+const COMPLETED_FINANCIAL_STATUSES = ["completed", "confirmed"];
+const LEGACY_PARTNER_PROMO_START_DAY = "2026-01-01";
+const LEGACY_PARTNER_PROMO_END_DAY = "2026-05-06";
+const LEGACY_PARTNER_PROMO_PERCENT = 15;
 const hasCollectedPayment = (order) => ["cash", "card", "qr", "grab", "foodpanda", "e_gates", "wownow"].includes(order?.paymentMethod || "");
 const isDueOnServeOrder = (order) => order?.paymentMethod === "due_on_serve";
 const getOrderEditPath = (order) => (isPartnerSource(order) ? "/partner-pos" : "/pos");
 const getOrderListSaleAmount = (order) => (isPartnerSource(order) ? Number(order?.subtotal || order?.total || 0) : Number(order?.total || 0));
-const getOrderNetSalesAmount = (order) => {
+const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
+const toReportDay = (dateValue) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: REPORT_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date(dateValue));
+const getLegacyPartnerPromoMetrics = (order) => {
+  const subtotal = Number(order?.subtotal || 0);
+
+  if (subtotal <= 0) {
+    return {
+      partnerPromoDiscount: 0,
+      salesAfterPromo: 0
+    };
+  }
+
+  const rawPromoDiscount = (subtotal * LEGACY_PARTNER_PROMO_PERCENT) / 100;
+  const discountedSubtotal = subtotal - rawPromoDiscount;
+  const roundedTotal = Math.ceil(discountedSubtotal / 100) * 100;
+
+  return {
+    partnerPromoDiscount: roundMoney(subtotal - roundedTotal),
+    salesAfterPromo: roundMoney(roundedTotal)
+  };
+};
+const getOrderNetAfterAdAmount = (order) => {
   const finalTotal = Number(order?.total || 0);
   if (!isPartnerSource(order)) {
-    return finalTotal;
+    return roundMoney(finalTotal);
   }
 
   const partnerKey = order?.paymentMethod || order?.source;
+  const reportDay = toReportDay(order?.createdAt || new Date());
+  const useLegacyPartnerPromo =
+    reportDay >= LEGACY_PARTNER_PROMO_START_DAY && reportDay <= LEGACY_PARTNER_PROMO_END_DAY;
   const commissionRate = Number(
     order?.bookingDetails?.partnerCommissionRate ??
       order?.promoSnapshot?.commissionRate ??
       partnerCommissionDefaults[partnerKey] ??
       0
   );
+  const advertisementRoiRate = Number(
+    order?.bookingDetails?.partnerAdvertisementRoiRate ??
+      order?.promoSnapshot?.advertisementRoiRate ??
+      partnerAdvertisementRoiDefaults[partnerKey] ??
+      0
+  );
+  const salesAfterPromo = useLegacyPartnerPromo
+    ? getLegacyPartnerPromoMetrics(order).salesAfterPromo
+    : finalTotal;
+  const commissionAmount = salesAfterPromo * (commissionRate / 100);
+  const netSales = salesAfterPromo - commissionAmount;
+  const advertisementRoiCost = salesAfterPromo * (advertisementRoiRate / 100);
 
-  return Number((finalTotal - finalTotal * (commissionRate / 100)).toFixed(2));
+  return roundMoney(netSales - advertisementRoiCost);
 };
 const getOrderStatusLabel = (order) =>
   order.status === "void" ? "Void" : order.status === "queued" ? "Queued" : order.status === "food_serving" ? "Food Serving" : "Completed";
@@ -344,8 +398,9 @@ const OrdersPage = () => {
   const completedCount = sourceFilteredOrders.filter((order) => order.status === "completed").length;
   const foodServingCount = sourceFilteredOrders.filter((order) => order.status === "food_serving").length;
   const voidCount = sourceFilteredOrders.filter((order) => order.status === "void").length;
-  const totalSales = sourceFilteredOrders.reduce((sum, order) => sum + Number(order?.subtotal || order?.total || 0), 0);
-  const totalNetSales = sourceFilteredOrders.reduce((sum, order) => sum + getOrderNetSalesAmount(order), 0);
+  const completedFinancialOrders = sourceFilteredOrders.filter((order) => COMPLETED_FINANCIAL_STATUSES.includes(order.status));
+  const totalSales = completedFinancialOrders.reduce((sum, order) => sum + Number(order?.subtotal || order?.total || 0), 0);
+  const totalNetAfterAd = completedFinancialOrders.reduce((sum, order) => sum + getOrderNetAfterAdAmount(order), 0);
   const filteredOrders = sourceFilteredOrders.filter((order) => (statusFilter === "all" ? true : order.status === statusFilter));
 
   const canEditOrder = (order) => {
@@ -540,7 +595,7 @@ const OrdersPage = () => {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Visible Sales</p>
               <p className="mt-2 text-2xl font-bold">{currency(totalSales)}</p>
-              <p className="mt-1 text-xs text-slate-300">Net Sales {currency(totalNetSales)}</p>
+              <p className="mt-1 text-xs text-slate-300">Net After Ad {currency(totalNetAfterAd)}</p>
             </div>
             <div className="rounded-full bg-white/10 p-3 text-white">
               <WalletCards size={18} />

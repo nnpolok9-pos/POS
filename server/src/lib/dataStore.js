@@ -13,6 +13,7 @@ const {
 } = require("../config/db");
 const { buildDefaultPartnerSettings, createDefaultPartnerSetting, normalizePartnerSetting } = require("../utils/partnerSettings");
 
+
 const userColumns = `
   id, name, email, password_hash, avatar, role, is_active, created_at, updated_at
 `;

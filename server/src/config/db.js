@@ -10,6 +10,7 @@ let sqliteDb;
 const DB_CLIENT = (process.env.DB_CLIENT || "mysql").toLowerCase();
 const IS_SQLITE = DB_CLIENT === "sqlite";
 
+
 const DEFAULTS = {
   host: process.env.DB_HOST || "127.0.0.1",
   port: Number(process.env.DB_PORT || 3306),

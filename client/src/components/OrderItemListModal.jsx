@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 import { imageUrl } from "../utils/format";
 
+
 const VISIBLE_PRODUCT_TYPES = new Set(["raw", "combo"]);
 const CONTAINER_TYPES = new Set(["combo_type"]);
 const HIDDEN_TYPES = new Set(["raw_material", "sauce", "seasoning"]);

@@ -9,6 +9,7 @@ import wownowLogo from "../assets/partners/wownow.png";
 import { partnerService } from "../services/partnerService";
 import { currency } from "../utils/format";
 
+
 const PARTNER_META = {
   foodpanda: {
     label: "Foodpanda",
