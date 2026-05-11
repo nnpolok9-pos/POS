@@ -93,6 +93,10 @@ const mysqlSchemaStatements = [
     combo_items JSON NOT NULL,
     for_sale TINYINT(1) NOT NULL DEFAULT 1,
     sku VARCHAR(191) NOT NULL UNIQUE,
+    foodpanda_sku VARCHAR(191) NOT NULL DEFAULT '',
+    grab_sku VARCHAR(191) NOT NULL DEFAULT '',
+    e_gates_sku VARCHAR(191) NOT NULL DEFAULT '',
+    wownow_sku VARCHAR(191) NOT NULL DEFAULT '',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     low_stock_threshold INT NOT NULL DEFAULT 5,
     created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -182,6 +186,19 @@ const mysqlSchemaStatements = [
     INDEX idx_orders_created_at (created_at),
     INDEX idx_orders_served_at (served_at),
     INDEX idx_orders_promo_code_id (promo_code_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS partner_webhook_logs (
+    id VARCHAR(36) PRIMARY KEY,
+    partner_key ENUM('grab','foodpanda','e_gates','wownow') NOT NULL,
+    event_type VARCHAR(191) NOT NULL DEFAULT '',
+    external_order_id VARCHAR(191) NOT NULL DEFAULT '',
+    order_status VARCHAR(191) NOT NULL DEFAULT '',
+    headers_json JSON NOT NULL,
+    payload_json JSON NOT NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX idx_partner_webhook_logs_partner_key (partner_key),
+    INDEX idx_partner_webhook_logs_external_order_id (external_order_id),
+    INDEX idx_partner_webhook_logs_created_at (created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 ];
 
@@ -227,6 +244,10 @@ const sqliteSchemaStatements = [
     combo_items TEXT NOT NULL DEFAULT '[]',
     for_sale INTEGER NOT NULL DEFAULT 1,
     sku TEXT NOT NULL UNIQUE,
+    foodpanda_sku TEXT NOT NULL DEFAULT '',
+    grab_sku TEXT NOT NULL DEFAULT '',
+    e_gates_sku TEXT NOT NULL DEFAULT '',
+    wownow_sku TEXT NOT NULL DEFAULT '',
     is_active INTEGER NOT NULL DEFAULT 1,
     low_stock_threshold INTEGER NOT NULL DEFAULT 5,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -312,6 +333,19 @@ const sqliteSchemaStatements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS partner_webhook_logs (
+    id TEXT PRIMARY KEY,
+    partner_key TEXT NOT NULL,
+    event_type TEXT NOT NULL DEFAULT '',
+    external_order_id TEXT NOT NULL DEFAULT '',
+    order_status TEXT NOT NULL DEFAULT '',
+    headers_json TEXT NOT NULL DEFAULT '{}',
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_partner_webhook_logs_partner_key ON partner_webhook_logs (partner_key)`,
+  `CREATE INDEX IF NOT EXISTS idx_partner_webhook_logs_external_order_id ON partner_webhook_logs (external_order_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_partner_webhook_logs_created_at ON partner_webhook_logs (created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_orders_staff_id ON orders (staff_id)`,
   `CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (status)`,
   `CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at)`,
@@ -506,6 +540,10 @@ const connectDB = async () => {
     runSqliteStatements(sqliteDb, sqliteSchemaStatements);
     ensureSqliteColumn(sqliteDb, "users", "avatar", "avatar TEXT NOT NULL DEFAULT ''");
     ensureSqliteColumn(sqliteDb, "products", "tentative_cost", "tentative_cost REAL NOT NULL DEFAULT 0");
+    ensureSqliteColumn(sqliteDb, "products", "foodpanda_sku", "foodpanda_sku TEXT NOT NULL DEFAULT ''");
+    ensureSqliteColumn(sqliteDb, "products", "grab_sku", "grab_sku TEXT NOT NULL DEFAULT ''");
+    ensureSqliteColumn(sqliteDb, "products", "e_gates_sku", "e_gates_sku TEXT NOT NULL DEFAULT ''");
+    ensureSqliteColumn(sqliteDb, "products", "wownow_sku", "wownow_sku TEXT NOT NULL DEFAULT ''");
     ensureSqliteColumn(sqliteDb, "orders", "promo_code_id", "promo_code_id TEXT NULL");
     ensureSqliteColumn(sqliteDb, "orders", "promo_code", "promo_code TEXT NULL");
     ensureSqliteColumn(sqliteDb, "orders", "promo_discount", "promo_discount REAL NOT NULL DEFAULT 0");
@@ -526,6 +564,10 @@ const connectDB = async () => {
     await runMysqlSchemaStatements(connection);
     await ensureMysqlColumn(connection, "users", "avatar", "`avatar` TEXT NULL");
     await ensureMysqlColumn(connection, "products", "tentative_cost", "`tentative_cost` DECIMAL(12,2) NOT NULL DEFAULT 0");
+    await ensureMysqlColumn(connection, "products", "foodpanda_sku", "`foodpanda_sku` VARCHAR(191) NOT NULL DEFAULT ''");
+    await ensureMysqlColumn(connection, "products", "grab_sku", "`grab_sku` VARCHAR(191) NOT NULL DEFAULT ''");
+    await ensureMysqlColumn(connection, "products", "e_gates_sku", "`e_gates_sku` VARCHAR(191) NOT NULL DEFAULT ''");
+    await ensureMysqlColumn(connection, "products", "wownow_sku", "`wownow_sku` VARCHAR(191) NOT NULL DEFAULT ''");
     await ensureMysqlColumn(connection, "partner_settings", "advertisement_roi_rate", "`advertisement_roi_rate` DECIMAL(8,2) NOT NULL DEFAULT 14");
     await ensureMysqlColumn(connection, "orders", "promo_code_id", "`promo_code_id` VARCHAR(36) NULL");
     await ensureMysqlColumn(connection, "orders", "promo_code", "`promo_code` VARCHAR(64) NULL");
@@ -690,6 +732,10 @@ const mapProductRow = (row) => {
     comboItems: parseJson(row.combo_items, []),
     forSale: Boolean(row.for_sale),
     sku: row.sku,
+    foodpandaSku: row.foodpanda_sku || "",
+    grabSku: row.grab_sku || "",
+    eGatesSku: row.e_gates_sku || "",
+    wownowSku: row.wownow_sku || "",
     isActive: Boolean(row.is_active),
     lowStockThreshold: Number(row.low_stock_threshold || 5),
     createdAt: row.created_at,

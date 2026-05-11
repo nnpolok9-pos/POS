@@ -51,6 +51,10 @@ const createProduct = async (req, res) => {
     khmerCategory = "",
     stock,
     sku,
+    foodpandaSku = "",
+    grabSku = "",
+    eGatesSku = "",
+    wownowSku = "",
     productType = "raw",
     stockUnit = "pieces",
     description = "",
@@ -119,6 +123,10 @@ const createProduct = async (req, res) => {
     comboItems: isCompositeProductType(productType) ? comboItems : [],
     forSale,
     sku: sku || generateSku(name, category),
+    foodpandaSku: String(foodpandaSku || "").trim(),
+    grabSku: String(grabSku || "").trim(),
+    eGatesSku: String(eGatesSku || "").trim(),
+    wownowSku: String(wownowSku || "").trim(),
     image: buildImagePath(req.file),
     lowStockThreshold: 5
   });
@@ -311,6 +319,13 @@ const updateProduct = async (req, res) => {
     stock: isCompositeProductType(nextProductType) ? 0 : req.body.stock !== undefined ? Number(req.body.stock) : product.stock,
     comboItems: isCompositeProductType(nextProductType) ? comboItems : [],
     sku: req.body.sku || product.sku || generateSku(product.name, product.category),
+    foodpandaSku:
+      req.body.foodpandaSku !== undefined ? String(req.body.foodpandaSku || "").trim() : product.foodpandaSku || "",
+    grabSku: req.body.grabSku !== undefined ? String(req.body.grabSku || "").trim() : product.grabSku || "",
+    eGatesSku:
+      req.body.eGatesSku !== undefined ? String(req.body.eGatesSku || "").trim() : product.eGatesSku || "",
+    wownowSku:
+      req.body.wownowSku !== undefined ? String(req.body.wownowSku || "").trim() : product.wownowSku || "",
     image: nextImage
   });
 

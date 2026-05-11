@@ -36,6 +36,10 @@ const initialState = {
   stockUnit: "pieces",
   seasoningPerOrderConsumption: "",
   sku: "",
+  foodpandaSku: "",
+  grabSku: "",
+  eGatesSku: "",
+  wownowSku: "",
   productType: "raw",
   forSale: "true",
   tentativeCost: "",
@@ -204,6 +208,10 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
             stockUnit: product.stockUnit || "pieces",
             seasoningPerOrderConsumption: product.seasoningPerOrderConsumption ?? "",
             sku: product.sku || "",
+            foodpandaSku: product.foodpandaSku || "",
+            grabSku: product.grabSku || "",
+            eGatesSku: product.eGatesSku || "",
+            wownowSku: product.wownowSku || "",
             productType: product.productType || "raw",
             forSale: String(product.forSale ?? true),
             tentativeCost: product.tentativeCost ?? "",
@@ -521,9 +529,57 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
             </select>
           </label>
           <label>
-            <span className="mb-2 block text-sm font-semibold text-slate-600">SKU</span>
+            <span className="mb-2 block text-sm font-semibold text-slate-600">SKU (Optional)</span>
             <input name="sku" value={form.sku} onChange={handleChange} className="input" placeholder="Auto-generate if empty" />
           </label>
+          <div className="md:col-span-2 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-4">
+              <p className="font-semibold text-slate-900">Partner SKUs (Optional)</p>
+              <p className="text-sm text-slate-500">Leave these blank if you do not want to match incoming partner orders by SKU yet.</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label>
+                <span className="mb-2 block text-sm font-semibold text-slate-600">Foodpanda SKU (Optional)</span>
+                <input
+                  name="foodpandaSku"
+                  value={form.foodpandaSku}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder="Foodpanda product SKU"
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-semibold text-slate-600">Grab SKU (Optional)</span>
+                <input
+                  name="grabSku"
+                  value={form.grabSku}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder="Grab product SKU"
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-semibold text-slate-600">E-Gates SKU (Optional)</span>
+                <input
+                  name="eGatesSku"
+                  value={form.eGatesSku}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder="E-Gates product SKU"
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-semibold text-slate-600">WOWNOW SKU (Optional)</span>
+                <input
+                  name="wownowSku"
+                  value={form.wownowSku}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder="WOWNOW product SKU"
+                />
+              </label>
+            </div>
+          </div>
           <label className="md:col-span-2">
             <span className="mb-2 block text-sm font-semibold text-slate-600">For Sale</span>
             <select name="forSale" value={form.forSale} onChange={handleChange} className="input">

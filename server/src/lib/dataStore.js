@@ -9,6 +9,7 @@ const {
   mapInventoryMovementRow,
   mapShopSettingsRow,
   stringifyJson,
+  parseJson,
   createId
 } = require("../config/db");
 const { buildDefaultPartnerSettings, createDefaultPartnerSetting, normalizePartnerSetting } = require("../utils/partnerSettings");
@@ -21,7 +22,8 @@ const userColumns = `
 const productColumns = `
   id, name, khmer_name, price, regular_price, promotional_price, tentative_cost, category, khmer_category,
   description, khmer_description, image, stock, stock_unit, seasoning_per_order_consumption,
-  expiry_date, product_type, combo_items, for_sale, sku, is_active, low_stock_threshold,
+  expiry_date, product_type, combo_items, for_sale, sku, foodpanda_sku, grab_sku, e_gates_sku, wownow_sku,
+  is_active, low_stock_threshold,
   created_at, updated_at
 `;
 
@@ -49,6 +51,10 @@ const settingsColumns = `
 
 const partnerColumns = `
   partner_key, partner_name, commission_rate, advertisement_roi_rate, promo_config, is_active, created_at, updated_at
+`;
+
+const partnerWebhookLogColumns = `
+  id, partner_key, event_type, external_order_id, order_status, headers_json, payload_json, created_at
 `;
 
 const boolToInt = (value) => (value ? 1 : 0);
@@ -243,6 +249,10 @@ const saveProduct = async (product) => {
     comboItems: stringifyJson(product.comboItems, []),
     forSale: boolToInt(product.forSale ?? true),
     sku: product.sku,
+    foodpandaSku: product.foodpandaSku || "",
+    grabSku: product.grabSku || "",
+    eGatesSku: product.eGatesSku || "",
+    wownowSku: product.wownowSku || "",
     isActive: boolToInt(product.isActive ?? true),
     lowStockThreshold: Number(product.lowStockThreshold || 5)
   };
@@ -256,7 +266,8 @@ const saveProduct = async (product) => {
            description=:description, khmer_description=:khmerDescription, image=:image, stock=:stock,
            stock_unit=:stockUnit, seasoning_per_order_consumption=:seasoningPerOrderConsumption,
            expiry_date=:expiryDate, product_type=:productType, combo_items=:comboItems, for_sale=:forSale,
-           sku=:sku, is_active=:isActive, low_stock_threshold=:lowStockThreshold
+           sku=:sku, foodpanda_sku=:foodpandaSku, grab_sku=:grabSku, e_gates_sku=:eGatesSku, wownow_sku=:wownowSku,
+           is_active=:isActive, low_stock_threshold=:lowStockThreshold
        WHERE id=:id`,
       params
     );
@@ -267,11 +278,13 @@ const saveProduct = async (product) => {
     `INSERT INTO products (
       id, name, khmer_name, price, regular_price, promotional_price, category, khmer_category,
       tentative_cost, description, khmer_description, image, stock, stock_unit, seasoning_per_order_consumption,
-      expiry_date, product_type, combo_items, for_sale, sku, is_active, low_stock_threshold
+      expiry_date, product_type, combo_items, for_sale, sku, foodpanda_sku, grab_sku, e_gates_sku, wownow_sku,
+      is_active, low_stock_threshold
     ) VALUES (
       :id, :name, :khmerName, :price, :regularPrice, :promotionalPrice, :category, :khmerCategory,
       :tentativeCost, :description, :khmerDescription, :image, :stock, :stockUnit, :seasoningPerOrderConsumption,
-      :expiryDate, :productType, :comboItems, :forSale, :sku, :isActive, :lowStockThreshold
+      :expiryDate, :productType, :comboItems, :forSale, :sku, :foodpandaSku, :grabSku, :eGatesSku, :wownowSku,
+      :isActive, :lowStockThreshold
     )`,
     params
   );
@@ -461,6 +474,69 @@ const savePartnerSetting = async (setting) => {
   return getPartnerSettingByKey(normalized.partnerKey);
 };
 
+const mapPartnerWebhookLogRow = (row) => {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    partnerKey: row.partner_key,
+    eventType: row.event_type || "",
+    externalOrderId: row.external_order_id || "",
+    orderStatus: row.order_status || "",
+    headers: parseJson(row.headers_json, {}),
+    payload: parseJson(row.payload_json, {}),
+    createdAt: row.created_at
+  };
+};
+
+const savePartnerWebhookLog = async (log) => {
+  const id = log.id || createId();
+  await query(
+    `INSERT INTO partner_webhook_logs (
+      id, partner_key, event_type, external_order_id, order_status, headers_json, payload_json
+    ) VALUES (
+      :id, :partnerKey, :eventType, :externalOrderId, :orderStatus, :headersJson, :payloadJson
+    )`,
+    {
+      id,
+      partnerKey: log.partnerKey,
+      eventType: log.eventType || "",
+      externalOrderId: log.externalOrderId || "",
+      orderStatus: log.orderStatus || "",
+      headersJson: stringifyJson(log.headers, {}),
+      payloadJson: stringifyJson(log.payload, {})
+    }
+  );
+
+  return getPartnerWebhookLogById(id);
+};
+
+const getPartnerWebhookLogById = async (id) => {
+  const rows = await query(`SELECT ${partnerWebhookLogColumns} FROM partner_webhook_logs WHERE id=:id LIMIT 1`, { id });
+  return mapPartnerWebhookLogRow(rows[0]);
+};
+
+const getPartnerWebhookLogs = async ({ partnerKey = null, limit = 50 } = {}) => {
+  const conditions = [];
+  const params = { limit: Number(limit) };
+
+  if (partnerKey) {
+    conditions.push("partner_key = :partnerKey");
+    params.partnerKey = partnerKey;
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  const rows = await query(
+    `SELECT ${partnerWebhookLogColumns} FROM partner_webhook_logs ${whereClause} ORDER BY created_at DESC LIMIT :limit`,
+    params
+  );
+
+  return rows.map(mapPartnerWebhookLogRow);
+};
+
 const getInventoryMovements = async ({ movementType = null, from = null, to = null, limit = null } = {}) => {
   const conditions = [];
   const params = {};
@@ -607,6 +683,8 @@ module.exports = {
   getAllPartnerSettings,
   getPartnerSettingByKey,
   savePartnerSetting,
+  savePartnerWebhookLog,
+  getPartnerWebhookLogs,
   getOrders,
   getOrderById,
   getOrderByPublicId,

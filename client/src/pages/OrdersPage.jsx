@@ -83,6 +83,7 @@ const partnerAdvertisementRoiDefaults = {
 };
 const REPORT_TIMEZONE = "Asia/Bangkok";
 const COMPLETED_FINANCIAL_STATUSES = ["completed", "confirmed"];
+const VISIBLE_FINANCIAL_STATUSES = ["food_serving", "completed", "confirmed"];
 const LEGACY_PARTNER_PROMO_START_DAY = "2026-01-01";
 const LEGACY_PARTNER_PROMO_END_DAY = "2026-05-06";
 const LEGACY_PARTNER_PROMO_PERCENT = 15;
@@ -399,8 +400,9 @@ const OrdersPage = () => {
   const foodServingCount = sourceFilteredOrders.filter((order) => order.status === "food_serving").length;
   const voidCount = sourceFilteredOrders.filter((order) => order.status === "void").length;
   const completedFinancialOrders = sourceFilteredOrders.filter((order) => COMPLETED_FINANCIAL_STATUSES.includes(order.status));
-  const totalSales = completedFinancialOrders.reduce((sum, order) => sum + Number(order?.subtotal || order?.total || 0), 0);
-  const totalNetAfterAd = completedFinancialOrders.reduce((sum, order) => sum + getOrderNetAfterAdAmount(order), 0);
+  const visibleFinancialOrders = sourceFilteredOrders.filter((order) => VISIBLE_FINANCIAL_STATUSES.includes(order.status));
+  const totalSales = visibleFinancialOrders.reduce((sum, order) => sum + Number(order?.subtotal || order?.total || 0), 0);
+  const totalNetAfterAd = visibleFinancialOrders.reduce((sum, order) => sum + getOrderNetAfterAdAmount(order), 0);
   const filteredOrders = sourceFilteredOrders.filter((order) => (statusFilter === "all" ? true : order.status === statusFilter));
 
   const canEditOrder = (order) => {
