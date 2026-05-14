@@ -82,6 +82,23 @@ const SalesReportPage = () => {
       paymentByDeliveryPartners: Number(row.paymentBy?.deliveryPartners || 0).toFixed(2)
     })) || [];
 
+  const fallbackSummary = {
+    grossSales: report.rows?.reduce((sum, row) => sum + Number(row.grossSales || 0), 0) || 0,
+    partnerPromoDiscount: report.rows?.reduce((sum, row) => sum + Number(row.partnerPromoDiscount || 0), 0) || 0,
+    salesAfterPartnerPromo: report.rows?.reduce((sum, row) => sum + Number(row.salesAfterPartnerPromo || 0), 0) || 0,
+    commissionAmount: report.rows?.reduce((sum, row) => sum + Number(row.commissionAmount || 0), 0) || 0,
+    netSales: report.rows?.reduce((sum, row) => sum + Number(row.totalSaleAmount || 0), 0) || 0,
+    numberOfOrder: report.rows?.reduce((sum, row) => sum + Number(row.numberOfOrder || 0), 0) || 0,
+    paymentBy: {
+      cash: report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.cash || 0), 0) || 0,
+      card: report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.card || 0), 0) || 0,
+      qr: report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.qr || 0), 0) || 0,
+      deliveryPartners: report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.deliveryPartners || 0), 0) || 0
+    }
+  };
+
+  const summary = report.summary || fallbackSummary;
+
   const exportExcel = () => {
     if (!exportRows.length) {
       toast.error("No sales report data to export");
@@ -115,16 +132,15 @@ const SalesReportPage = () => {
     });
   };
 
-  const totalGrossSales = report.rows?.reduce((sum, row) => sum + Number(row.grossSales || 0), 0) || 0;
-  const totalPartnerPromoDiscount = report.rows?.reduce((sum, row) => sum + Number(row.partnerPromoDiscount || 0), 0) || 0;
-  const totalSalesAfterPartnerPromo = report.rows?.reduce((sum, row) => sum + Number(row.salesAfterPartnerPromo || 0), 0) || 0;
-  const totalCommissionAmount = report.rows?.reduce((sum, row) => sum + Number(row.commissionAmount || 0), 0) || 0;
-  const totalNetSales = report.rows?.reduce((sum, row) => sum + Number(row.totalSaleAmount || 0), 0) || 0;
-  const totalOrders = report.rows?.reduce((sum, row) => sum + Number(row.numberOfOrder || 0), 0) || 0;
-  const totalCash = report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.cash || 0), 0) || 0;
-  const totalPartners = report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.deliveryPartners || 0), 0) || 0;
-  const totalDigital =
-    report.rows?.reduce((sum, row) => sum + Number(row.paymentBy?.card || 0) + Number(row.paymentBy?.qr || 0), 0) || 0;
+  const totalGrossSales = Number(summary.grossSales || 0);
+  const totalPartnerPromoDiscount = Number(summary.partnerPromoDiscount || 0);
+  const totalSalesAfterPartnerPromo = Number(summary.salesAfterPartnerPromo || 0);
+  const totalCommissionAmount = Number(summary.commissionAmount || 0);
+  const totalNetSales = Number(summary.netSales || 0);
+  const totalOrders = Number(summary.numberOfOrder || 0);
+  const totalCash = Number(summary.paymentBy?.cash || 0);
+  const totalPartners = Number(summary.paymentBy?.deliveryPartners || 0);
+  const totalDigital = Number(summary.paymentBy?.card || 0) + Number(summary.paymentBy?.qr || 0);
 
   return (
     <div className="space-y-6">

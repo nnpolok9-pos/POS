@@ -471,6 +471,28 @@ const getSalesRangeReport = async (req, res) => {
   const partnerSettingsMap = new Map(partnerSettings.map((setting) => [setting.partnerKey, setting]));
   const productMap = new Map(products.map((product) => [String(product.id || product._id), product]));
   const orders = allOrders.filter((order) => new Date(order.createdAt) >= start && new Date(order.createdAt) <= end);
+  const summary = {
+    grossSales: 0,
+    partnerPromoDiscount: 0,
+    salesAfterPartnerPromo: 0,
+    commissionAmount: 0,
+    advertisingRoiCost: 0,
+    netSalesAfterAdvertising: 0,
+    netSales: 0,
+    numberOfOrder: 0,
+    paymentBy: {
+      cash: 0,
+      card: 0,
+      qr: 0,
+      deliveryPartners: 0,
+      partners: {
+        grab: 0,
+        foodpanda: 0,
+        e_gates: 0,
+        wownow: 0
+      }
+    }
+  };
 
   const grouped = new Map();
   orders.forEach((order) => {
@@ -508,15 +530,29 @@ const getSalesRangeReport = async (req, res) => {
       existing.totalSaleAmount += metrics.netSales;
       existing.numberOfOrder += 1;
 
+      summary.grossSales += metrics.grossSales;
+      summary.partnerPromoDiscount += metrics.partnerPromoDiscount;
+      summary.salesAfterPartnerPromo += metrics.salesAfterPromo;
+      summary.commissionAmount += metrics.commissionAmount;
+      summary.advertisingRoiCost += metrics.advertisingRoiCost;
+      summary.netSalesAfterAdvertising += metrics.netSalesAfterAdvertising;
+      summary.netSales += metrics.netSales;
+      summary.numberOfOrder += 1;
+
       if (metrics.partnerKey) {
-        existing.deliveryPartners += metrics.netSalesAfterAdvertising;
-        existing.partners[metrics.partnerKey] += metrics.netSalesAfterAdvertising;
+        existing.deliveryPartners += metrics.netSales;
+        existing.partners[metrics.partnerKey] += metrics.netSales;
+        summary.paymentBy.deliveryPartners += metrics.netSales;
+        summary.paymentBy.partners[metrics.partnerKey] += metrics.netSales;
       } else if (order.paymentMethod === "cash") {
         existing.cash += metrics.salesAfterPromo;
+        summary.paymentBy.cash += metrics.salesAfterPromo;
       } else if (order.paymentMethod === "card") {
         existing.card += metrics.salesAfterPromo;
+        summary.paymentBy.card += metrics.salesAfterPromo;
       } else if (order.paymentMethod === "qr") {
         existing.qr += metrics.salesAfterPromo;
+        summary.paymentBy.qr += metrics.salesAfterPromo;
       }
     }
 
@@ -548,7 +584,33 @@ const getSalesRangeReport = async (req, res) => {
       }
     }));
 
-  res.json({ from: start, to: end, rows });
+  res.json({
+    from: start,
+    to: end,
+    rows,
+    summary: {
+      grossSales: roundReportAmount(summary.grossSales),
+      partnerPromoDiscount: roundReportAmount(summary.partnerPromoDiscount),
+      salesAfterPartnerPromo: roundReportAmount(summary.salesAfterPartnerPromo),
+      commissionAmount: roundReportAmount(summary.commissionAmount),
+      advertisingRoiCost: roundReportAmount(summary.advertisingRoiCost),
+      netSalesAfterAdvertising: roundReportAmount(summary.netSalesAfterAdvertising),
+      netSales: roundReportAmount(summary.netSales),
+      numberOfOrder: summary.numberOfOrder,
+      paymentBy: {
+        cash: roundReportAmount(summary.paymentBy.cash),
+        card: roundReportAmount(summary.paymentBy.card),
+        qr: roundReportAmount(summary.paymentBy.qr),
+        deliveryPartners: roundReportAmount(summary.paymentBy.deliveryPartners),
+        partners: {
+          grab: roundReportAmount(summary.paymentBy.partners.grab),
+          foodpanda: roundReportAmount(summary.paymentBy.partners.foodpanda),
+          e_gates: roundReportAmount(summary.paymentBy.partners.e_gates),
+          wownow: roundReportAmount(summary.paymentBy.partners.wownow)
+        }
+      }
+    }
+  });
 };
 
 const getDeliveryPartnerSalesReport = async (req, res) => {
