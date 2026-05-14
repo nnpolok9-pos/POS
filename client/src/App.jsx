@@ -14,6 +14,7 @@ import ReportsPage from "./pages/ReportsPage";
 import SalesReportPage from "./pages/SalesReportPage";
 import SalesTransactionPage from "./pages/SalesTransactionPage";
 import TentativeProfitReportPage from "./pages/TentativeProfitReportPage";
+import GraphicalReportPage from "./pages/GraphicalReportPage";
 import ProductSalesReportPage from "./pages/ProductSalesReportPage";
 import DeliveryPartnerSalesReportPage from "./pages/DeliveryPartnerSalesReportPage";
 import UsersPage from "./pages/UsersPage";
@@ -190,6 +191,7 @@ function App() {
           <Route path="sales" element={<SalesReportPage />} />
           <Route path="sales-transaction" element={<SalesTransactionPage />} />
           <Route path="tentative-profit" element={<TentativeProfitReportPage />} />
+          <Route path="graphical-report" element={<GraphicalReportPage />} />
           <Route path="product-sales" element={<ProductSalesReportPage />} />
           <Route path="delivery-partner-sales" element={<DeliveryPartnerSalesReportPage />} />
         </Route>
