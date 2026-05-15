@@ -74,6 +74,8 @@ const MobileMetricCard = ({ label, value, accent = "text-slate-900", icon: Icon 
   </article>
 );
 
+const formatChartPercent = (value) => `${Number(value || 0).toFixed(2)}%`;
+
 const VerticalBarChart = ({ title, subtitle, data, formatValue = currency }) => {
   const safeData = data.filter((item) => Number(item.value || 0) >= 0);
   const maxValue = Math.max(...safeData.map((item) => Number(item.value || 0)), 1);
@@ -232,7 +234,11 @@ const GraphicalReportPage = () => {
         key: row.date,
         label: row.date,
         value: Number(row.tentativeProfit || 0),
-        secondaryValue: Number(row.netSalesAfterAdvertising || 0)
+        secondaryValue: Number(row.netSalesAfterAdvertising || 0),
+        marginPercent:
+          Number(row.netSalesAfterAdvertising || 0) > 0
+            ? Number(((Number(row.tentativeProfit || 0) / Number(row.netSalesAfterAdvertising || 0)) * 100).toFixed(2))
+            : 0
       })),
     [report.rows]
   );
@@ -400,23 +406,27 @@ const GraphicalReportPage = () => {
                   <MobileMetricCard label="Net Sales After Ad" value={currency(item.secondaryValue)} icon={HandCoins} />
                   <MobileMetricCard label="Tentative Profit" value={currency(item.value)} icon={TrendingUp} accent="text-emerald-600" />
                 </div>
+                <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Profit vs Net After Ad</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">{formatChartPercent(item.marginPercent)}</p>
+                </div>
               </article>
             ))
           )}
         </div>
 
         <div className="hidden sm:block">
-          <div className="overflow-x-auto">
-            <svg viewBox={`0 0 ${Math.max((dailyComparisonData.length || 1) * 120, 720)} 340`} className="h-[340px] w-full min-w-[720px]">
+          <div className="overflow-x-auto pb-3">
+            <svg viewBox={`0 0 ${Math.max((dailyComparisonData.length || 1) * 150, 960)} 360`} className="h-[360px] w-full min-w-[960px]">
               <line x1="60" y1="22" x2="60" y2="250" stroke="#e5e7eb" strokeWidth="1.5" />
-              <line x1="60" y1="250" x2={Math.max((dailyComparisonData.length || 1) * 120, 720) - 20} y2="250" stroke="#e5e7eb" strokeWidth="1.5" />
+              <line x1="60" y1="250" x2={Math.max((dailyComparisonData.length || 1) * 150, 960) - 20} y2="250" stroke="#e5e7eb" strokeWidth="1.5" />
               {(() => {
                 const maxValue = Math.max(
                   ...dailyComparisonData.flatMap((item) => [Number(item.value || 0), Number(item.secondaryValue || 0)]),
                   1
                 );
                 return dailyComparisonData.map((item, index) => {
-                  const groupWidth = 120;
+                  const groupWidth = 150;
                   const barWidth = 28;
                   const x = 84 + index * groupWidth;
                   const profitHeight = Math.max((Number(item.value || 0) / maxValue) * 170, Number(item.value || 0) > 0 ? 6 : 0);
@@ -431,14 +441,17 @@ const GraphicalReportPage = () => {
                       <text x={x + 36 + barWidth / 2} y={250 - profitHeight - 10} textAnchor="middle" className="fill-slate-700 text-[11px] font-semibold">
                         {currency(item.value)}
                       </text>
-                      <text x={x + 32} y="288" textAnchor="middle" className="fill-slate-600 text-[11px] font-semibold">
+                      <text x={x + 32} y="286" textAnchor="middle" className="fill-slate-600 text-[11px] font-semibold">
                         {item.label}
+                      </text>
+                      <text x={x + 32} y="304" textAnchor="middle" className="fill-slate-500 text-[10px] font-semibold">
+                        {formatChartPercent(item.marginPercent)}
                       </text>
                     </g>
                   );
                 });
               })()}
-              <g transform={`translate(${Math.max((dailyComparisonData.length || 1) * 120, 720) - 220}, 20)`}>
+              <g transform={`translate(${Math.max((dailyComparisonData.length || 1) * 150, 960) - 220}, 20)`}>
                 <rect x="0" y="0" width="12" height="12" rx="4" fill="#2563eb" />
                 <text x="18" y="10" className="fill-slate-600 text-[12px] font-semibold">
                   Net After Ad
@@ -446,6 +459,9 @@ const GraphicalReportPage = () => {
                 <rect x="0" y="24" width="12" height="12" rx="4" fill="#16a34a" />
                 <text x="18" y="34" className="fill-slate-600 text-[12px] font-semibold">
                   Tentative Profit
+                </text>
+                <text x="0" y="56" className="fill-slate-500 text-[11px] font-semibold">
+                  Margin = Profit / Net After Ad
                 </text>
               </g>
             </svg>
