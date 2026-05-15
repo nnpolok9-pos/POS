@@ -89,7 +89,7 @@ const mysqlSchemaStatements = [
     stock_unit ENUM('pieces','gram','teaspoon') NOT NULL DEFAULT 'pieces',
     seasoning_per_order_consumption DECIMAL(12,3) NOT NULL DEFAULT 0,
     expiry_date DATETIME NULL,
-    product_type ENUM('raw','raw_material','sauce','seasoning','combo','combo_type') NOT NULL DEFAULT 'raw',
+    product_type ENUM('raw','raw_material','raw_item','sauce','seasoning','combo','combo_type') NOT NULL DEFAULT 'raw',
     combo_items JSON NOT NULL,
     for_sale TINYINT(1) NOT NULL DEFAULT 1,
     sku VARCHAR(191) NOT NULL UNIQUE,
@@ -199,6 +199,102 @@ const mysqlSchemaStatements = [
     INDEX idx_partner_webhook_logs_partner_key (partner_key),
     INDEX idx_partner_webhook_logs_external_order_id (external_order_id),
     INDEX idx_partner_webhook_logs_created_at (created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS purchase_entries (
+    id VARCHAR(36) PRIMARY KEY,
+    supplier_id VARCHAR(36) NULL,
+    supplier_name VARCHAR(191) NOT NULL,
+    payment_method ENUM('cash','card','qr','due') NOT NULL,
+    handled_by_user_id VARCHAR(36) NULL,
+    handled_by_user_name VARCHAR(191) NOT NULL DEFAULT '',
+    total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    created_by VARCHAR(36) NULL,
+    updated_by VARCHAR(36) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    INDEX idx_purchase_entries_created_at (created_at),
+    INDEX idx_purchase_entries_payment_method (payment_method),
+    INDEX idx_purchase_entries_supplier_id (supplier_id),
+    INDEX idx_purchase_entries_handled_by_user_id (handled_by_user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS purchase_items (
+    id VARCHAR(36) PRIMARY KEY,
+    purchase_id VARCHAR(36) NOT NULL,
+    product_id VARCHAR(36) NOT NULL,
+    product_name VARCHAR(191) NOT NULL,
+    sku VARCHAR(191) NOT NULL DEFAULT '',
+    quantity DECIMAL(12,3) NOT NULL DEFAULT 0,
+    unit_name VARCHAR(64) NOT NULL DEFAULT 'Piece',
+    total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    unit_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+    remarks TEXT NOT NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX idx_purchase_items_purchase_id (purchase_id),
+    INDEX idx_purchase_items_product_id (product_id),
+    CONSTRAINT fk_purchase_items_entry FOREIGN KEY (purchase_id) REFERENCES purchase_entries(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS procurement_vendors (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(191) NOT NULL,
+    normalized_name VARCHAR(191) NOT NULL UNIQUE,
+    created_by VARCHAR(36) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    INDEX idx_procurement_vendors_name (name)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS procurement_cost_names (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(191) NOT NULL,
+    normalized_name VARCHAR(191) NOT NULL UNIQUE,
+    created_by VARCHAR(36) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    INDEX idx_procurement_cost_names_name (name)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS procurement_cost_entries (
+    id VARCHAR(36) PRIMARY KEY,
+    cost_name_id VARCHAR(36) NULL,
+    cost_name VARCHAR(191) NOT NULL,
+    payment_method ENUM('cash','card','qr','due') NOT NULL,
+    handled_by_user_id VARCHAR(36) NULL,
+    handled_by_user_name VARCHAR(191) NOT NULL DEFAULT '',
+    amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    remarks TEXT NOT NULL,
+    created_by VARCHAR(36) NULL,
+    updated_by VARCHAR(36) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    INDEX idx_procurement_cost_entries_created_at (created_at),
+    INDEX idx_procurement_cost_entries_cost_name_id (cost_name_id),
+    INDEX idx_procurement_cost_entries_payment_method (payment_method),
+    INDEX idx_procurement_cost_entries_handled_by_user_id (handled_by_user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS procurement_payments (
+    id VARCHAR(36) PRIMARY KEY,
+    payment_type ENUM('vendor','staff') NOT NULL,
+    vendor_id VARCHAR(36) NULL,
+    vendor_name VARCHAR(191) NOT NULL DEFAULT '',
+    user_id VARCHAR(36) NULL,
+    user_name VARCHAR(191) NOT NULL DEFAULT '',
+    amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    payment_method ENUM('cash','card','qr') NOT NULL,
+    remarks TEXT NOT NULL,
+    created_by VARCHAR(36) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX idx_procurement_payments_created_at (created_at),
+    INDEX idx_procurement_payments_vendor_id (vendor_id),
+    INDEX idx_procurement_payments_user_id (user_id)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+  `CREATE TABLE IF NOT EXISTS cash_handovers (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    user_name VARCHAR(191) NOT NULL,
+    amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    remarks TEXT NOT NULL,
+    created_by VARCHAR(36) NULL,
+    created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX idx_cash_handovers_user_id (user_id),
+    INDEX idx_cash_handovers_created_at (created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 ];
 
@@ -343,6 +439,99 @@ const sqliteSchemaStatements = [
     payload_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE TABLE IF NOT EXISTS purchase_entries (
+    id TEXT PRIMARY KEY,
+    supplier_id TEXT NULL,
+    supplier_name TEXT NOT NULL,
+    payment_method TEXT NOT NULL,
+    handled_by_user_id TEXT NULL,
+    handled_by_user_name TEXT NOT NULL DEFAULT '',
+    total_amount REAL NOT NULL DEFAULT 0,
+    created_by TEXT NULL,
+    updated_by TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS purchase_items (
+    id TEXT PRIMARY KEY,
+    purchase_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    sku TEXT NOT NULL DEFAULT '',
+    quantity REAL NOT NULL DEFAULT 0,
+    unit_name TEXT NOT NULL DEFAULT 'Piece',
+    total_amount REAL NOT NULL DEFAULT 0,
+    unit_price REAL NOT NULL DEFAULT 0,
+    remarks TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (purchase_id) REFERENCES purchase_entries(id) ON DELETE CASCADE
+  )`,
+  `CREATE TABLE IF NOT EXISTS procurement_vendors (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    normalized_name TEXT NOT NULL UNIQUE,
+    created_by TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS procurement_cost_names (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    normalized_name TEXT NOT NULL UNIQUE,
+    created_by TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS procurement_cost_entries (
+    id TEXT PRIMARY KEY,
+    cost_name_id TEXT NULL,
+    cost_name TEXT NOT NULL,
+    payment_method TEXT NOT NULL,
+    handled_by_user_id TEXT NULL,
+    handled_by_user_name TEXT NOT NULL DEFAULT '',
+    amount REAL NOT NULL DEFAULT 0,
+    remarks TEXT NOT NULL DEFAULT '',
+    created_by TEXT NULL,
+    updated_by TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS procurement_payments (
+    id TEXT PRIMARY KEY,
+    payment_type TEXT NOT NULL,
+    vendor_id TEXT NULL,
+    vendor_name TEXT NOT NULL DEFAULT '',
+    user_id TEXT NULL,
+    user_name TEXT NOT NULL DEFAULT '',
+    amount REAL NOT NULL DEFAULT 0,
+    payment_method TEXT NOT NULL,
+    remarks TEXT NOT NULL DEFAULT '',
+    created_by TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS cash_handovers (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    user_name TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    remarks TEXT NOT NULL DEFAULT '',
+    created_by TEXT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_purchase_entries_created_at ON purchase_entries (created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_purchase_entries_supplier_id ON purchase_entries (supplier_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_purchase_entries_handled_by_user_id ON purchase_entries (handled_by_user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase_id ON purchase_items (purchase_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_purchase_items_product_id ON purchase_items (product_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_procurement_payments_created_at ON procurement_payments (created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_procurement_payments_vendor_id ON procurement_payments (vendor_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_procurement_payments_user_id ON procurement_payments (user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_procurement_cost_names_name ON procurement_cost_names (name)`,
+  `CREATE INDEX IF NOT EXISTS idx_procurement_cost_entries_created_at ON procurement_cost_entries (created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_procurement_cost_entries_cost_name_id ON procurement_cost_entries (cost_name_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_procurement_cost_entries_handled_by_user_id ON procurement_cost_entries (handled_by_user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_cash_handovers_user_id ON cash_handovers (user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_cash_handovers_created_at ON cash_handovers (created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_partner_webhook_logs_partner_key ON partner_webhook_logs (partner_key)`,
   `CREATE INDEX IF NOT EXISTS idx_partner_webhook_logs_external_order_id ON partner_webhook_logs (external_order_id)`,
   `CREATE INDEX IF NOT EXISTS idx_partner_webhook_logs_created_at ON partner_webhook_logs (created_at)`,
@@ -392,6 +581,13 @@ const sqliteSchemaStatements = [
     WHEN NEW.updated_at = OLD.updated_at
     BEGIN
       UPDATE orders SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END`,
+  `CREATE TRIGGER IF NOT EXISTS trg_purchase_entries_updated_at
+    AFTER UPDATE ON purchase_entries
+    FOR EACH ROW
+    WHEN NEW.updated_at = OLD.updated_at
+    BEGIN
+      UPDATE purchase_entries SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END`
 ];
 
@@ -459,6 +655,20 @@ const ensureMysqlOrderSourceSupport = async (connection) => {
   ) {
     await connection.query(
       "ALTER TABLE `orders` MODIFY COLUMN `source` ENUM('staff','customer','grab','foodpanda','e_gates','wownow') NOT NULL DEFAULT 'staff'"
+    );
+  }
+};
+
+const ensureMysqlProductTypeSupport = async (connection) => {
+  const [rows] = await connection.query("SHOW COLUMNS FROM `products` LIKE 'product_type'");
+  if (!rows.length) {
+    return;
+  }
+
+  const columnType = String(rows[0].Type || "").toLowerCase();
+  if (columnType.startsWith("enum(") && !columnType.includes("'raw_item'")) {
+    await connection.query(
+      "ALTER TABLE `products` MODIFY COLUMN `product_type` ENUM('raw','raw_material','raw_item','sauce','seasoning','combo','combo_type') NOT NULL DEFAULT 'raw'"
     );
   }
 };
@@ -539,11 +749,43 @@ const connectDB = async () => {
     sqliteDb.pragma("foreign_keys = ON");
     runSqliteStatements(sqliteDb, sqliteSchemaStatements);
     ensureSqliteColumn(sqliteDb, "users", "avatar", "avatar TEXT NOT NULL DEFAULT ''");
+    ensureSqliteColumn(sqliteDb, "purchase_entries", "supplier_id", "supplier_id TEXT NULL");
+    ensureSqliteColumn(sqliteDb, "purchase_entries", "handled_by_user_id", "handled_by_user_id TEXT NULL");
+    ensureSqliteColumn(sqliteDb, "purchase_entries", "handled_by_user_name", "handled_by_user_name TEXT NOT NULL DEFAULT ''");
     ensureSqliteColumn(sqliteDb, "products", "tentative_cost", "tentative_cost REAL NOT NULL DEFAULT 0");
     ensureSqliteColumn(sqliteDb, "products", "foodpanda_sku", "foodpanda_sku TEXT NOT NULL DEFAULT ''");
     ensureSqliteColumn(sqliteDb, "products", "grab_sku", "grab_sku TEXT NOT NULL DEFAULT ''");
     ensureSqliteColumn(sqliteDb, "products", "e_gates_sku", "e_gates_sku TEXT NOT NULL DEFAULT ''");
     ensureSqliteColumn(sqliteDb, "products", "wownow_sku", "wownow_sku TEXT NOT NULL DEFAULT ''");
+    runSqliteStatements(sqliteDb, [
+      `CREATE TABLE IF NOT EXISTS purchase_entries (
+        id TEXT PRIMARY KEY,
+        supplier_name TEXT NOT NULL,
+        payment_method TEXT NOT NULL,
+        total_amount REAL NOT NULL DEFAULT 0,
+        created_by TEXT NULL,
+        updated_by TEXT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS purchase_items (
+        id TEXT PRIMARY KEY,
+        purchase_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        product_name TEXT NOT NULL,
+        sku TEXT NOT NULL DEFAULT '',
+        quantity REAL NOT NULL DEFAULT 0,
+        unit_name TEXT NOT NULL DEFAULT 'Piece',
+        total_amount REAL NOT NULL DEFAULT 0,
+        unit_price REAL NOT NULL DEFAULT 0,
+        remarks TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (purchase_id) REFERENCES purchase_entries(id) ON DELETE CASCADE
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_purchase_entries_created_at ON purchase_entries (created_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase_id ON purchase_items (purchase_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_purchase_items_product_id ON purchase_items (product_id)`
+    ]);
     ensureSqliteColumn(sqliteDb, "orders", "promo_code_id", "promo_code_id TEXT NULL");
     ensureSqliteColumn(sqliteDb, "orders", "promo_code", "promo_code TEXT NULL");
     ensureSqliteColumn(sqliteDb, "orders", "promo_discount", "promo_discount REAL NOT NULL DEFAULT 0");
@@ -563,11 +805,20 @@ const connectDB = async () => {
   try {
     await runMysqlSchemaStatements(connection);
     await ensureMysqlColumn(connection, "users", "avatar", "`avatar` TEXT NULL");
+    await ensureMysqlColumn(connection, "purchase_entries", "supplier_id", "`supplier_id` VARCHAR(36) NULL");
+    await ensureMysqlColumn(connection, "purchase_entries", "handled_by_user_id", "`handled_by_user_id` VARCHAR(36) NULL");
+    await ensureMysqlColumn(connection, "purchase_entries", "handled_by_user_name", "`handled_by_user_name` VARCHAR(191) NOT NULL DEFAULT ''");
+    try {
+      await connection.query("ALTER TABLE `purchase_entries` MODIFY COLUMN `payment_method` ENUM('cash','card','qr','due') NOT NULL");
+    } catch (error) {
+      console.warn("Could not update purchase payment_method enum:", error.message);
+    }
     await ensureMysqlColumn(connection, "products", "tentative_cost", "`tentative_cost` DECIMAL(12,2) NOT NULL DEFAULT 0");
     await ensureMysqlColumn(connection, "products", "foodpanda_sku", "`foodpanda_sku` VARCHAR(191) NOT NULL DEFAULT ''");
     await ensureMysqlColumn(connection, "products", "grab_sku", "`grab_sku` VARCHAR(191) NOT NULL DEFAULT ''");
     await ensureMysqlColumn(connection, "products", "e_gates_sku", "`e_gates_sku` VARCHAR(191) NOT NULL DEFAULT ''");
     await ensureMysqlColumn(connection, "products", "wownow_sku", "`wownow_sku` VARCHAR(191) NOT NULL DEFAULT ''");
+    await ensureMysqlProductTypeSupport(connection);
     await ensureMysqlColumn(connection, "partner_settings", "advertisement_roi_rate", "`advertisement_roi_rate` DECIMAL(8,2) NOT NULL DEFAULT 14");
     await ensureMysqlColumn(connection, "orders", "promo_code_id", "`promo_code_id` VARCHAR(36) NULL");
     await ensureMysqlColumn(connection, "orders", "promo_code", "`promo_code` VARCHAR(64) NULL");

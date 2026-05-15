@@ -11,7 +11,7 @@ const {
 
 const getManageableRoles = (actorRole) => {
   if (actorRole === "master_admin") {
-    return ["admin", "checker", "staff"];
+    return ["master_admin", "admin", "checker", "staff"];
   }
 
   if (actorRole === "admin") {
@@ -25,7 +25,7 @@ const buildAvatarPath = (file) => (file ? `/uploads/users/${file.filename}` : ""
 
 const getVisibleRoles = (actorRole) => {
   if (actorRole === "master_admin") {
-    return ["admin", "checker", "staff"];
+    return ["master_admin", "admin", "checker", "staff"];
   }
 
   if (actorRole === "admin") {

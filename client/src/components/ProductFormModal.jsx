@@ -13,6 +13,7 @@ const productTypeLabel = (type) =>
     raw_material: "Base",
     sauce: "Sauce",
     seasoning: "Seasoning",
+    raw_item: "Raw-Items",
     combo: "Combined",
     combo_type: "Combo"
   })[type] || "A La Catre";
@@ -20,6 +21,7 @@ const productTypeLabel = (type) =>
 const COMPOSITE_PRODUCT_TYPES = ["combo", "combo_type"];
 const isCompositeType = (type) => COMPOSITE_PRODUCT_TYPES.includes(type);
 const isBaseMaterialType = (type) => type === "raw_material";
+const isRawItemType = (type) => type === "raw_item";
 const canManualTentativeCost = (type) => ["raw", "combo"].includes(type);
 const TENTATIVE_COST_FALLBACK_RATE = 0.4;
 
@@ -186,7 +188,7 @@ const SearchableProductSelect = ({
   );
 };
 
-const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawProducts = [] }) => {
+const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawProducts = [], forcedProductType = "" }) => {
   const [form, setForm] = useState(initialState);
   const [file, setFile] = useState(null);
   const [dragging, setDragging] = useState(false);
@@ -221,11 +223,14 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               alternativeProducts: normalizeAlternativeProducts(item.alternativeProducts)
             }))
           }
-        : initialState
+        : {
+            ...initialState,
+            ...(forcedProductType ? { productType: forcedProductType } : {})
+          }
     );
     setFile(null);
     setReplacementSelections({});
-  }, [product, open]);
+  }, [product, open, forcedProductType]);
 
   const availableProducts = useMemo(
     () => rawProducts.filter((item) => item.id !== product?.id),
@@ -293,6 +298,8 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
     return Number((offerPrice * TENTATIVE_COST_FALLBACK_RATE).toFixed(2));
   }, [form.forSale, form.productType, form.promotionalPrice]);
 
+  const minimalRawItemMode = isRawItemType(form.productType);
+
   if (!open) {
     return null;
   }
@@ -305,7 +312,23 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
       ...(name === "productType"
         ? {
             ...(!isCompositeType(value) ? { comboItems: [] } : {}),
-            ...(isCompositeType(value) ? { stockUnit: "pieces" } : {})
+            ...(isCompositeType(value) ? { stockUnit: "pieces" } : {}),
+            ...(isRawItemType(value)
+              ? {
+                  regularPrice: "",
+                  promotionalPrice: "",
+                  description: "",
+                  khmerDescription: "",
+                  stock: "",
+                  sku: "",
+                  foodpandaSku: "",
+                  grabSku: "",
+                  eGatesSku: "",
+                  wownowSku: "",
+                  forSale: "false",
+                  tentativeCost: ""
+                }
+              : {})
           }
         : {})
     }));
@@ -359,7 +382,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
   const handleSubmit = (event) => {
     event.preventDefault();
     const formData = new FormData();
-    const shouldHidePricing = isBaseMaterialType(form.productType);
+    const shouldHidePricing = isBaseMaterialType(form.productType) || isRawItemType(form.productType);
     const payload = {
       ...form,
       regularPrice: shouldHidePricing ? 0 : form.regularPrice,
@@ -372,9 +395,15 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
             : canManualTentativeCost(form.productType)
               ? form.tentativeCost
               : 0,
-      stock: isCompositeType(form.productType) ? 0 : form.stock,
+      stock: isCompositeType(form.productType) || isRawItemType(form.productType) ? 0 : form.stock,
       stockUnit: isCompositeType(form.productType) ? "pieces" : form.stockUnit,
       seasoningPerOrderConsumption: form.productType === "seasoning" ? form.seasoningPerOrderConsumption || 0 : 0,
+      forSale: isRawItemType(form.productType) ? "false" : form.forSale,
+      sku: isRawItemType(form.productType) ? "" : form.sku,
+      foodpandaSku: isRawItemType(form.productType) ? "" : form.foodpandaSku,
+      grabSku: isRawItemType(form.productType) ? "" : form.grabSku,
+      eGatesSku: isRawItemType(form.productType) ? "" : form.eGatesSku,
+      wownowSku: isRawItemType(form.productType) ? "" : form.wownowSku,
       comboItems: isCompositeType(form.productType)
         ? form.comboItems
             .filter((item) => item.product && Number(item.quantity) > 0)
@@ -410,29 +439,50 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-3 sm:p-4">
       <div className="flex min-h-full items-start justify-center py-4 sm:items-center">
         <div className="glass-card flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-          <div>
-            <h3 className="font-display text-2xl font-bold text-slate-900">{product ? "Edit Product" : "Add Product"}</h3>
-            <p className="text-sm text-slate-500">Create A La Catre, Base, Sauce, Seasoning, or Combined products and build combinations using base items.</p>
+          <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-w-0">
+            <h3 className="font-display text-xl font-bold text-slate-900 sm:text-2xl">{product ? "Edit Product" : "Add Product"}</h3>
+            <p className="text-sm text-slate-500">
+              {forcedProductType
+                ? `Create a ${productTypeLabel(forcedProductType)} product with only the required fields.`
+                : "Choose product type first, then complete only the fields needed for that type."}
+            </p>
           </div>
-          <button type="button" onClick={onClose} className="btn-secondary">
+          <button type="button" onClick={onClose} className="btn-secondary shrink-0">
             Close
           </button>
           </div>
 
-          <form className="grid flex-1 gap-4 overflow-y-auto px-6 py-5 md:grid-cols-2" onSubmit={handleSubmit}>
+          <form className="grid flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 md:grid-cols-2" onSubmit={handleSubmit}>
+          {!forcedProductType ? (
+          <label className="md:col-span-2">
+            <span className="mb-2 block text-sm font-semibold text-slate-600">Product Type</span>
+            <select name="productType" value={form.productType} onChange={handleChange} className="input" required>
+              <option value="">Select product type</option>
+              <option value="raw">A La Catre</option>
+              <option value="raw_material">Base</option>
+              <option value="raw_item">Raw-Items</option>
+              <option value="sauce">Sauce</option>
+              <option value="seasoning">Seasoning</option>
+              <option value="combo">Combined</option>
+              <option value="combo_type">Combo</option>
+            </select>
+          </label>
+          ) : null}
           <label className="md:col-span-2">
             <span className="mb-2 block text-sm font-semibold text-slate-600">Product name</span>
             <input name="name" value={form.name} onChange={handleChange} className="input" required />
           </label>
+          {!minimalRawItemMode && (
           <label className="md:col-span-2">
             <span className="mb-2 block text-sm font-semibold text-slate-600">Khmer Product Name</span>
             <input name="khmerName" value={form.khmerName} onChange={handleChange} className="input" placeholder="Optional Khmer name for customer menu" />
           </label>
-          {!isBaseMaterialType(form.productType) && (
+          )}
+          {!minimalRawItemMode && !isBaseMaterialType(form.productType) && (
             <>
               <label>
                 <span className="mb-2 block text-sm font-semibold text-slate-600">Regular Price (KHR)</span>
@@ -473,6 +523,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               required
             />
           </label>
+          {!minimalRawItemMode && (
           <label>
             <span className="mb-2 block text-sm font-semibold text-slate-600">Category (Khmer)</span>
             <input
@@ -483,7 +534,8 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               placeholder="Enter Khmer category"
             />
           </label>
-          {isCompositeType(form.productType) && (
+          )}
+          {!minimalRawItemMode && isCompositeType(form.productType) && (
             <label className="md:col-span-2">
               <span className="mb-2 block text-sm font-semibold text-slate-600">Combo Details</span>
               <textarea
@@ -496,6 +548,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               />
             </label>
           )}
+          {!minimalRawItemMode && (
           <label className="md:col-span-2">
             <span className="mb-2 block text-sm font-semibold text-slate-600">Khmer Description</span>
             <textarea
@@ -507,6 +560,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               placeholder="Optional Khmer description for customer menu."
             />
           </label>
+          )}
           {!isCompositeType(form.productType) ? (
             <label>
               <span className="mb-2 block text-sm font-semibold text-slate-600">Parameter</span>
@@ -517,21 +571,13 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               </select>
             </label>
           ) : null}
-          <label>
-            <span className="mb-2 block text-sm font-semibold text-slate-600">Product Type</span>
-            <select name="productType" value={form.productType} onChange={handleChange} className="input">
-              <option value="raw">A La Catre</option>
-              <option value="raw_material">Base</option>
-              <option value="sauce">Sauce</option>
-              <option value="seasoning">Seasoning</option>
-              <option value="combo">Combined</option>
-              <option value="combo_type">Combo</option>
-            </select>
-          </label>
+          {!minimalRawItemMode && (
           <label>
             <span className="mb-2 block text-sm font-semibold text-slate-600">SKU (Optional)</span>
             <input name="sku" value={form.sku} onChange={handleChange} className="input" placeholder="Auto-generate if empty" />
           </label>
+          )}
+          {!minimalRawItemMode && (
           <div className="md:col-span-2 rounded-3xl border border-slate-200 bg-slate-50 p-4">
             <div className="mb-4">
               <p className="font-semibold text-slate-900">Partner SKUs (Optional)</p>
@@ -580,6 +626,8 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               </label>
             </div>
           </div>
+          )}
+          {!minimalRawItemMode && (
           <label className="md:col-span-2">
             <span className="mb-2 block text-sm font-semibold text-slate-600">For Sale</span>
             <select name="forSale" value={form.forSale} onChange={handleChange} className="input">
@@ -587,6 +635,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
               <option value="false">No</option>
             </select>
           </label>
+          )}
           {form.forSale === "true" && canManualTentativeCost(form.productType) && (
             <label className="md:col-span-2">
               <span className="mb-2 block text-sm font-semibold text-slate-600">Tentative Cost Per Production (KHR)</span>
@@ -615,7 +664,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
             </label>
           )}
 
-          {!isCompositeType(form.productType) ? (
+          {!minimalRawItemMode && !isCompositeType(form.productType) ? (
             <>
               <label>
                 <span className="mb-2 block text-sm font-semibold text-slate-600">Stock</span>
@@ -640,7 +689,8 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
                 </label>
               )}
             </>
-          ) : (
+          ) : null}
+          {!minimalRawItemMode && isCompositeType(form.productType) ? (
             <div className="md:col-span-2 rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -820,7 +870,7 @@ const ProductFormModal = ({ open, onClose, onSubmit, product, submitting, rawPro
                 )}
               </div>
             </div>
-          )}
+          ) : null}
 
           <div className="md:col-span-2">
             <span className="mb-2 block text-sm font-semibold text-slate-600">Product image</span>

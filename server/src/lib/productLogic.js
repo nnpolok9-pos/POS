@@ -5,7 +5,7 @@ const { getAllProducts, getProductById, saveProduct, saveInventoryMovement, dele
 
 const STOCK_UNITS = ["pieces", "gram", "teaspoon"];
 const COMPOSITE_PRODUCT_TYPES = ["combo", "combo_type"];
-const PRODUCT_TYPES = ["raw", "raw_material", "sauce", "seasoning", "combo", "combo_type"];
+const PRODUCT_TYPES = ["raw", "raw_material", "raw_item", "sauce", "seasoning", "combo", "combo_type"];
 const MANUAL_TENTATIVE_COST_PRODUCT_TYPES = ["raw", "combo"];
 const TENTATIVE_COST_FALLBACK_RATE = 0.4;
 

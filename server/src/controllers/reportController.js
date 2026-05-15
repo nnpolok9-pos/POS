@@ -675,7 +675,7 @@ const getDeliveryPartnerSalesReport = async (req, res) => {
         existing.advertisingRoiCost += advertisingRoiCost;
         existing.netSales += netSales;
         existing.netSalesAfterAdvertising += netSalesAfterAdvertising;
-        existing.settlementAmount += netSales;
+        existing.settlementAmount += netSalesAfterAdvertising;
       }
 
       const flows = getOrderPaymentFlows(order);

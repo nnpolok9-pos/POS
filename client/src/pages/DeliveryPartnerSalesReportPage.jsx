@@ -24,6 +24,7 @@ const partnerSalesColumns = [
   { header: "Refunds", key: "refunds" },
   { header: "Net Sales", key: "netSales" },
   { header: "Commission", key: "commissionAmount" },
+  { header: "ROI Cost", key: "advertisingRoiCost" },
   { header: "Settlement", key: "settlementAmount" },
   { header: "Average Order", key: "averageOrderValue" }
 ];
@@ -79,6 +80,7 @@ const DeliveryPartnerSalesReportPage = () => {
           acc.totalRefunds += Number(row.refunds || 0);
           acc.totalNetSales += Number(row.netSales || 0);
           acc.totalCommissionAmount += Number(row.commissionAmount || 0);
+          acc.totalAdvertisingRoiCost += Number(row.advertisingRoiCost || 0);
           acc.totalSettlementAmount += Number(row.settlementAmount || 0);
           return acc;
         },
@@ -89,6 +91,7 @@ const DeliveryPartnerSalesReportPage = () => {
           totalRefunds: 0,
           totalNetSales: 0,
           totalCommissionAmount: 0,
+          totalAdvertisingRoiCost: 0,
           totalSettlementAmount: 0
         }
       ),
@@ -108,6 +111,7 @@ const DeliveryPartnerSalesReportPage = () => {
       refunds: Number(row.refunds || 0).toFixed(2),
       netSales: Number(row.netSales || 0).toFixed(2),
       commissionAmount: Number(row.commissionAmount || 0).toFixed(2),
+      advertisingRoiCost: Number(row.advertisingRoiCost || 0).toFixed(2),
       settlementAmount: Number(row.settlementAmount || 0).toFixed(2),
       averageOrderValue: Number(row.averageOrderValue || 0).toFixed(2)
     })) || [];
@@ -206,7 +210,7 @@ const DeliveryPartnerSalesReportPage = () => {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <div className={`${statCardClass} border border-[#d9e0eb] bg-[#e8eef7]`}>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -251,12 +255,24 @@ const DeliveryPartnerSalesReportPage = () => {
               </div>
             </div>
           </div>
+          <div className={`${statCardClass} border border-[#f0ddda] bg-[#fff5ee]`}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">ROI Cost</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{currency(visibleSummary.totalAdvertisingRoiCost || 0)}</p>
+              </div>
+              <div className="rounded-full bg-white/55 p-3 text-orange-500">
+                <WalletCards size={18} />
+              </div>
+            </div>
+          </div>
           <div className={`${statCardClass} bg-[#171d31] text-white`}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Settlement</p>
                 <p className="mt-2 text-2xl font-bold">{currency(visibleSummary.totalSettlementAmount || 0)}</p>
-                <p className="mt-1 text-xs text-slate-300">Top Partner: {visibleTopPartner}</p>
+                <p className="mt-1 text-xs text-slate-300">After commission and ROI cost</p>
+                <p className="text-xs text-slate-300">Top Partner: {visibleTopPartner}</p>
               </div>
               <div className="rounded-full bg-white/10 p-3 text-white">
                 <WalletCards size={18} />
@@ -303,6 +319,10 @@ const DeliveryPartnerSalesReportPage = () => {
                   <p className="mt-1 text-slate-700">{currency(row.commissionAmount)}</p>
                 </div>
                 <div>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">ROI Cost</p>
+                  <p className="mt-1 text-slate-700">{currency(row.advertisingRoiCost)}</p>
+                </div>
+                <div>
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Settlement</p>
                   <p className="mt-1 font-semibold text-brand-600">{currency(row.settlementAmount)}</p>
                 </div>
@@ -327,6 +347,7 @@ const DeliveryPartnerSalesReportPage = () => {
                 <th className="pb-3 pr-4">Refunds</th>
                 <th className="pb-3 pr-4">Net Sales</th>
                 <th className="pb-3 pr-4">Commission</th>
+                <th className="pb-3 pr-4">ROI Cost</th>
                 <th className="pb-3 pr-4">Settlement</th>
                 <th className="pb-3">Average Order</th>
               </tr>
@@ -342,6 +363,7 @@ const DeliveryPartnerSalesReportPage = () => {
                   <td className="py-3 pr-4 text-slate-700">{currency(row.refunds)}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.netSales)}</td>
                   <td className="py-3 pr-4 text-slate-700">{currency(row.commissionAmount)}</td>
+                  <td className="py-3 pr-4 text-slate-700">{currency(row.advertisingRoiCost)}</td>
                   <td className="py-3 pr-4 font-bold text-brand-600">{currency(row.settlementAmount)}</td>
                   <td className="py-3 text-slate-700">{currency(row.averageOrderValue)}</td>
                 </tr>

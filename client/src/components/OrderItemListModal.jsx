@@ -82,10 +82,6 @@ const aggregatePreparationItems = (order, productCatalog = []) => {
   return [...itemMap.values()].sort((left, right) => left.name.localeCompare(right.name));
 };
 const OrderItemListModal = ({ open, order, productCatalog = [], onClose, onServe, canServe = false, serving = false }) => {
-  if (!open || !order) {
-    return null;
-  }
-
   const preparationItems = useMemo(() => aggregatePreparationItems(order, productCatalog), [order, productCatalog]);
   const [baggedKeys, setBaggedKeys] = useState(new Set());
 
@@ -110,6 +106,10 @@ const OrderItemListModal = ({ open, order, productCatalog = [], onClose, onServe
       return next;
     });
   };
+
+  if (!open || !order) {
+    return null;
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[85] overflow-y-auto bg-slate-950/55 p-4 sm:p-6" onClick={onClose}>

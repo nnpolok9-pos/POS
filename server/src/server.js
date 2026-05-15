@@ -17,6 +17,8 @@ const inventoryRoutes = require("./routes/inventoryRoutes");
 const shopSettingsRoutes = require("./routes/shopSettingsRoutes");
 const partnerSettingsRoutes = require("./routes/partnerSettingsRoutes");
 const integrationRoutes = require("./routes/integrationRoutes");
+const procurementRoutes = require("./routes/procurementRoutes");
+const cashManagementRoutes = require("./routes/cashManagementRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
@@ -45,6 +47,8 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/shop-settings", shopSettingsRoutes);
 app.use("/api/partners", partnerSettingsRoutes);
 app.use("/api/integrations", integrationRoutes);
+app.use("/api/procurement", procurementRoutes);
+app.use("/api/cash-management", cashManagementRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

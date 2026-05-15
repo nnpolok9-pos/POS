@@ -57,7 +57,157 @@ const partnerWebhookLogColumns = `
   id, partner_key, event_type, external_order_id, order_status, headers_json, payload_json, created_at
 `;
 
+const purchaseEntryColumns = `
+  id, supplier_id, supplier_name, payment_method, handled_by_user_id, handled_by_user_name,
+  total_amount, created_by, updated_by, created_at, updated_at
+`;
+
+const purchaseItemColumns = `
+  id, purchase_id, product_id, product_name, sku, quantity, unit_name, total_amount, unit_price, remarks, created_at
+`;
+
+const procurementVendorColumns = `
+  id, name, normalized_name, created_by, created_at, updated_at
+`;
+
+const procurementPaymentColumns = `
+  id, payment_type, vendor_id, vendor_name, user_id, user_name, amount, payment_method, remarks, created_by, created_at
+`;
+
+const procurementCostNameColumns = `
+  id, name, normalized_name, created_by, created_at, updated_at
+`;
+
+const procurementCostEntryColumns = `
+  id, cost_name_id, cost_name, payment_method, handled_by_user_id, handled_by_user_name,
+  amount, remarks, created_by, updated_by, created_at, updated_at
+`;
+
+const cashHandoverColumns = `
+  id, user_id, user_name, amount, remarks, created_by, created_at
+`;
+
 const boolToInt = (value) => (value ? 1 : 0);
+
+const mapPurchaseItemRow = (row) => {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    _id: row.id,
+    purchaseId: row.purchase_id,
+    productId: row.product_id,
+    productName: row.product_name,
+    sku: row.sku || "",
+    quantity: Number(row.quantity || 0),
+    unitName: row.unit_name || "Piece",
+    totalAmount: Number(row.total_amount || 0),
+    unitPrice: Number(row.unit_price || 0),
+    remarks: row.remarks || "",
+    createdAt: row.created_at
+  };
+};
+
+const mapPurchaseEntryRow = (row) => {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    _id: row.id,
+    supplierId: row.supplier_id || null,
+    supplierName: row.supplier_name,
+    paymentMethod: row.payment_method,
+    handledByUserId: row.handled_by_user_id || null,
+    handledByUserName: row.handled_by_user_name || "",
+    totalAmount: Number(row.total_amount || 0),
+    createdBy: row.created_by || null,
+    updatedBy: row.updated_by || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    items: []
+  };
+};
+
+const mapProcurementVendorRow = (row) =>
+  row
+    ? {
+        id: row.id,
+        _id: row.id,
+        name: row.name,
+        normalizedName: row.normalized_name,
+        createdBy: row.created_by || null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }
+    : null;
+
+const mapProcurementPaymentRow = (row) =>
+  row
+    ? {
+        id: row.id,
+        _id: row.id,
+        paymentType: row.payment_type,
+        vendorId: row.vendor_id || null,
+        vendorName: row.vendor_name || "",
+        userId: row.user_id || null,
+        userName: row.user_name || "",
+        amount: Number(row.amount || 0),
+        paymentMethod: row.payment_method,
+        remarks: row.remarks || "",
+        createdBy: row.created_by || null,
+        createdAt: row.created_at
+    }
+    : null;
+
+const mapProcurementCostNameRow = (row) =>
+  row
+    ? {
+        id: row.id,
+        _id: row.id,
+        name: row.name,
+        normalizedName: row.normalized_name,
+        createdBy: row.created_by || null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }
+    : null;
+
+const mapProcurementCostEntryRow = (row) =>
+  row
+    ? {
+        id: row.id,
+        _id: row.id,
+        costNameId: row.cost_name_id || null,
+        costName: row.cost_name || "",
+        paymentMethod: row.payment_method,
+        handledByUserId: row.handled_by_user_id || null,
+        handledByUserName: row.handled_by_user_name || "",
+        amount: Number(row.amount || 0),
+        remarks: row.remarks || "",
+        createdBy: row.created_by || null,
+        updatedBy: row.updated_by || null,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }
+    : null;
+
+const mapCashHandoverRow = (row) =>
+  row
+    ? {
+        id: row.id,
+        _id: row.id,
+        userId: row.user_id,
+        userName: row.user_name || "",
+        amount: Number(row.amount || 0),
+        remarks: row.remarks || "",
+        createdBy: row.created_by || null,
+        createdAt: row.created_at
+      }
+    : null;
 
 const hydrateOrderItemImages = async (orders) => {
   const normalizedOrders = Array.isArray(orders) ? orders.filter(Boolean) : [];
@@ -565,6 +715,542 @@ const getInventoryMovements = async ({ movementType = null, from = null, to = nu
   return rows.map(mapInventoryMovementRow);
 };
 
+const attachPurchaseItems = async (entries) => {
+  const normalizedEntries = Array.isArray(entries) ? entries.filter(Boolean) : [];
+  if (!normalizedEntries.length) {
+    return normalizedEntries;
+  }
+
+  const placeholders = normalizedEntries.map((_, index) => `:purchaseId${index}`).join(",");
+  const params = normalizedEntries.reduce(
+    (acc, entry, index) => ({ ...acc, [`purchaseId${index}`]: entry.id }),
+    {}
+  );
+  const rows = await query(
+    `SELECT ${purchaseItemColumns} FROM purchase_items WHERE purchase_id IN (${placeholders}) ORDER BY created_at ASC`,
+    params
+  );
+  const itemMap = rows.map(mapPurchaseItemRow).reduce((acc, item) => {
+    if (!acc.has(item.purchaseId)) {
+      acc.set(item.purchaseId, []);
+    }
+    acc.get(item.purchaseId).push(item);
+    return acc;
+  }, new Map());
+
+  return normalizedEntries.map((entry) => ({
+    ...entry,
+    items: itemMap.get(entry.id) || []
+  }));
+};
+
+const normalizeVendorName = (name) => String(name || "").trim().replace(/\s+/g, " ");
+const normalizeVendorKey = (name) => normalizeVendorName(name).toLowerCase();
+const normalizeCostName = normalizeVendorName;
+const normalizeCostKey = normalizeVendorKey;
+
+const getProcurementVendors = async ({ search = "" } = {}) => {
+  const params = {};
+  const conditions = [];
+  if (search) {
+    conditions.push("(name LIKE :search OR normalized_name LIKE :search)");
+    params.search = `%${search}%`;
+  }
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(`SELECT ${procurementVendorColumns} FROM procurement_vendors ${whereClause} ORDER BY name ASC`, params);
+  return rows.map(mapProcurementVendorRow);
+};
+
+const getProcurementVendorByNormalizedName = async (normalizedName) => {
+  const rows = await query(`SELECT ${procurementVendorColumns} FROM procurement_vendors WHERE normalized_name=:normalizedName LIMIT 1`, {
+    normalizedName
+  });
+  return mapProcurementVendorRow(rows[0]);
+};
+
+const upsertProcurementVendor = async ({ name, createdBy = null }) => {
+  const cleanName = normalizeVendorName(name);
+  const normalizedName = normalizeVendorKey(cleanName);
+  if (!cleanName) {
+    return null;
+  }
+
+  const existing = await getProcurementVendorByNormalizedName(normalizedName);
+  if (existing) {
+    if (existing.name !== cleanName) {
+      await query(`UPDATE procurement_vendors SET name=:name WHERE id=:id`, { id: existing.id, name: cleanName });
+      return getProcurementVendorByNormalizedName(normalizedName);
+    }
+    return existing;
+  }
+
+  const id = createId();
+  await query(
+    `INSERT INTO procurement_vendors (id, name, normalized_name, created_by)
+     VALUES (:id, :name, :normalizedName, :createdBy)`,
+    { id, name: cleanName, normalizedName, createdBy }
+  );
+  return getProcurementVendorByNormalizedName(normalizedName);
+};
+
+const getProcurementUsers = async () => getUsersByRoles(["master_admin", "admin", "staff"]);
+
+const getProcurementCostNames = async ({ search = "" } = {}) => {
+  const params = {};
+  const conditions = [];
+  if (search) {
+    conditions.push("(name LIKE :search OR normalized_name LIKE :search)");
+    params.search = `%${search}%`;
+  }
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(`SELECT ${procurementCostNameColumns} FROM procurement_cost_names ${whereClause} ORDER BY name ASC`, params);
+  return rows.map(mapProcurementCostNameRow);
+};
+
+const getProcurementCostNameByNormalizedName = async (normalizedName) => {
+  const rows = await query(`SELECT ${procurementCostNameColumns} FROM procurement_cost_names WHERE normalized_name=:normalizedName LIMIT 1`, {
+    normalizedName
+  });
+  return mapProcurementCostNameRow(rows[0]);
+};
+
+const upsertProcurementCostName = async ({ name, createdBy = null }) => {
+  const cleanName = normalizeCostName(name);
+  const normalizedName = normalizeCostKey(cleanName);
+  if (!cleanName) {
+    return null;
+  }
+
+  const existing = await getProcurementCostNameByNormalizedName(normalizedName);
+  if (existing) {
+    if (existing.name !== cleanName) {
+      await query(`UPDATE procurement_cost_names SET name=:name WHERE id=:id`, { id: existing.id, name: cleanName });
+      return getProcurementCostNameByNormalizedName(normalizedName);
+    }
+    return existing;
+  }
+
+  const id = createId();
+  await query(
+    `INSERT INTO procurement_cost_names (id, name, normalized_name, created_by)
+     VALUES (:id, :name, :normalizedName, :createdBy)`,
+    { id, name: cleanName, normalizedName, createdBy }
+  );
+  return getProcurementCostNameByNormalizedName(normalizedName);
+};
+
+const getPurchaseEntries = async ({ from = null, to = null, search = "", paymentMethod = "", supplierId = "" } = {}) => {
+  const conditions = [];
+  const params = {};
+
+  if (from) {
+    conditions.push("created_at >= :from");
+    params.from = from;
+  }
+
+  if (to) {
+    conditions.push("created_at <= :to");
+    params.to = to;
+  }
+
+  if (paymentMethod) {
+    conditions.push("payment_method = :paymentMethod");
+    params.paymentMethod = paymentMethod;
+  }
+
+  if (supplierId) {
+    conditions.push("supplier_id = :supplierId");
+    params.supplierId = supplierId;
+  }
+
+  if (search) {
+    conditions.push("(supplier_name LIKE :search OR handled_by_user_name LIKE :search OR id LIKE :search)");
+    params.search = `%${search}%`;
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(
+    `SELECT ${purchaseEntryColumns} FROM purchase_entries ${whereClause} ORDER BY created_at DESC`,
+    params
+  );
+
+  return attachPurchaseItems(rows.map(mapPurchaseEntryRow));
+};
+
+const getPurchaseEntryById = async (id) => {
+  const rows = await query(`SELECT ${purchaseEntryColumns} FROM purchase_entries WHERE id=:id LIMIT 1`, { id });
+  const [entry] = await attachPurchaseItems([mapPurchaseEntryRow(rows[0])]);
+  return entry || null;
+};
+
+const savePurchaseEntry = async (entry) => {
+  const id = entry.id || createId();
+  const items = Array.isArray(entry.items) ? entry.items : [];
+  const totalAmount = items.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0);
+  const vendor = await upsertProcurementVendor({ name: entry.supplierName, createdBy: entry.createdBy || entry.updatedBy || null });
+
+  if (entry.id) {
+    await query(
+        `UPDATE purchase_entries
+         SET supplier_id=:supplierId, supplier_name=:supplierName, payment_method=:paymentMethod,
+             handled_by_user_id=:handledByUserId, handled_by_user_name=:handledByUserName,
+             total_amount=:totalAmount, updated_by=:updatedBy
+         WHERE id=:id`,
+      {
+        id,
+        supplierId: vendor?.id || null,
+        supplierName: entry.supplierName,
+        paymentMethod: entry.paymentMethod,
+        handledByUserId: entry.handledByUserId || null,
+        handledByUserName: entry.handledByUserName || "",
+        totalAmount,
+        updatedBy: entry.updatedBy || null
+      }
+    );
+    await query(`DELETE FROM purchase_items WHERE purchase_id=:id`, { id });
+  } else {
+    await query(
+        `INSERT INTO purchase_entries (
+           id, supplier_id, supplier_name, payment_method, handled_by_user_id, handled_by_user_name,
+           total_amount, created_by, updated_by
+         )
+         VALUES (
+           :id, :supplierId, :supplierName, :paymentMethod, :handledByUserId, :handledByUserName,
+           :totalAmount, :createdBy, :updatedBy
+         )`,
+      {
+        id,
+        supplierId: vendor?.id || null,
+        supplierName: entry.supplierName,
+        paymentMethod: entry.paymentMethod,
+        handledByUserId: entry.handledByUserId || null,
+        handledByUserName: entry.handledByUserName || "",
+        totalAmount,
+        createdBy: entry.createdBy || null,
+        updatedBy: entry.updatedBy || entry.createdBy || null
+      }
+    );
+  }
+
+  for (const item of items) {
+    const quantity = Number(item.quantity || 0);
+    const itemTotal = Number(item.totalAmount || 0);
+    await query(
+      `INSERT INTO purchase_items (
+        id, purchase_id, product_id, product_name, sku, quantity, unit_name, total_amount, unit_price, remarks
+      ) VALUES (
+        :id, :purchaseId, :productId, :productName, :sku, :quantity, :unitName, :totalAmount, :unitPrice, :remarks
+      )`,
+      {
+        id: createId(),
+        purchaseId: id,
+        productId: item.productId,
+        productName: item.productName,
+        sku: item.sku || "",
+        quantity,
+        unitName: item.unitName || "Piece",
+        totalAmount: itemTotal,
+        unitPrice: quantity > 0 ? Number((itemTotal / quantity).toFixed(2)) : 0,
+        remarks: item.remarks || ""
+      }
+    );
+  }
+
+  return getPurchaseEntryById(id);
+};
+
+const deletePurchaseEntryById = async (id) => {
+  await query(`DELETE FROM purchase_entries WHERE id=:id`, { id });
+};
+
+const getProcurementCostEntries = async ({ from = null, to = null, search = "", paymentMethod = "", costNameId = "" } = {}) => {
+  const conditions = [];
+  const params = {};
+
+  if (from) {
+    conditions.push("created_at >= :from");
+    params.from = from;
+  }
+  if (to) {
+    conditions.push("created_at <= :to");
+    params.to = to;
+  }
+  if (paymentMethod) {
+    conditions.push("payment_method = :paymentMethod");
+    params.paymentMethod = paymentMethod;
+  }
+  if (costNameId) {
+    conditions.push("cost_name_id = :costNameId");
+    params.costNameId = costNameId;
+  }
+  if (search) {
+    conditions.push("(cost_name LIKE :search OR handled_by_user_name LIKE :search OR remarks LIKE :search OR id LIKE :search)");
+    params.search = `%${search}%`;
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(
+    `SELECT ${procurementCostEntryColumns} FROM procurement_cost_entries ${whereClause} ORDER BY created_at DESC`,
+    params
+  );
+  return rows.map(mapProcurementCostEntryRow);
+};
+
+const getProcurementCostEntryById = async (id) => {
+  const rows = await query(`SELECT ${procurementCostEntryColumns} FROM procurement_cost_entries WHERE id=:id LIMIT 1`, { id });
+  return mapProcurementCostEntryRow(rows[0]);
+};
+
+const saveProcurementCostEntry = async (entry) => {
+  const id = entry.id || createId();
+  const costName = await upsertProcurementCostName({ name: entry.costName, createdBy: entry.createdBy || entry.updatedBy || null });
+  const payload = {
+    id,
+    costNameId: costName?.id || null,
+    costName: costName?.name || normalizeCostName(entry.costName),
+    paymentMethod: entry.paymentMethod,
+    handledByUserId: entry.handledByUserId || null,
+    handledByUserName: entry.handledByUserName || "",
+    amount: Number(entry.amount || 0),
+    remarks: entry.remarks || "",
+    createdBy: entry.createdBy || null,
+    updatedBy: entry.updatedBy || entry.createdBy || null
+  };
+
+  if (entry.id) {
+    await query(
+      `UPDATE procurement_cost_entries
+       SET cost_name_id=:costNameId, cost_name=:costName, payment_method=:paymentMethod,
+           handled_by_user_id=:handledByUserId, handled_by_user_name=:handledByUserName,
+           amount=:amount, remarks=:remarks, updated_by=:updatedBy
+       WHERE id=:id`,
+      payload
+    );
+  } else {
+    await query(
+      `INSERT INTO procurement_cost_entries (
+         id, cost_name_id, cost_name, payment_method, handled_by_user_id, handled_by_user_name,
+         amount, remarks, created_by, updated_by
+       )
+       VALUES (
+         :id, :costNameId, :costName, :paymentMethod, :handledByUserId, :handledByUserName,
+         :amount, :remarks, :createdBy, :updatedBy
+       )`,
+      payload
+    );
+  }
+
+  return getProcurementCostEntryById(id);
+};
+
+const deleteProcurementCostEntryById = async (id) => {
+  await query(`DELETE FROM procurement_cost_entries WHERE id=:id`, { id });
+};
+
+const saveProcurementPayment = async (payment) => {
+  const id = createId();
+  await query(
+    `INSERT INTO procurement_payments (
+       id, payment_type, vendor_id, vendor_name, user_id, user_name, amount, payment_method, remarks, created_by
+     )
+     VALUES (
+       :id, :paymentType, :vendorId, :vendorName, :userId, :userName, :amount, :paymentMethod, :remarks, :createdBy
+     )`,
+    {
+      id,
+      paymentType: payment.paymentType,
+      vendorId: payment.vendorId || null,
+      vendorName: payment.vendorName || "",
+      userId: payment.userId || null,
+      userName: payment.userName || "",
+      amount: Number(payment.amount || 0),
+      paymentMethod: payment.paymentMethod,
+      remarks: payment.remarks || "",
+      createdBy: payment.createdBy || null
+    }
+  );
+  const rows = await query(`SELECT ${procurementPaymentColumns} FROM procurement_payments WHERE id=:id LIMIT 1`, { id });
+  return mapProcurementPaymentRow(rows[0]);
+};
+
+const getProcurementPayments = async ({ from = null, to = null, paymentType = "", vendorId = "", userId = "" } = {}) => {
+  const conditions = [];
+  const params = {};
+  if (from) {
+    conditions.push("created_at >= :from");
+    params.from = from;
+  }
+  if (to) {
+    conditions.push("created_at <= :to");
+    params.to = to;
+  }
+  if (paymentType) {
+    conditions.push("payment_type = :paymentType");
+    params.paymentType = paymentType;
+  }
+  if (vendorId) {
+    conditions.push("vendor_id = :vendorId");
+    params.vendorId = vendorId;
+  }
+  if (userId) {
+    conditions.push("user_id = :userId");
+    params.userId = userId;
+  }
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(`SELECT ${procurementPaymentColumns} FROM procurement_payments ${whereClause} ORDER BY created_at DESC`, params);
+  return rows.map(mapProcurementPaymentRow);
+};
+
+const saveCashHandover = async (handover) => {
+  const id = createId();
+  await query(
+    `INSERT INTO cash_handovers (id, user_id, user_name, amount, remarks, created_by)
+     VALUES (:id, :userId, :userName, :amount, :remarks, :createdBy)`,
+    {
+      id,
+      userId: handover.userId,
+      userName: handover.userName || "",
+      amount: Number(handover.amount || 0),
+      remarks: handover.remarks || "",
+      createdBy: handover.createdBy || null
+    }
+  );
+  const rows = await query(`SELECT ${cashHandoverColumns} FROM cash_handovers WHERE id=:id LIMIT 1`, { id });
+  return mapCashHandoverRow(rows[0]);
+};
+
+const getCashHandovers = async ({ from = null, to = null, userId = "" } = {}) => {
+  const conditions = [];
+  const params = {};
+
+  if (from) {
+    conditions.push("created_at >= :from");
+    params.from = from;
+  }
+  if (to) {
+    conditions.push("created_at <= :to");
+    params.to = to;
+  }
+  if (userId) {
+    conditions.push("user_id = :userId");
+    params.userId = userId;
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(`SELECT ${cashHandoverColumns} FROM cash_handovers ${whereClause} ORDER BY created_at DESC`, params);
+  return rows.map(mapCashHandoverRow);
+};
+
+const getItemwisePurchaseReport = async ({ from = null, to = null, productId = "", search = "" } = {}) => {
+  const conditions = [];
+  const params = {};
+
+  if (from) {
+    conditions.push("pe.created_at >= :from");
+    params.from = from;
+  }
+
+  if (to) {
+    conditions.push("pe.created_at <= :to");
+    params.to = to;
+  }
+
+  if (productId) {
+    conditions.push("pi.product_id = :productId");
+    params.productId = productId;
+  }
+
+  if (search) {
+    conditions.push("(pi.product_name LIKE :search OR pi.sku LIKE :search)");
+    params.search = `%${search}%`;
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(
+    `SELECT
+       pi.product_id,
+       pi.product_name,
+       pi.sku,
+       pi.unit_name,
+       SUM(pi.quantity) AS total_quantity,
+       SUM(pi.total_amount) AS total_amount,
+       COUNT(DISTINCT pe.id) AS purchase_count,
+       CASE WHEN SUM(pi.quantity) > 0 THEN SUM(pi.total_amount) / SUM(pi.quantity) ELSE 0 END AS average_unit_price,
+       MIN(pe.created_at) AS first_purchase_at,
+       MAX(pe.created_at) AS last_purchase_at
+     FROM purchase_items pi
+     INNER JOIN purchase_entries pe ON pe.id = pi.purchase_id
+     ${whereClause}
+     GROUP BY pi.product_id, pi.product_name, pi.sku, pi.unit_name
+     ORDER BY total_amount DESC, pi.product_name ASC`,
+    params
+  );
+
+  return rows.map((row) => ({
+    productId: row.product_id,
+    productName: row.product_name,
+    sku: row.sku || "",
+    unitName: row.unit_name || "Piece",
+    totalQuantity: Number(row.total_quantity || 0),
+    totalAmount: Number(row.total_amount || 0),
+    purchaseCount: Number(row.purchase_count || 0),
+    averageUnitPrice: Number(row.average_unit_price || 0),
+    firstPurchaseAt: row.first_purchase_at,
+    lastPurchaseAt: row.last_purchase_at
+  }));
+};
+
+const getCostwiseProcurementReport = async ({ from = null, to = null, costNameId = "", search = "" } = {}) => {
+  const conditions = [];
+  const params = {};
+
+  if (from) {
+    conditions.push("created_at >= :from");
+    params.from = from;
+  }
+  if (to) {
+    conditions.push("created_at <= :to");
+    params.to = to;
+  }
+  if (costNameId) {
+    conditions.push("cost_name_id = :costNameId");
+    params.costNameId = costNameId;
+  }
+  if (search) {
+    conditions.push("(cost_name LIKE :search OR handled_by_user_name LIKE :search OR remarks LIKE :search)");
+    params.search = `%${search}%`;
+  }
+
+  const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await query(
+    `SELECT
+       cost_name_id,
+       cost_name,
+       COUNT(*) AS entry_count,
+       SUM(amount) AS total_amount,
+       SUM(CASE WHEN payment_method = 'due' THEN amount ELSE 0 END) AS due_amount,
+       SUM(CASE WHEN payment_method <> 'due' THEN amount ELSE 0 END) AS paid_amount,
+       MIN(created_at) AS first_cost_at,
+       MAX(created_at) AS last_cost_at
+     FROM procurement_cost_entries
+     ${whereClause}
+     GROUP BY cost_name_id, cost_name
+     ORDER BY total_amount DESC, cost_name ASC`,
+    params
+  );
+
+  return rows.map((row) => ({
+    costNameId: row.cost_name_id || null,
+    costName: row.cost_name || "",
+    entryCount: Number(row.entry_count || 0),
+    totalAmount: Number(row.total_amount || 0),
+    dueAmount: Number(row.due_amount || 0),
+    paidAmount: Number(row.paid_amount || 0),
+    firstCostAt: row.first_cost_at,
+    lastCostAt: row.last_cost_at
+  }));
+};
+
 const getOrders = async ({ where = "", params = {}, orderBy = "created_at DESC" } = {}) => {
   const rows = await query(`SELECT ${orderColumns} FROM orders ${where} ORDER BY ${orderBy}`, params);
   return hydrateOrderItemImages(rows.map(mapOrderRow));
@@ -675,6 +1361,25 @@ module.exports = {
   deleteProductById,
   saveInventoryMovement,
   getInventoryMovements,
+  getProcurementVendors,
+  upsertProcurementVendor,
+  getProcurementCostNames,
+  upsertProcurementCostName,
+  getProcurementUsers,
+  saveProcurementPayment,
+  getProcurementPayments,
+  saveCashHandover,
+  getCashHandovers,
+  getPurchaseEntries,
+  getPurchaseEntryById,
+  savePurchaseEntry,
+  deletePurchaseEntryById,
+  getProcurementCostEntries,
+  getProcurementCostEntryById,
+  saveProcurementCostEntry,
+  deleteProcurementCostEntryById,
+  getItemwisePurchaseReport,
+  getCostwiseProcurementReport,
   getAllPromos,
   getPromoById,
   getPromoByCode,

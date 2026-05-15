@@ -19,6 +19,7 @@ const productTypeLabel = (type) =>
     raw_material: "Base",
     sauce: "Sauce",
     seasoning: "Seasoning",
+    raw_item: "Raw-Items",
     raw: "A La Catre"
   })[type] || "A La Catre";
 const stockUnitLabel = (unit) =>
@@ -108,7 +109,7 @@ const ProductListPage = () => {
   );
 
   const rawProducts = useMemo(() => products, [products]);
-  const productTypes = useMemo(() => ["All", "raw", "raw_material", "sauce", "seasoning", "combo", "combo_type"], []);
+  const productTypes = useMemo(() => ["All", "raw", "raw_material", "raw_item", "sauce", "seasoning", "combo", "combo_type"], []);
 
   const filteredProducts = useMemo(
     () =>

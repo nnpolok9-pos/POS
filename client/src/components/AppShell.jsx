@@ -1,4 +1,4 @@
-import { Archive, BadgePercent, BarChart3, FilePenLine, LayoutDashboard, LogOut, Menu, PackagePlus, PackageSearch, ReceiptText, ShoppingCart, Store, Users, X } from "lucide-react";
+import { Archive, BadgePercent, BarChart3, FilePenLine, HandCoins, LayoutDashboard, LogOut, Menu, PackagePlus, PackageSearch, ReceiptText, ShoppingCart, Store, Truck, Users, WalletCards, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +19,28 @@ const navItems = [
     icon: Archive,
     roles: ["master_admin", "admin", "checker", "staff"],
     children: [{ to: "/edited-list", label: "Edited List", icon: FilePenLine, roles: ["master_admin", "admin", "checker"] }],
+  },
+  {
+      to: "/procurement/purchase-history",
+      label: "Procurement & Cost",
+      icon: Truck,
+      roles: ["master_admin"],
+      children: [
+        { to: "/procurement/purchase-entry", label: "Purchase and Cost Entry", icon: PackagePlus, roles: ["master_admin"] },
+      { to: "/procurement/purchase-history", label: "Purchase History", icon: ReceiptText, roles: ["master_admin"] },
+        { to: "/procurement/itemwise-report", label: "Itemwise & Cost Report", icon: BarChart3, roles: ["master_admin"] },
+      { to: "/procurement/vendor-wise-report", label: "Vendor Wise Report", icon: BarChart3, roles: ["master_admin"] }
+      ]
+    },
+  {
+    to: "/cash-management/cash-position",
+    label: "Cash Management",
+    icon: WalletCards,
+    roles: ["master_admin", "admin", "checker"],
+    children: [
+      { to: "/cash-management/entry-collection", label: "Entry Collection", icon: HandCoins, roles: ["master_admin"] },
+      { to: "/cash-management/cash-position", label: "Cash Position", icon: WalletCards, roles: ["master_admin", "admin", "checker"] }
+    ]
   },
   { to: "/promos", label: "Promos", icon: BadgePercent, roles: ["master_admin", "admin"] },
   {
@@ -50,10 +72,16 @@ const AppShell = () => {
 
   const visibleNavItems = navItems
     .filter((item) => item.roles.includes(user?.role))
-    .map((item) => ({
-      ...item,
-      children: item.children?.filter((child) => child.roles.includes(user?.role)) ?? [],
-    }));
+    .map((item) => {
+      const children = item.children?.filter((child) => child.roles.includes(user?.role)) ?? [];
+      const defaultChild = item.to === "/cash-management/cash-position" ? children[0] : null;
+
+      return {
+        ...item,
+        to: defaultChild?.to || item.to,
+        children,
+      };
+    });
   const shopName = settings?.shopName || "ASEN POS";
   const hasLogo = Boolean(settings?.logo);
   const logoSrc = useMemo(() => {

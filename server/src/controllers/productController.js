@@ -65,9 +65,9 @@ const createProduct = async (req, res) => {
   const expiryDate = parseExpiryDate(req.body.expiryDate);
   const seasoningPerOrderConsumption = Math.max(0, Number(req.body.seasoningPerOrderConsumption || 0));
   const tentativeCostInput = Math.max(0, Number(req.body.tentativeCost || 0));
-  const pricing = productType === "raw_material" ? resolvePricing({ price: 0, regularPrice: 0, promotionalPrice: 0 }) : resolvePricing({ price, regularPrice, promotionalPrice });
+  const pricing = ["raw_material", "raw_item"].includes(productType) ? resolvePricing({ price: 0, regularPrice: 0, promotionalPrice: 0 }) : resolvePricing({ price, regularPrice, promotionalPrice });
 
-  if (!name || category === undefined || (productType !== "raw_material" && (regularPrice === undefined || promotionalPrice === undefined))) {
+  if (!name || category === undefined || (!["raw_material", "raw_item"].includes(productType) && (regularPrice === undefined || promotionalPrice === undefined))) {
     return res.status(400).json({ message: "Name, regular price, promotional price, and category are required" });
   }
 
@@ -75,7 +75,7 @@ const createProduct = async (req, res) => {
     return res.status(400).json({ message: "Prices and stock must be zero or greater" });
   }
 
-  if (!["raw", "raw_material", "sauce", "seasoning", "combo", "combo_type"].includes(productType)) {
+  if (!["raw", "raw_material", "raw_item", "sauce", "seasoning", "combo", "combo_type"].includes(productType)) {
     return res.status(400).json({ message: "Invalid product type" });
   }
 
@@ -121,7 +121,7 @@ const createProduct = async (req, res) => {
     expiryDate: isCompositeProductType(productType) ? null : expiryDate,
     productType,
     comboItems: isCompositeProductType(productType) ? comboItems : [],
-    forSale,
+    forSale: productType === "raw_item" ? false : forSale,
     sku: sku || generateSku(name, category),
     foodpandaSku: String(foodpandaSku || "").trim(),
     grabSku: String(grabSku || "").trim(),
@@ -287,7 +287,7 @@ const updateProduct = async (req, res) => {
   const comboItems =
     req.body.comboItems !== undefined ? buildComboItems(parseComboItemsInput(req.body.comboItems)) : buildComboItems(product.comboItems || []);
   const pricing =
-    nextProductType === "raw_material"
+    ["raw_material", "raw_item"].includes(nextProductType)
       ? resolvePricing({ price: 0, regularPrice: 0, promotionalPrice: 0 })
       : resolvePricing({
           price: req.body.price ?? product.price,
@@ -315,8 +315,8 @@ const updateProduct = async (req, res) => {
     productType: nextProductType,
     seasoningPerOrderConsumption: nextProductType === "seasoning" ? nextSeasoningPerOrderConsumption : 0,
     expiryDate: isCompositeProductType(nextProductType) ? null : nextExpiryDate,
-    forSale: req.body.forSale !== undefined ? toBoolean(req.body.forSale, product.forSale ?? true) : product.forSale ?? true,
-    stock: isCompositeProductType(nextProductType) ? 0 : req.body.stock !== undefined ? Number(req.body.stock) : product.stock,
+    forSale: nextProductType === "raw_item" ? false : req.body.forSale !== undefined ? toBoolean(req.body.forSale, product.forSale ?? true) : product.forSale ?? true,
+    stock: isCompositeProductType(nextProductType) || nextProductType === "raw_item" ? 0 : req.body.stock !== undefined ? Number(req.body.stock) : product.stock,
     comboItems: isCompositeProductType(nextProductType) ? comboItems : [],
     sku: req.body.sku || product.sku || generateSku(product.name, product.category),
     foodpandaSku:
@@ -333,7 +333,7 @@ const updateProduct = async (req, res) => {
     return res.status(400).json({ message: "Prices must be zero or greater" });
   }
 
-  if (!["raw", "raw_material", "sauce", "seasoning", "combo", "combo_type"].includes(product.productType)) {
+  if (!["raw", "raw_material", "raw_item", "sauce", "seasoning", "combo", "combo_type"].includes(product.productType)) {
     return res.status(400).json({ message: "Invalid product type" });
   }
 

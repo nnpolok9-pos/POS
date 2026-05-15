@@ -21,6 +21,12 @@ import UsersPage from "./pages/UsersPage";
 import EditedListPage from "./pages/EditedListPage";
 import PromosPage from "./pages/PromosPage";
 import ManagePartnersPage from "./pages/ManagePartnersPage";
+import PurchaseEntryPage from "./pages/PurchaseEntryPage";
+import PurchaseHistoryPage from "./pages/PurchaseHistoryPage";
+import ItemwisePurchaseReportPage from "./pages/ItemwisePurchaseReportPage";
+import VendorWisePurchaseReportPage from "./pages/VendorWisePurchaseReportPage";
+import CashCollectionEntryPage from "./pages/CashCollectionEntryPage";
+import CashManagementPositionPage from "./pages/CashManagementPositionPage";
 import ShopProfilePage from "./pages/ShopProfilePage";
 import CustomerOrderPage from "./pages/CustomerOrderPage";
 import MenuCardPage from "./pages/MenuCardPage";
@@ -176,6 +182,54 @@ function App() {
           element={
             <ProtectedRoute roles={["master_admin", "admin"]}>
               <ManagePartnersPage />
+            </ProtectedRoute>
+          }
+        />
+          <Route
+            path="procurement/purchase-entry"
+            element={
+              <ProtectedRoute roles={["master_admin"]}>
+                <PurchaseEntryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="procurement/purchase-history"
+            element={
+              <ProtectedRoute roles={["master_admin"]}>
+                <PurchaseHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="procurement/itemwise-report"
+            element={
+              <ProtectedRoute roles={["master_admin"]}>
+                <ItemwisePurchaseReportPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="procurement/vendor-wise-report"
+            element={
+              <ProtectedRoute roles={["master_admin"]}>
+                <VendorWisePurchaseReportPage />
+              </ProtectedRoute>
+            }
+          />
+        <Route
+          path="cash-management/entry-collection"
+          element={
+            <ProtectedRoute roles={["master_admin"]}>
+              <CashCollectionEntryPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="cash-management/cash-position"
+          element={
+            <ProtectedRoute roles={["master_admin", "admin", "checker"]}>
+              <CashManagementPositionPage />
             </ProtectedRoute>
           }
         />

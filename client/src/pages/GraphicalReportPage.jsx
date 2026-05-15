@@ -194,13 +194,6 @@ const GraphicalReportPage = () => {
   const headlineMetrics = useMemo(
     () => [
       {
-        key: "netAfterAd",
-        label: "Net Sales After Ad",
-        value: Number(summary.netSalesAfterAdvertising || 0),
-        color: "#1d4ed8",
-        icon: HandCoins
-      },
-      {
         key: "tentativeProfit",
         label: "Tentative Profit",
         value: Number(summary.tentativeProfit || 0),
@@ -208,24 +201,14 @@ const GraphicalReportPage = () => {
         icon: TrendingUp
       },
       {
-        key: "counterProfit",
-        label: "Counter Profit",
-        value: Number(summary.counterTentativeProfit || 0),
-        color: "#0f172a",
-        icon: Store
-      },
-      ...["grab", "foodpanda", "e_gates", "wownow"].map((partnerKey) => {
-        const row = (report.partnerRows || []).find((item) => item.partner === partnerKey);
-        return {
-          key: partnerKey,
-          label: partnerMeta[partnerKey].label,
-          value: Number(row?.tentativeProfit || 0),
-          color: partnerMeta[partnerKey].color,
-          logo: partnerMeta[partnerKey].logo
-        };
-      })
+        key: "netAfterAd",
+        label: "Sales After Ad",
+        value: Number(summary.netSalesAfterAdvertising || 0),
+        color: "#1d4ed8",
+        icon: HandCoins
+      }
     ],
-    [report.partnerRows, summary.counterTentativeProfit, summary.netSalesAfterAdvertising, summary.tentativeProfit]
+    [summary.netSalesAfterAdvertising, summary.tentativeProfit]
   );
 
   const dailyComparisonData = useMemo(
@@ -377,7 +360,7 @@ const GraphicalReportPage = () => {
 
       <VerticalBarChart
         title="Profit Overview"
-        subtitle="This chart compares the core profitability metrics and each partner's contribution for the selected period."
+        subtitle="This chart compares tentative profit against sales after advertisement for the selected period."
         data={headlineMetrics}
       />
 

@@ -39,6 +39,11 @@ const orderHistoryColumns = [
   { header: "Sale Amount", key: "saleAmount" },
   { header: "Status", key: "status" }
 ];
+const masterOrderHistoryColumns = [
+  ...orderHistoryColumns.slice(0, 9),
+  { header: "Tentative Profit", key: "tentativeProfit" },
+  ...orderHistoryColumns.slice(9)
+];
 
 const heroBadgeClass =
   "inline-flex items-center gap-2 rounded-full border border-[#bba995] bg-[#7d6d61] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white shadow-sm";
@@ -181,6 +186,7 @@ const OrdersPage = () => {
   const canVoidCompleted = ["master_admin", "admin"].includes(user?.role);
   const canDeleteOrders = user?.role === "master_admin";
   const canEditVoidSale = ["master_admin", "admin"].includes(user?.role);
+  const canViewTentativeProfit = user?.role === "master_admin";
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [historyOrder, setHistoryOrder] = useState(null);
@@ -343,7 +349,35 @@ const OrdersPage = () => {
     }
   };
 
+  const productCostMap = new Map(
+    productCatalog.map((product) => {
+      const enteredCost = Number(product?.tentativeCost || 0);
+      const offerPrice = Number(product?.promotionalPrice || product?.price || 0);
+      const fallbackCost = offerPrice > 0 ? offerPrice * 0.4 : 0;
+      return [String(product.id || product._id), enteredCost > 0 ? enteredCost : fallbackCost];
+    })
+  );
+  const getOrderCostAmount = (order) => {
+    const storedCost = Number(order?.costTotal || 0);
+    if (storedCost > 0) {
+      return roundMoney(storedCost);
+    }
+
+    const itemCost = (order?.items || []).reduce((sum, item) => {
+      const productCost = productCostMap.get(String(item.product || item.productId || ""));
+      return sum + Number(productCost || 0) * Number(item.quantity || 0);
+    }, 0);
+
+    if (itemCost > 0) {
+      return roundMoney(itemCost);
+    }
+
+    return roundMoney(getOrderListSaleAmount(order) * 0.4);
+  };
+  const getOrderTentativeProfit = (order) => roundMoney(getOrderNetAfterAdAmount(order) - getOrderCostAmount(order));
+
   const sourceFilteredOrders = orders.filter((order) => matchesSourceFilter(order, sourceFilter));
+  const orderColumns = canViewTentativeProfit ? masterOrderHistoryColumns : orderHistoryColumns;
   const exportRows = sourceFilteredOrders.map((order, index) => ({
     sl: index + 1,
     orderId: order.orderId,
@@ -354,6 +388,7 @@ const OrdersPage = () => {
     paymentMethod: formatPaymentMethodLabel(order.paymentMethod, "-"),
     items: order.items.length,
     saleAmount: getOrderListSaleAmount(order).toFixed(2),
+    ...(canViewTentativeProfit ? { tentativeProfit: getOrderTentativeProfit(order).toFixed(2) } : {}),
     status: getOrderStatusLabel(order)
   }));
 
@@ -367,7 +402,7 @@ const OrdersPage = () => {
       fileName: `order-history-${canUseDateRange ? `${from}-to-${to}` : "current"}`,
       sheetName: "Order History",
       title: "Order History",
-      columns: orderHistoryColumns,
+      columns: orderColumns,
       rows: exportRows,
       shopProfile: shopSettings,
       summaryLines: canUseDateRange ? [`Date Range: ${from} to ${to}`] : ["Current order history"]
@@ -388,7 +423,7 @@ const OrdersPage = () => {
     await exportReportToPdf({
       title: "Order History",
       fileName: `order-history-${canUseDateRange ? `${from}-to-${to}` : "current"}`,
-      columns: orderHistoryColumns,
+      columns: orderColumns,
       rows: exportRows,
       summaryLines,
       shopProfile: shopSettings
@@ -403,6 +438,7 @@ const OrdersPage = () => {
   const visibleFinancialOrders = sourceFilteredOrders.filter((order) => VISIBLE_FINANCIAL_STATUSES.includes(order.status));
   const totalSales = visibleFinancialOrders.reduce((sum, order) => sum + Number(order?.subtotal || order?.total || 0), 0);
   const totalNetAfterAd = visibleFinancialOrders.reduce((sum, order) => sum + getOrderNetAfterAdAmount(order), 0);
+  const totalTentativeProfit = visibleFinancialOrders.reduce((sum, order) => sum + getOrderTentativeProfit(order), 0);
   const filteredOrders = sourceFilteredOrders.filter((order) => (statusFilter === "all" ? true : order.status === statusFilter));
 
   const canEditOrder = (order) => {
@@ -598,6 +634,7 @@ const OrdersPage = () => {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">Visible Sales</p>
               <p className="mt-2 text-2xl font-bold">{currency(totalSales)}</p>
               <p className="mt-1 text-xs text-slate-300">Net After Ad {currency(totalNetAfterAd)}</p>
+              {canViewTentativeProfit ? <p className="mt-1 text-xs font-semibold text-emerald-200">Tentative Profit {currency(totalTentativeProfit)}</p> : null}
             </div>
             <div className="rounded-full bg-white/10 p-3 text-white">
               <WalletCards size={18} />
@@ -723,6 +760,14 @@ const OrdersPage = () => {
                   <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Sale Amount</p>
                   <p className="mt-1 font-bold text-brand-600">{currency(getOrderListSaleAmount(order))}</p>
                 </div>
+                {canViewTentativeProfit ? (
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Tentative Profit</p>
+                    <p className={`mt-1 font-bold ${getOrderTentativeProfit(order) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      {currency(getOrderTentativeProfit(order))}
+                    </p>
+                  </div>
+                ) : null}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={() => setSelectedOrder(order)} className="btn-secondary h-10 gap-2 px-3 text-sm">
@@ -794,6 +839,7 @@ const OrdersPage = () => {
               <th className="pb-3 pr-4">Staff</th>
               <th className="pb-3 pr-4">Items</th>
               <th className="pb-3 pr-4">Sale Amount</th>
+              {canViewTentativeProfit ? <th className="pb-3 pr-4">Tentative Profit</th> : null}
               <th className="pb-3 pr-4">Status</th>
               <th className="pb-3">Actions</th>
             </tr>
@@ -801,7 +847,7 @@ const OrdersPage = () => {
           <tbody>
             {filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan="9" className="py-10 text-center text-sm text-slate-500">
+                <td colSpan={canViewTentativeProfit ? 10 : 9} className="py-10 text-center text-sm text-slate-500">
                   No orders found for the selected filters.
                 </td>
               </tr>
@@ -828,6 +874,11 @@ const OrdersPage = () => {
                   <td className="py-3 pr-4 text-slate-600">{order.staff ? formatUserDisplayName(order.staff?.name, order.staff?.email) : "Staff"}</td>
                   <td className="py-3 pr-4 text-slate-600">{order.items.length}</td>
                   <td className="py-3 pr-4 font-bold text-brand-600">{currency(getOrderListSaleAmount(order))}</td>
+                  {canViewTentativeProfit ? (
+                    <td className={`py-3 pr-4 font-bold ${getOrderTentativeProfit(order) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      {currency(getOrderTentativeProfit(order))}
+                    </td>
+                  ) : null}
                   <td className="py-3 pr-4">
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold ${

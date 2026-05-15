@@ -12,7 +12,7 @@ const UsersPage = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const allowedRoles = currentUser?.role === "master_admin" ? ["admin", "checker", "staff"] : ["staff"];
+  const allowedRoles = currentUser?.role === "master_admin" ? ["master_admin", "admin", "checker", "staff"] : ["staff"];
 
   const loadUsers = async () => {
     try {
@@ -57,7 +57,7 @@ const UsersPage = () => {
             <h1 className="font-display text-3xl font-extrabold text-slate-900">Users</h1>
             <p className="text-sm text-slate-500">
               {currentUser?.role === "master_admin"
-                ? "Master admin can create admin, checker, and staff users."
+                ? "Master admin can create master admin, admin, checker, and staff users."
                 : "Admin can create and manage staff users only."}
             </p>
           </div>
