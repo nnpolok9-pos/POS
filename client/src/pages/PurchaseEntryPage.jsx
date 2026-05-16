@@ -58,9 +58,12 @@ const BalancePreview = ({ balance }) => {
 
   const isPayable = amount > 0;
   return (
-    <p className={`mt-2 rounded-2xl px-3 py-2 text-sm font-extrabold ${isPayable ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
-      {isPayable ? `Payable (${currency(amount)})` : `Receivable ${currency(Math.abs(amount))}`}
-    </p>
+    <div className={`mt-2 rounded-2xl px-3 py-2 text-sm ${isPayable ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
+      <p className="font-extrabold">
+        {isPayable ? `Payable (${currency(amount)})` : `Receivable ${currency(Math.abs(amount))}`}
+      </p>
+      {balance.details ? <p className="mt-1 text-xs font-semibold opacity-75">{balance.details}</p> : null}
+    </div>
   );
 };
 
@@ -165,9 +168,10 @@ const PurchaseEntryPage = () => {
   const [items, setItems] = useState([]);
   const [expanded, setExpanded] = useState(null);
   const [supplierName, setSupplierName] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
+  const [supplierSuggestionOpen, setSupplierSuggestionOpen] = useState(false);
   const [handledByUserId, setHandledByUserId] = useState("");
   const [costForm, setCostForm] = useState(emptyCostForm);
+  const [costSuggestionOpen, setCostSuggestionOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ paymentType: "vendor", vendorId: "", userId: "", amount: "", paymentMethod: "", remarks: "" });
   const [rawItemModalOpen, setRawItemModalOpen] = useState(false);
   const [rawItemSubmitting, setRawItemSubmitting] = useState(false);
@@ -213,7 +217,12 @@ const PurchaseEntryPage = () => {
       return vendor ? { amount: vendor.balanceDue } : null;
     }
     const user = paymentBalances.users.find((entry) => String(entry.id) === String(paymentForm.userId));
-    return user ? { amount: user.balance } : null;
+    return user
+      ? {
+          amount: user.balance,
+          details: `Purchases ${currency(user.paidPurchases)} + costs ${currency(user.paidCosts)} - paid ${currency(user.staffPayments)}`
+        }
+      : null;
   }, [paymentBalances, paymentForm.paymentType, paymentForm.userId, paymentForm.vendorId]);
 
   const addItem = () => {
@@ -282,12 +291,8 @@ const PurchaseEntryPage = () => {
       toast.error("Supplier name is required");
       return;
     }
-    if (!paymentMethod) {
-      toast.error("Select Cash, QR, Card, or Due");
-      return;
-    }
     if (!handledByUserId) {
-      toast.error("Select who paid or created the due purchase");
+      toast.error("Select who made this purchase");
       return;
     }
 
@@ -295,7 +300,7 @@ const PurchaseEntryPage = () => {
     try {
       await procurementService.createPurchase({
         supplierName,
-        paymentMethod,
+        paymentMethod: "cash",
         handledByUserId,
         items
       });
@@ -303,7 +308,7 @@ const PurchaseEntryPage = () => {
       procurementService.getVendors().then(setVendors).catch(() => {});
       setItems([]);
       setSupplierName("");
-      setPaymentMethod("");
+      setSupplierSuggestionOpen(false);
       setHandledByUserId("");
       setExpanded(null);
     } catch (error) {
@@ -353,20 +358,17 @@ const PurchaseEntryPage = () => {
       toast.error("Enter cost amount");
       return;
     }
-    if (!costForm.paymentMethod) {
-      toast.error("Select Cash, QR, Card, or Due");
-      return;
-    }
     if (!costForm.handledByUserId) {
-      toast.error("Select who paid or created the due cost");
+      toast.error("Select who made this cost");
       return;
     }
 
     setSaving(true);
     try {
-      await procurementService.createCost(costForm);
+      await procurementService.createCost({ ...costForm, paymentMethod: "cash" });
       toast.success("Cost entry saved");
       setCostForm(emptyCostForm);
+      setCostSuggestionOpen(false);
       procurementService.getCostNames().then(setCostNames).catch(() => {});
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to save cost");
@@ -487,17 +489,24 @@ const PurchaseEntryPage = () => {
               <span className="mb-2 block text-sm font-semibold text-slate-600">Cost Name</span>
               <input
                 value={costForm.costName}
-                onChange={(event) => setCostForm((current) => ({ ...current, costName: event.target.value }))}
+                onFocus={() => setCostSuggestionOpen(true)}
+                onChange={(event) => {
+                  setCostSuggestionOpen(true);
+                  setCostForm((current) => ({ ...current, costName: event.target.value }));
+                }}
                 className="input"
                 placeholder="Example: Electricity bill, packaging, transport"
               />
-              {costSuggestions.length ? (
+              {costSuggestionOpen && costSuggestions.length ? (
                 <div className="absolute left-0 right-0 top-full z-10 mt-2 rounded-2xl border border-slate-100 bg-white p-2 shadow-xl">
                   {costSuggestions.map((entry) => (
                     <button
                       key={entry.id}
                       type="button"
-                      onClick={() => setCostForm((current) => ({ ...current, costName: entry.name }))}
+                      onClick={() => {
+                        setCostForm((current) => ({ ...current, costName: entry.name }));
+                        setCostSuggestionOpen(false);
+                      }}
                       className="block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-orange-50"
                     >
                       {entry.name}
@@ -519,17 +528,7 @@ const PurchaseEntryPage = () => {
               />
             </label>
             <label>
-              <span className="mb-2 block text-sm font-semibold text-slate-600">Payment Method</span>
-              <select value={costForm.paymentMethod} onChange={(event) => setCostForm((current) => ({ ...current, paymentMethod: event.target.value }))} className="input">
-                <option value="">Select method</option>
-                <option value="cash">Cash</option>
-                <option value="qr">QR</option>
-                <option value="card">Card</option>
-                <option value="due">Due</option>
-              </select>
-            </label>
-            <label>
-              <span className="mb-2 block text-sm font-semibold text-slate-600">{costForm.paymentMethod === "due" ? "Due Created By" : "Paid By"}</span>
+              <span className="mb-2 block text-sm font-semibold text-slate-600">Made By</span>
               <select value={costForm.handledByUserId} onChange={(event) => setCostForm((current) => ({ ...current, handledByUserId: event.target.value }))} className="input">
                 <option value="">Select user</option>
                 {users.map((user) => <option key={user.id} value={user.id}>{user.name} ({user.role})</option>)}
@@ -675,14 +674,31 @@ const PurchaseEntryPage = () => {
       {items.length ? (
         <section className="glass-card p-5">
           <h2 className="font-display text-xl font-bold text-slate-900">Finish Purchase Entry</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_220px_260px_auto] xl:items-end">
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_260px_auto] xl:items-end">
             <label className="relative">
               <span className="mb-2 block text-sm font-semibold text-slate-600">Supplier Name</span>
-              <input value={supplierName} onChange={(event) => setSupplierName(event.target.value)} className="input" placeholder="Enter supplier name" />
-              {supplierSuggestions.length ? (
+              <input
+                value={supplierName}
+                onFocus={() => setSupplierSuggestionOpen(true)}
+                onChange={(event) => {
+                  setSupplierSuggestionOpen(true);
+                  setSupplierName(event.target.value);
+                }}
+                className="input"
+                placeholder="Enter supplier name"
+              />
+              {supplierSuggestionOpen && supplierSuggestions.length ? (
                 <div className="absolute left-0 right-0 top-full z-10 mt-2 rounded-2xl border border-slate-100 bg-white p-2 shadow-xl">
                   {supplierSuggestions.map((vendor) => (
-                    <button key={vendor.id} type="button" onClick={() => setSupplierName(vendor.name)} className="block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-orange-50">
+                    <button
+                      key={vendor.id}
+                      type="button"
+                      onClick={() => {
+                        setSupplierName(vendor.name);
+                        setSupplierSuggestionOpen(false);
+                      }}
+                      className="block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-orange-50"
+                    >
                       {vendor.name}
                     </button>
                   ))}
@@ -690,19 +706,7 @@ const PurchaseEntryPage = () => {
               ) : null}
             </label>
             <label>
-              <span className="mb-2 block text-sm font-semibold text-slate-600">Payment Method</span>
-              <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className="input">
-                <option value="">Select method</option>
-                <option value="cash">Cash</option>
-                <option value="qr">QR</option>
-                <option value="card">Card</option>
-                <option value="due">Due</option>
-              </select>
-            </label>
-            <label>
-              <span className="mb-2 block text-sm font-semibold text-slate-600">
-                {paymentMethod === "due" ? "Due Created By" : "Paid By"}
-              </span>
+              <span className="mb-2 block text-sm font-semibold text-slate-600">Made By</span>
               <select value={handledByUserId} onChange={(event) => setHandledByUserId(event.target.value)} className="input">
                 <option value="">Select user</option>
                 {users.map((user) => <option key={user.id} value={user.id}>{user.name} ({user.role})</option>)}

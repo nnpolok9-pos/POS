@@ -20,6 +20,10 @@ const {
 const DELETE_PIN = process.env.FORCE_STOCK_PIN || "4422";
 const PAYMENT_METHODS = ["cash", "card", "qr", "due"];
 const PAID_METHODS = ["cash", "card", "qr"];
+const normalizeEntryPaymentMethod = (value) => {
+  const method = String(value || "").trim();
+  return PAYMENT_METHODS.includes(method) ? method : "cash";
+};
 
 const startOfDay = (date) => `${date} 00:00:00`;
 const endOfDay = (date) => `${date} 23:59:59`;
@@ -158,7 +162,7 @@ const validateCostMeta = async ({ costName, paymentMethod, handledByUserId, amou
 
 const createPurchase = async (req, res) => {
   const supplierName = String(req.body.supplierName || "").trim();
-  const paymentMethod = String(req.body.paymentMethod || "").trim();
+  const paymentMethod = normalizeEntryPaymentMethod(req.body.paymentMethod);
   const handledByUser = await validatePurchaseMeta({ supplierName, paymentMethod, handledByUserId: req.body.handledByUserId });
 
   const items = await normalizePurchaseItems(req.body.items);
@@ -182,7 +186,7 @@ const updatePurchase = async (req, res) => {
   }
 
   const supplierName = String(req.body.supplierName || "").trim();
-  const paymentMethod = String(req.body.paymentMethod || "").trim();
+  const paymentMethod = normalizeEntryPaymentMethod(req.body.paymentMethod);
   const handledByUser = await validatePurchaseMeta({ supplierName, paymentMethod, handledByUserId: req.body.handledByUserId });
 
   const items = await normalizePurchaseItems(req.body.items);
@@ -227,7 +231,7 @@ const getCosts = async (req, res) => {
 
 const createCost = async (req, res) => {
   const costName = String(req.body.costName || "").trim();
-  const paymentMethod = String(req.body.paymentMethod || "").trim();
+  const paymentMethod = normalizeEntryPaymentMethod(req.body.paymentMethod);
   const amount = Number(req.body.amount || 0);
   const handledByUser = await validateCostMeta({ costName, paymentMethod, amount, handledByUserId: req.body.handledByUserId });
 
@@ -252,7 +256,7 @@ const updateCost = async (req, res) => {
   }
 
   const costName = String(req.body.costName || "").trim();
-  const paymentMethod = String(req.body.paymentMethod || "").trim();
+  const paymentMethod = normalizeEntryPaymentMethod(req.body.paymentMethod);
   const amount = Number(req.body.amount || 0);
   const handledByUser = await validateCostMeta({ costName, paymentMethod, amount, handledByUserId: req.body.handledByUserId });
 
@@ -338,15 +342,16 @@ const createPayment = async (req, res) => {
 const getVendorWiseReport = async (req, res) => {
   const { from, to } = normalizeDateRange(req.query);
   const selectedVendorIds = String(req.query.vendorIds || "").split(",").map((value) => value.trim()).filter(Boolean);
-  const [entries, payments, vendors, users] = await Promise.all([
+  const [entries, costEntries, payments, vendors, users] = await Promise.all([
     getPurchaseEntries({ from, to }),
+    getProcurementCostEntries({ from, to }),
     getProcurementPayments({ from, to }),
     getProcurementVendors(),
     getProcurementUsers()
   ]);
 
   const vendorMap = new Map(vendors.map((vendor) => [vendor.id, { ...vendor, purchaseAmount: 0, duePurchases: 0, paidPurchases: 0, payments: 0 }]));
-  const userMap = new Map(users.map((user) => [user.id, { id: user.id, name: user.name, role: user.role, paidPurchases: 0, staffPayments: 0 }]));
+  const userMap = new Map(users.map((user) => [user.id, { id: user.id, name: user.name, role: user.role, paidPurchases: 0, paidCosts: 0, staffPayments: 0 }]));
 
   entries.forEach((entry) => {
     if (selectedVendorIds.length && !selectedVendorIds.includes(String(entry.supplierId || ""))) return;
@@ -357,8 +362,16 @@ const getVendorWiseReport = async (req, res) => {
     vendorMap.set(vendor.id, vendor);
 
     if (PAID_METHODS.includes(entry.paymentMethod) && entry.handledByUserId) {
-      const user = userMap.get(entry.handledByUserId) || { id: entry.handledByUserId, name: entry.handledByUserName, role: "", paidPurchases: 0, staffPayments: 0 };
+      const user = userMap.get(entry.handledByUserId) || { id: entry.handledByUserId, name: entry.handledByUserName, role: "", paidPurchases: 0, paidCosts: 0, staffPayments: 0 };
       user.paidPurchases += Number(entry.totalAmount || 0);
+      userMap.set(user.id, user);
+    }
+  });
+
+  costEntries.forEach((entry) => {
+    if (PAID_METHODS.includes(entry.paymentMethod) && entry.handledByUserId) {
+      const user = userMap.get(entry.handledByUserId) || { id: entry.handledByUserId, name: entry.handledByUserName, role: "", paidPurchases: 0, paidCosts: 0, staffPayments: 0 };
+      user.paidCosts += Number(entry.amount || 0);
       userMap.set(user.id, user);
     }
   });
@@ -370,7 +383,7 @@ const getVendorWiseReport = async (req, res) => {
       vendor.payments += Number(payment.amount || 0);
       vendorMap.set(vendor.id, vendor);
     } else if (payment.userId) {
-      const user = userMap.get(payment.userId) || { id: payment.userId, name: payment.userName, role: "", paidPurchases: 0, staffPayments: 0 };
+      const user = userMap.get(payment.userId) || { id: payment.userId, name: payment.userName, role: "", paidPurchases: 0, paidCosts: 0, staffPayments: 0 };
       user.staffPayments += Number(payment.amount || 0);
       userMap.set(user.id, user);
     }
@@ -381,8 +394,8 @@ const getVendorWiseReport = async (req, res) => {
     .map((vendor) => ({ ...vendor, balanceDue: vendor.duePurchases - vendor.payments }))
     .filter((vendor) => vendor.purchaseAmount || vendor.payments || vendor.balanceDue);
   const userRows = [...userMap.values()]
-    .map((user) => ({ ...user, balance: user.paidPurchases - user.staffPayments }))
-    .filter((user) => user.paidPurchases || user.staffPayments || user.balance);
+    .map((user) => ({ ...user, balance: user.paidPurchases + user.paidCosts - user.staffPayments }))
+    .filter((user) => user.paidPurchases || user.paidCosts || user.staffPayments || user.balance);
 
   res.json({
     vendors: vendorRows,

@@ -88,7 +88,7 @@ const VendorWisePurchaseReportPage = () => {
         <div className="metric-card"><p className="metric-label">Due Purchases</p><p className="metric-value">{currency(summary.duePurchases)}</p></div>
         <div className="metric-card"><p className="metric-label">Vendor Paid</p><p className="metric-value">{currency(summary.vendorPayments)}</p></div>
         <div className="metric-card bg-slate-950 text-white"><p className="metric-label text-white/65">Vendor Due</p><p className="metric-value text-white">{currency(summary.vendorDue)}</p></div>
-        <div className="metric-card"><p className="metric-label">Staff Balance</p><p className="metric-value">{currency(summary.userBalance)}</p></div>
+        <div className="metric-card"><p className="metric-label">Staff Balance</p><p className="metric-value">{currency(summary.userBalance)}</p><p className="text-xs text-slate-500">Purchases + costs - payments</p></div>
       </section>
 
       <section className="glass-card overflow-hidden">
@@ -163,14 +163,21 @@ const VendorWisePurchaseReportPage = () => {
                 <div>
                   <p className="font-bold text-slate-900">{user.name}</p>
                   <p className="text-xs text-slate-500">Paid purchases {currency(user.paidPurchases)}</p>
+                  <p className="text-xs text-slate-500">Paid costs {currency(user.paidCosts)}</p>
                 </div>
                 <p className={`rounded-2xl px-3 py-2 text-right text-sm font-extrabold ${user.balance > 0 ? "bg-rose-50 text-rose-600" : "bg-emerald-50 text-emerald-600"}`}>
                   {currency(user.balance)}
                 </p>
               </div>
-              <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Staff Payment</p>
-                <p className="mt-1 font-bold text-slate-900">{currency(user.staffPayments)}</p>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-2xl bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Paid Cost</p>
+                  <p className="mt-1 font-bold text-slate-900">{currency(user.paidCosts)}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Staff Payment</p>
+                  <p className="mt-1 font-bold text-slate-900">{currency(user.staffPayments)}</p>
+                </div>
               </div>
             </div>
           ))}
@@ -182,6 +189,7 @@ const VendorWisePurchaseReportPage = () => {
               <tr className="border-b border-slate-100">
                 <th className="px-5 py-4">User</th>
                 <th className="px-5 py-4">Paid Purchases</th>
+                <th className="px-5 py-4">Paid Costs</th>
                 <th className="px-5 py-4">Staff Payment</th>
                 <th className="px-5 py-4">Balance / Advance</th>
               </tr>
@@ -191,11 +199,12 @@ const VendorWisePurchaseReportPage = () => {
                 <tr key={user.id} className="border-b border-slate-100 last:border-0">
                   <td className="px-5 py-4 font-bold text-slate-900">{user.name}</td>
                   <td className="px-5 py-4">{currency(user.paidPurchases)}</td>
+                  <td className="px-5 py-4">{currency(user.paidCosts)}</td>
                   <td className="px-5 py-4">{currency(user.staffPayments)}</td>
                   <td className={`px-5 py-4 font-bold ${user.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>{currency(user.balance)}</td>
                 </tr>
               ))}
-              {!report.users.length ? <tr><td colSpan="4" className="px-5 py-8 text-center text-slate-500">No staff balance found.</td></tr> : null}
+              {!report.users.length ? <tr><td colSpan="5" className="px-5 py-8 text-center text-slate-500">No staff balance found.</td></tr> : null}
             </tbody>
           </table>
         </div>

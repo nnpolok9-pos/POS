@@ -78,43 +78,51 @@ const partnerCommissionDefaults = {
   grab: 27.5,
   foodpanda: 27.5,
   e_gates: 22,
-  wownow: 22
+  wownow: 23
 };
 const partnerAdvertisementRoiDefaults = {
-  grab: 14,
-  foodpanda: 14,
-  e_gates: 14,
-  wownow: 14
+  grab: 20,
+  foodpanda: 15,
+  e_gates: 0,
+  wownow: 0
 };
-const REPORT_TIMEZONE = "Asia/Bangkok";
 const COMPLETED_FINANCIAL_STATUSES = ["completed", "confirmed"];
 const VISIBLE_FINANCIAL_STATUSES = ["food_serving", "completed", "confirmed"];
-const LEGACY_PARTNER_PROMO_START_DAY = "2026-01-01";
-const LEGACY_PARTNER_PROMO_END_DAY = "2026-05-06";
-const LEGACY_PARTNER_PROMO_PERCENT = 15;
+const fallbackPartnerPromos = {
+  grab: { promoPercent: 15, minOrderAmount: 15000 },
+  foodpanda: { promoPercent: 15, minOrderAmount: 0 },
+  e_gates: { promoPercent: 15, minOrderAmount: 0 },
+  wownow: { promoPercent: 0, minOrderAmount: 0 }
+};
 const hasCollectedPayment = (order) => ["cash", "card", "qr", "grab", "foodpanda", "e_gates", "wownow"].includes(order?.paymentMethod || "");
 const isDueOnServeOrder = (order) => order?.paymentMethod === "due_on_serve";
 const getOrderEditPath = (order) => (isPartnerSource(order) ? "/partner-pos" : "/pos");
 const getOrderListSaleAmount = (order) => (isPartnerSource(order) ? Number(order?.subtotal || order?.total || 0) : Number(order?.total || 0));
 const roundMoney = (value) => Number(Number(value || 0).toFixed(2));
-const toReportDay = (dateValue) =>
-  new Intl.DateTimeFormat("en-CA", {
-    timeZone: REPORT_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(new Date(dateValue));
-const getLegacyPartnerPromoMetrics = (order) => {
+const hasStoredValue = (value) => value !== null && value !== undefined && value !== "";
+const hasStoredPartnerRateFinancials = (order) =>
+  hasStoredValue(order?.bookingDetails?.partnerCommissionRate) ||
+  hasStoredValue(order?.bookingDetails?.partnerAdvertisementRoiRate) ||
+  hasStoredValue(order?.promoSnapshot?.commissionRate) ||
+  hasStoredValue(order?.promoSnapshot?.advertisementRoiRate);
+const hasStoredPartnerPromoFinancials = (order) =>
+  hasStoredPartnerRateFinancials(order) ||
+  hasStoredValue(order?.promoCode) ||
+  Number(order?.promoDiscount || 0) > 0 ||
+  order?.promoSnapshot?.type === "partner";
+const getFallbackPartnerPromoMetrics = (order, partnerKey) => {
   const subtotal = Number(order?.subtotal || 0);
+  const fallback = fallbackPartnerPromos[partnerKey] || { promoPercent: 0, minOrderAmount: 0 };
+  const promoPercent = Number(fallback.promoPercent || 0);
 
-  if (subtotal <= 0) {
+  if (subtotal <= 0 || promoPercent <= 0 || subtotal < Number(fallback.minOrderAmount || 0)) {
     return {
       partnerPromoDiscount: 0,
-      salesAfterPromo: 0
+      salesAfterPromo: roundMoney(subtotal)
     };
   }
 
-  const rawPromoDiscount = (subtotal * LEGACY_PARTNER_PROMO_PERCENT) / 100;
+  const rawPromoDiscount = (subtotal * promoPercent) / 100;
   const discountedSubtotal = subtotal - rawPromoDiscount;
   const roundedTotal = Math.ceil(discountedSubtotal / 100) * 100;
 
@@ -130,9 +138,6 @@ const getOrderNetAfterAdAmount = (order) => {
   }
 
   const partnerKey = order?.paymentMethod || order?.source;
-  const reportDay = toReportDay(order?.createdAt || new Date());
-  const useLegacyPartnerPromo =
-    reportDay >= LEGACY_PARTNER_PROMO_START_DAY && reportDay <= LEGACY_PARTNER_PROMO_END_DAY;
   const commissionRate = Number(
     order?.bookingDetails?.partnerCommissionRate ??
       order?.promoSnapshot?.commissionRate ??
@@ -145,8 +150,8 @@ const getOrderNetAfterAdAmount = (order) => {
       partnerAdvertisementRoiDefaults[partnerKey] ??
       0
   );
-  const salesAfterPromo = useLegacyPartnerPromo
-    ? getLegacyPartnerPromoMetrics(order).salesAfterPromo
+  const salesAfterPromo = !hasStoredPartnerPromoFinancials(order)
+    ? getFallbackPartnerPromoMetrics(order, partnerKey).salesAfterPromo
     : finalTotal;
   const commissionAmount = salesAfterPromo * (commissionRate / 100);
   const netSales = salesAfterPromo - commissionAmount;
