@@ -4,11 +4,23 @@ import toast from "react-hot-toast";
 import { cashManagementService } from "../services/cashManagementService";
 import { currency, formatUserDisplayName } from "../utils/format";
 
+const CASH_POSITION_START_DATE = "2026-04-01";
+
+const todayInput = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const CashCollectionEntryPage = () => {
   const [users, setUsers] = useState([]);
   const [userId, setUserId] = useState("");
   const [amount, setAmount] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [userBalance, setUserBalance] = useState(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const selectedUser = useMemo(() => users.find((user) => String(user.id) === String(userId)), [users, userId]);
@@ -26,6 +38,33 @@ const CashCollectionEntryPage = () => {
     loadUsers();
   }, []);
 
+  useEffect(() => {
+    const loadUserBalance = async () => {
+      if (!userId) {
+        setUserBalance(null);
+        return;
+      }
+
+      setBalanceLoading(true);
+      try {
+        const data = await cashManagementService.getPosition({
+          from: CASH_POSITION_START_DATE,
+          to: todayInput(),
+          userId
+        });
+        const selectedBalance = (data.userwise || []).find((row) => String(row.userId) === String(userId));
+        setUserBalance(selectedBalance || null);
+      } catch (error) {
+        toast.error(error.response?.data?.message || "Failed to load user cash balance");
+        setUserBalance(null);
+      } finally {
+        setBalanceLoading(false);
+      }
+    };
+
+    loadUserBalance();
+  }, [userId]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSaving(true);
@@ -39,12 +78,16 @@ const CashCollectionEntryPage = () => {
       setUserId("");
       setAmount("");
       setRemarks("");
+      setUserBalance(null);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to record cash handover");
     } finally {
       setSaving(false);
     }
   };
+
+  const receivableAmount = Number(userBalance?.balance || 0);
+  const visibleDateRange = `${CASH_POSITION_START_DATE} to ${todayInput()}`;
 
   return (
     <div className="space-y-5">
@@ -79,6 +122,15 @@ const CashCollectionEntryPage = () => {
             <div className="mt-6 rounded-3xl border border-orange-100 bg-white/80 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Amount Preview</p>
               <p className="mt-2 text-3xl font-extrabold text-slate-950">{currency(Number(amount || 0))}</p>
+            </div>
+            <div className="mt-4 rounded-3xl border border-slate-900 bg-slate-950 p-4 text-white shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Unsettled Cash</p>
+              <p className="mt-2 text-3xl font-extrabold">
+                {balanceLoading ? "Loading..." : selectedUser ? currency(receivableAmount) : currency(0)}
+              </p>
+              <p className="mt-2 text-xs text-white/60">
+                {selectedUser ? `${visibleDateRange} · ${userBalance?.orderCount || 0} cash orders` : "Select a user to see collectible cash"}
+              </p>
             </div>
           </div>
 
