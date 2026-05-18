@@ -1,9 +1,10 @@
 import { Banknote, History, UserRoundCheck, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import ReportDatePicker from "../components/ReportDatePicker";
 import { cashManagementService } from "../services/cashManagementService";
 import { currency, formatDate, formatUserDisplayName } from "../utils/format";
+
+const CASH_POSITION_START_DATE = "2026-04-01";
 
 const todayInput = () => {
   const date = new Date();
@@ -31,8 +32,6 @@ const MetricCard = ({ label, value, helper, icon: Icon, dark = false }) => (
 );
 
 const CashManagementPositionPage = () => {
-  const [fromDate, setFromDate] = useState(todayInput());
-  const [toDate, setToDate] = useState(todayInput());
   const [userId, setUserId] = useState("");
   const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState("userwise");
@@ -52,8 +51,9 @@ const CashManagementPositionPage = () => {
   const loadReport = async () => {
     setLoading(true);
     try {
+      const toDate = todayInput();
       const data = await cashManagementService.getPosition({
-        from: fromDate,
+        from: CASH_POSITION_START_DATE,
         to: toDate,
         userId
       });
@@ -67,10 +67,14 @@ const CashManagementPositionPage = () => {
 
   useEffect(() => {
     loadUsers();
-    loadReport();
   }, []);
 
+  useEffect(() => {
+    loadReport();
+  }, [userId]);
+
   const summary = report.summary || {};
+  const visibleDateRange = `${CASH_POSITION_START_DATE} to ${todayInput()}`;
 
   return (
     <div className="space-y-5">
@@ -85,12 +89,12 @@ const CashManagementPositionPage = () => {
               Track who collected cash, how much was handed over, and the current receivable balance by user.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[620px]">
-            <ReportDatePicker label="From Date" value={fromDate} onChange={setFromDate} />
-            <ReportDatePicker label="To Date" value={toDate} onChange={setToDate} />
+          <div className="rounded-[1.5rem] border border-[#e8d8bf] bg-white/70 px-5 py-4 text-sm shadow-sm xl:min-w-[320px]">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Fixed Report Range</p>
+            <p className="mt-1 font-bold text-slate-900">{visibleDateRange}</p>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+        <div className="mt-4">
           <select value={userId} onChange={(event) => setUserId(event.target.value)} className="input">
             <option value="">All Users</option>
             {users.map((user) => (
@@ -99,9 +103,6 @@ const CashManagementPositionPage = () => {
               </option>
             ))}
           </select>
-          <button type="button" onClick={loadReport} className="btn-primary">
-            {loading ? "Loading..." : "Generate Report"}
-          </button>
         </div>
       </section>
 
